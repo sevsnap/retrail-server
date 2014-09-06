@@ -1,6 +1,7 @@
 package it.cnr.iit.retrail.server;
 
 import it.cnr.iit.retrail.commons.DomUtils;
+import it.cnr.iit.retrail.commons.PepAccessRequest;
 import it.cnr.iit.retrail.commons.Server;
 import java.io.IOException;
 import java.net.URL;
@@ -39,7 +40,8 @@ public class UCon extends Server {
         static final int POST = 2;
     }
     
-    private final PDP pdp[];
+    private final PDP pdp[] = new PDP[3];
+    public List<PIP> pip = new ArrayList<>();
     
     /**
      *
@@ -48,7 +50,7 @@ public class UCon extends Server {
     public static UCon getInstance() {
         if (singleton == null) {
             try {
-                singleton = new UCon(new URL(defaultUrlString));
+                singleton = new UCon();
             } catch (IOException e) {
 
             } catch (XmlRpcException e) {
@@ -58,20 +60,17 @@ public class UCon extends Server {
     }
 
     public static void main(String[] args) throws Exception {
-        String myUrlString = args.length > 0 ? args[0] : defaultUrlString;
-        URL myUrl = new URL(myUrlString);
-        singleton = new UCon(myUrl);
+        getInstance().pip.add(new PIP());
     }
 
-    public UCon(URL myUrl) throws UnknownHostException, XmlRpcException, IOException {
-        super(myUrl, API.class);
-        pdp = new PDP[3];
+    public UCon() throws UnknownHostException, XmlRpcException, IOException {
         // FIXME absolute paths should be settable
+        super(new URL(defaultUrlString), API.class);
         pdp[PdpEnum.PRE] = newPDP("/etc/contrail/contrail-authz-core/policies/pre/");
         pdp[PdpEnum.ON] = newPDP("/etc/contrail/contrail-authz-core/policies/on/");
         pdp[PdpEnum.POST] = newPDP("/etc/contrail/contrail-authz-core/policies/post/");
     }
-
+    
     private PDP newPDP(String location) {
         PolicyFinder policyFinder = new PolicyFinder();
         Set<PolicyFinderModule> policyFinderModules = new HashSet<>();
@@ -93,11 +92,16 @@ public class UCon extends Server {
         return new PDP(pdpConfig);
     }
     
-    public Node tryAccess(Element xacmlRequest) {
+    public Node tryAccess(PepAccessRequest accessRequest) {
         System.out.println("*** TRYACCESS: ");
-        DomUtils.write(xacmlRequest);
         Node result = null;
+        // First enrich the request by calling the PIPs
+        for(PIP p: pip)
+            p.process(accessRequest);
+        // Now send the enriched request to the PDP
         try {
+            Element xacmlRequest = accessRequest.toElement();
+            DomUtils.write(xacmlRequest);
             AbstractRequestCtx request = RequestCtxFactory.getFactory().getRequestCtx(xacmlRequest);
             ResponseCtx response = pdp[PdpEnum.PRE].evaluate(request);
             result = DomUtils.read(response.encode());
@@ -112,10 +116,11 @@ public class UCon extends Server {
         return result;
     }
 
-    public void startAccess(Element xacmlRequest) {
+    public Node startAccess(PepAccessRequest request) {
+        return null;
     }
 
-    public void endAccess(Element xacmlRequest) {
-
+    public Node endAccess(PepAccessRequest request) {
+        return null;
     }
 }
