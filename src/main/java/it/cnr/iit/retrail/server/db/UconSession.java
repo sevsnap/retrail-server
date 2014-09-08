@@ -3,7 +3,6 @@
  * To change this template file, choose Tools | Templates
  * and open the template in the editor.
  */
-
 package it.cnr.iit.retrail.server.db;
 
 import javax.persistence.Entity;
@@ -17,47 +16,34 @@ import javax.persistence.Id;
  */
 @Entity
 public class UconSession {
- 
+
 	//For SQLite use GenerationType.AUTO to generate id
-	//for derby, H2, MySQL etc use GenerationType.IDENTITY
- 
-	@Id
-	@GeneratedValue(strategy = GenerationType.AUTO)  
-	private Long id;
-	private String name;
-	private String phone;
-	private double distance;
- 
-	public Long getId() {
-		return id;
-	}
-	public void setId(Long id) {
-		this.id = id;
-	}
-	public String getName() {
-		return name;
-	}
-	public void setName(String name) {
-		this.name = name;
-	}
-	public String getPhone() {
-		return phone;
-	}
-	public void setPhone(String phone) {
-		this.phone = phone;
-	}
-	public double getDistance() {
-		return distance;
-	}
-	public void setDistance(double distance) {
-		this.distance = distance;
-	}
- 
- 
-	//this is optional, just for print out into console
-	@Override
-	public String toString() {
-		return "UconSession [id=" + id + ", name=" + name + ", phone=" + phone + ", distance=" + distance + "]";
-	}
- 
+    //for derby, H2, MySQL etc use GenerationType.IDENTITY
+    @Id
+    @GeneratedValue(strategy = GenerationType.AUTO)
+    private Long id;
+    private String cookie;
+
+    public String getCookie() {
+        return cookie;
+    }
+
+    public void setCookie(String cookie) {
+        this.cookie = cookie;
+    }
+
+    public Long getId() {
+        return id;
+    }
+
+    public void setId(Long id) {
+        this.id = id;
+    }
+
+    //this is optional, just for print out into console
+    @Override
+    public String toString() {
+        return "UconSession [id=" + id + ", cookie=" + cookie + "]";
+    }
+
 }

@@ -99,9 +99,7 @@ public class UCon extends Server {
         //create around 10 rider with dummy data
         for (int i = 0; i < 10; i++) {
             UconSession uconSession = new UconSession();
-            uconSession.setName("UconSession-" + i);
-            uconSession.setPhone("99008-" + i);
-            uconSession.setDistance(i + 100 * i);
+            uconSession.setCookie("UconSession-" + i);
 
             //insert into database
             em.persist(uconSession);
@@ -119,7 +117,7 @@ public class UCon extends Server {
 
     public static void main(String[] args) throws Exception {
         testDb();
-        //getInstance().pip.add(new PIP());
+        getInstance().pip.add(new PIP());
     }
 
     public UCon() throws UnknownHostException, XmlRpcException, IOException {
@@ -183,7 +181,7 @@ public class UCon extends Server {
     }
 
     public PepAccessResponse startAccess(PepAccessRequest accessRequest) {
-        System.out.println("*** TRYACCESS: ");
+        System.out.println("*** STARTACCESS: ");
         // First enrich the request by calling the PIPs
         for (PIP p : pip) {
             p.process(accessRequest);
