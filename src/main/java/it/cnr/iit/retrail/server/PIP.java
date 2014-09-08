@@ -7,6 +7,7 @@
 package it.cnr.iit.retrail.server;
 
 import it.cnr.iit.retrail.commons.PepAccessRequest;
+import it.cnr.iit.retrail.commons.PepRequestAttribute;
 
 /**
  *
@@ -15,6 +16,8 @@ import it.cnr.iit.retrail.commons.PepAccessRequest;
 public class PIP {
     public boolean process(PepAccessRequest request) {
         System.out.println("PIP.process(): dummy PIP processor called, ignoring");
+        //PepRequestAttribute test = new PepRequestAttribute("tuazia", "zietta", "we", "issuer", "cazness");
+        //request.add(test);
         return true;
     }
 }

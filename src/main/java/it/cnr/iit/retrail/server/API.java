@@ -3,6 +3,7 @@ package it.cnr.iit.retrail.server;
 
 import it.cnr.iit.retrail.commons.DomUtils;
 import it.cnr.iit.retrail.commons.PepAccessRequest;
+import it.cnr.iit.retrail.commons.PepAccessResponse;
 import javax.xml.transform.TransformerConfigurationException;
 import javax.xml.transform.TransformerException;
 import org.w3c.dom.Document;
@@ -12,17 +13,20 @@ public class API {
 
     public Node tryAccess(Node accessRequest) {
         PepAccessRequest request = new PepAccessRequest((Document) accessRequest);
-        return UCon.getInstance().tryAccess(request);
+        PepAccessResponse response =  UCon.getInstance().tryAccess(request);
+        return response.toElement();
     }
 
     public Node startAccess(Node accessRequest) {
         PepAccessRequest request = new PepAccessRequest((Document) accessRequest);
-        return UCon.getInstance().startAccess(request);
+        PepAccessResponse response =  UCon.getInstance().startAccess(request);
+        return response.toElement();
     }
 
     public Node endAccess(Node accessRequest) {
         PepAccessRequest request = new PepAccessRequest((Document) accessRequest);
-        return UCon.getInstance().endAccess(request);
+        PepAccessResponse response =  UCon.getInstance().endAccess(request);
+        return response.toElement();
     }
 
     public Node echo(Node node) throws TransformerConfigurationException, TransformerException {
