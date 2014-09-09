@@ -3,6 +3,7 @@ package it.cnr.iit.retrail.server;
 import it.cnr.iit.retrail.commons.DomUtils;
 import it.cnr.iit.retrail.commons.PepAccessRequest;
 import it.cnr.iit.retrail.commons.PepAccessResponse;
+import it.cnr.iit.retrail.commons.PepSession;
 import it.cnr.iit.retrail.commons.Server;
 import it.cnr.iit.retrail.server.db.DAL;
 import it.cnr.iit.retrail.server.db.UconSession;
@@ -31,6 +32,7 @@ import org.wso2.balana.finder.impl.FileBasedPolicyFinderModule;
 import org.wso2.balana.finder.impl.SelectorModule;
 
 import java.util.List;
+import org.w3c.dom.Document;
 
 
 public class UCon extends Server {
@@ -100,8 +102,8 @@ public class UCon extends Server {
         return new PDP(pdpConfig);
     }
 
-    private PepAccessResponse access(PepAccessRequest accessRequest, PDP p) {
-        PepAccessResponse accessResponse = null;
+    private Document access(PepAccessRequest accessRequest, PDP p) {
+        Document accessResponse = null;
         try {
             Element xacmlRequest = accessRequest.toElement();
             DomUtils.write(xacmlRequest);
@@ -109,7 +111,7 @@ public class UCon extends Server {
             ResponseCtx response = p.evaluate(request);
             String responseString = response.encode();
             System.out.println("*** RESPONSE: " + responseString);
-            accessResponse = new PepAccessResponse(DomUtils.read(responseString));
+            accessResponse = DomUtils.read(responseString);
         } catch (ParsingException ex) {
             System.out.println("*** STICAZZI");
             Logger.getLogger(UCon.class.getName()).log(Level.SEVERE, null, ex);
@@ -128,23 +130,25 @@ public class UCon extends Server {
             p.process(accessRequest);
         }
         // Now send the enriched request to the PDP
-        PepAccessResponse response = access(accessRequest, pdp[PdpEnum.PRE]);
+        Document responseDocument = access(accessRequest, pdp[PdpEnum.PRE]);
+        PepAccessResponse response = new PepAccessResponse(responseDocument);
         return response;
     }
 
-    public PepAccessResponse startAccess(PepAccessRequest accessRequest) {
+    public PepSession startAccess(PepAccessRequest accessRequest) {
         System.out.println("*** STARTACCESS: ");
         // First enrich the request by calling the PIPs
         for (PIP p : pip) {
             p.process(accessRequest);
         }
         // Now send the enriched request to the PDP
-        PepAccessResponse response = access(accessRequest, pdp[PdpEnum.ON]);
-        if(true || response.decision == PepAccessResponse.DecisionEnum.Permit) {
+        Document responseDocument = access(accessRequest, pdp[PdpEnum.ON]);
+        PepSession pepSession = new PepSession(responseDocument);
+        if(true || pepSession.decision == PepAccessResponse.DecisionEnum.Permit) {
             UconSession session = dal.startSession(accessRequest);
-            response.addSessionInfo(session.getId().toString(), session.getCookie());
+            pepSession.addSessionInfo(session.getId().toString(), session.getCookie());
         }
-        return response;
+        return pepSession;
     }
 
     public void endAccess(String sessionId) {
