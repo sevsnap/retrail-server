@@ -4,18 +4,17 @@ import it.cnr.iit.retrail.commons.DomUtils;
 import it.cnr.iit.retrail.commons.PepAccessRequest;
 import it.cnr.iit.retrail.commons.PepAccessResponse;
 import it.cnr.iit.retrail.commons.Server;
+import it.cnr.iit.retrail.server.db.DAL;
 import java.io.IOException;
 import java.net.URL;
 import java.net.UnknownHostException;
 import java.util.ArrayList;
 import java.util.HashSet;
-import java.util.List;
 import java.util.Set;
 import java.util.logging.Level;
 import java.util.logging.Logger;
 import org.apache.xmlrpc.XmlRpcException;
 import org.w3c.dom.Element;
-import org.w3c.dom.Node;
 import org.wso2.balana.PDP;
 import org.wso2.balana.PDPConfig;
 import org.wso2.balana.ParsingException;
@@ -32,18 +31,12 @@ import org.wso2.balana.finder.impl.SelectorModule;
 
 import java.util.List;
 
-import javax.persistence.EntityManager;
-import javax.persistence.EntityManagerFactory;
-import javax.persistence.Persistence;
-import javax.persistence.Query;
-
-import it.cnr.iit.retrail.server.db.UconSession;
 
 public class UCon extends Server {
 
     private static final String defaultUrlString = "http://localhost:8080";
     private static UCon singleton;
-
+    
     private static class PdpEnum {
 
         static final int PRE = 0;
@@ -53,7 +46,7 @@ public class UCon extends Server {
 
     private final PDP pdp[] = new PDP[3];
     public List<PIP> pip = new ArrayList<>();
-
+    private final DAL dal;
     /**
      *
      * @return
@@ -70,62 +63,19 @@ public class UCon extends Server {
         return singleton;
     }
 
-    private static final String PERSISTENCE_UNIT_NAME = "retrail";
-    private static EntityManagerFactory factory;
-
-    public static void testDb() {
-
-        //Create entity manager, this step will connect to database, please check 
-        //JDBC driver on classpath, jdbc URL, jdbc driver name on persistence.xml
-        factory = Persistence.createEntityManagerFactory(PERSISTENCE_UNIT_NAME);
-        EntityManager em = factory.createEntityManager();
-		//end
-
-        // Query to existing data 
-        Query q = em.createQuery("select session from UconSession session");
-        List<UconSession> riderList = q.getResultList();
-
-        //loping trough riderList and print out rider
-        for (UconSession rider : riderList) {
-            System.out.println(rider);
-        }
-
-        //Print number of rider
-        System.out.println("Size befor insert: " + riderList.size());
-
-        //start transaction with method begin()
-        em.getTransaction().begin();
-
-        //create around 10 rider with dummy data
-        for (int i = 0; i < 10; i++) {
-            UconSession uconSession = new UconSession();
-            uconSession.setCookie("UconSession-" + i);
-
-            //insert into database
-            em.persist(uconSession);
-        }
-
-        //commit transaction commit();
-        em.getTransaction().commit();
-
-        riderList = q.getResultList();
-        System.out.println("Size after insert: " + riderList.size());
-
-        em.close();
-
-    }
-
+  
     public static void main(String[] args) throws Exception {
-        testDb();
-        getInstance().pip.add(new PIP());
+        UCon ucon = getInstance();
+        ucon.pip.add(new PIP());
     }
 
-    public UCon() throws UnknownHostException, XmlRpcException, IOException {
+    private UCon() throws UnknownHostException, XmlRpcException, IOException {
         // FIXME absolute paths should be settable
         super(new URL(defaultUrlString), API.class);
         pdp[PdpEnum.PRE] = newPDP("/etc/contrail/contrail-authz-core/policies/pre/");
         pdp[PdpEnum.ON] = newPDP("/etc/contrail/contrail-authz-core/policies/on/");
         pdp[PdpEnum.POST] = newPDP("/etc/contrail/contrail-authz-core/policies/post/");
+        dal = DAL.getInstance();
     }
 
     private PDP newPDP(String location) {
@@ -169,7 +119,7 @@ public class UCon extends Server {
         return accessResponse;
 
     }
-
+    
     public PepAccessResponse tryAccess(PepAccessRequest accessRequest) {
         System.out.println("*** TRYACCESS: ");
         // First enrich the request by calling the PIPs
@@ -177,7 +127,8 @@ public class UCon extends Server {
             p.process(accessRequest);
         }
         // Now send the enriched request to the PDP
-        return access(accessRequest, pdp[PdpEnum.PRE]);
+        PepAccessResponse response = access(accessRequest, pdp[PdpEnum.ON]);
+        return response;
     }
 
     public PepAccessResponse startAccess(PepAccessRequest accessRequest) {
@@ -187,7 +138,9 @@ public class UCon extends Server {
             p.process(accessRequest);
         }
         // Now send the enriched request to the PDP
-        return access(accessRequest, pdp[PdpEnum.ON]);
+        PepAccessResponse response = access(accessRequest, pdp[PdpEnum.ON]);
+        dal.startSession(accessRequest);
+        return response;
     }
 
     public PepAccessResponse endAccess(PepAccessRequest request) {

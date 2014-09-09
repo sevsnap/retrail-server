@@ -5,10 +5,13 @@
  */
 package it.cnr.iit.retrail.server.db;
 
+import java.util.Collection;
+import java.util.HashSet;
 import javax.persistence.Entity;
 import javax.persistence.GeneratedValue;
 import javax.persistence.GenerationType;
 import javax.persistence.Id;
+import javax.persistence.ManyToMany;
 
 /**
  *
@@ -20,8 +23,22 @@ public class UconSession {
 	//For SQLite use GenerationType.AUTO to generate id
     //for derby, H2, MySQL etc use GenerationType.IDENTITY
     @Id
-    @GeneratedValue(strategy = GenerationType.AUTO)
+    //@GeneratedValue(strategy = GenerationType.AUTO)
+    @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
+    @ManyToMany
+    private Collection<Attribute> attributes;
+
+    public Collection<Attribute> getAttributes() {
+        return attributes;
+    }
+
+    public void addAttribute(Attribute attribute) {
+        if(attributes == null)
+            attributes = new HashSet<>();
+        attributes.add(attribute);
+        attribute.getSessions().add(this);
+    }
     private String cookie;
 
     public String getCookie() {

@@ -5,24 +5,56 @@
  */
 package it.cnr.iit.retrail.server.db;
 
+import it.cnr.iit.retrail.commons.PepRequestAttribute;
+import java.util.Collection;
+import java.util.HashSet;
 import javax.persistence.Entity;
 import javax.persistence.GeneratedValue;
 import javax.persistence.GenerationType;
 import javax.persistence.Id;
+import javax.persistence.ManyToMany;
+import org.eclipse.persistence.annotations.Index;
+
 
 /**
  *
  * @author oneadmin
  */
+
 @Entity
 public class Attribute {
 
 	//For SQLite use GenerationType.AUTO to generate id
     //for derby, H2, MySQL etc use GenerationType.IDENTITY
     @Id
-    @GeneratedValue(strategy = GenerationType.AUTO)
-    private Long key;
-    private String id, type, value, issuer, category;
+    //@GeneratedValue(strategy = GenerationType.AUTO)
+    @GeneratedValue(strategy = GenerationType.IDENTITY)
+    private Long rowId;
+    @ManyToMany(mappedBy="attributes")
+    private Collection<UconSession> sessions;
+
+    @Index
+    private String id;
+    @Index
+    private String category;
+    
+    private String type, value, issuer;
+
+    public static Attribute newInstance(PepRequestAttribute pepAttribute) {
+        Attribute attribute = new Attribute();
+        attribute.id = pepAttribute.id;
+        attribute.type = pepAttribute.type;
+        attribute.value = pepAttribute.value;
+        attribute.issuer = pepAttribute.issuer;
+        attribute.category = pepAttribute.category;
+        return attribute;
+    }
+    
+    public Collection<UconSession> getSessions() {
+        if(sessions == null)
+            sessions = new HashSet<>();
+        return sessions;
+    }
 
     public String getId() {
         return id;
@@ -65,17 +97,17 @@ public class Attribute {
     }
 
     public Long getkey() {
-        return key;
+        return rowId;
     }
 
-    public void setKey(Long key) {
-        this.key = key;
+    public void setRowId(Long rowId) {
+        this.rowId = rowId;
     }
 
     //this is optional, just for print out into console
     @Override
     public String toString() {
-        return "Attribute [id=" + id + ", type=" + type + ", value=" + value + ", issuer=" + issuer + ", category=" + category + "]";
+        return "Attribute [rowId="+rowId+", sessions="+sessions.size()+", id=" + id + ", type=" + type + ", value=" + value + ", issuer=" + issuer + ", category=" + category + "]";
     }
 
 }
