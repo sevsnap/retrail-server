@@ -5,6 +5,7 @@ import it.cnr.iit.retrail.commons.PepAccessRequest;
 import it.cnr.iit.retrail.commons.PepAccessResponse;
 import it.cnr.iit.retrail.commons.Server;
 import it.cnr.iit.retrail.server.db.DAL;
+import it.cnr.iit.retrail.server.db.UconSession;
 import java.io.IOException;
 import java.net.URL;
 import java.net.UnknownHostException;
@@ -127,7 +128,7 @@ public class UCon extends Server {
             p.process(accessRequest);
         }
         // Now send the enriched request to the PDP
-        PepAccessResponse response = access(accessRequest, pdp[PdpEnum.ON]);
+        PepAccessResponse response = access(accessRequest, pdp[PdpEnum.PRE]);
         return response;
     }
 
@@ -139,11 +140,14 @@ public class UCon extends Server {
         }
         // Now send the enriched request to the PDP
         PepAccessResponse response = access(accessRequest, pdp[PdpEnum.ON]);
-        dal.startSession(accessRequest);
+        if(true || response.decision == PepAccessResponse.DecisionEnum.Permit) {
+            UconSession session = dal.startSession(accessRequest);
+            response.addSessionInfo(session.getId().toString(), session.getCookie());
+        }
         return response;
     }
 
-    public PepAccessResponse endAccess(PepAccessRequest request) {
-        return null;
+    public void endAccess(String sessionId) {
+        dal.endSession(Long.parseLong(sessionId));
     }
 }

@@ -23,10 +23,9 @@ public class API {
         return response.toElement();
     }
 
-    public Node endAccess(Node accessRequest) {
-        PepAccessRequest request = new PepAccessRequest((Document) accessRequest);
-        PepAccessResponse response =  UCon.getInstance().endAccess(request);
-        return response.toElement();
+    public Node endAccess(String sessionId) {
+        UCon.getInstance().endAccess(sessionId);
+        return null;
     }
 
     public Node echo(Node node) throws TransformerConfigurationException, TransformerException {

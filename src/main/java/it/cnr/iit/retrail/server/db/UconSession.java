@@ -5,6 +5,7 @@
  */
 package it.cnr.iit.retrail.server.db;
 
+import java.io.Serializable;
 import java.util.Collection;
 import java.util.HashSet;
 import javax.persistence.Entity;
@@ -18,9 +19,9 @@ import javax.persistence.ManyToMany;
  * @author oneadmin
  */
 @Entity
-public class UconSession {
+public class UconSession implements Serializable {
 
-	//For SQLite use GenerationType.AUTO to generate id
+    //For SQLite use GenerationType.AUTO to generate id
     //for derby, H2, MySQL etc use GenerationType.IDENTITY
     @Id
     //@GeneratedValue(strategy = GenerationType.AUTO)

@@ -6,6 +6,7 @@
 package it.cnr.iit.retrail.server.db;
 
 import it.cnr.iit.retrail.commons.PepRequestAttribute;
+import java.io.Serializable;
 import java.util.Collection;
 import java.util.HashSet;
 import javax.persistence.Entity;
@@ -22,7 +23,7 @@ import org.eclipse.persistence.annotations.Index;
  */
 
 @Entity
-public class Attribute {
+public class Attribute implements Serializable {
 
 	//For SQLite use GenerationType.AUTO to generate id
     //for derby, H2, MySQL etc use GenerationType.IDENTITY
@@ -96,7 +97,7 @@ public class Attribute {
         this.category = category;
     }
 
-    public Long getkey() {
+    public Long getRowId() {
         return rowId;
     }
 
