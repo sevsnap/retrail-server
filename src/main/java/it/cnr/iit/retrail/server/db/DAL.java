@@ -6,6 +6,7 @@
 package it.cnr.iit.retrail.server.db;
 
 import it.cnr.iit.retrail.commons.PepRequestAttribute;
+import java.net.URL;
 import java.util.Collection;
 import java.util.List;
 import javax.persistence.EntityManager;
@@ -64,23 +65,48 @@ public class DAL {
         em.close();
         return sessions;
     }
+    
+    public Collection<UconSession> listSessions(URL pepUrl) {
+        String url = pepUrl.toString();
+        EntityManager em = factory.createEntityManager();
+        TypedQuery<UconSession> q = em.createQuery(
+                "select s from UconSession s where s.pepUrl = :pepUrl",
+                UconSession.class)
+                .setParameter("pepUrl", url);
+        Collection<UconSession> sessions = q.getResultList();
+        em.close();
+        return sessions;
+    }
 
     public Collection<Attribute> listAttributes() {
         EntityManager em = factory.createEntityManager();
         TypedQuery<Attribute> q = em.createQuery(
-                "select a from Attribute a",
+                "select a from UconSession s join Attribute a on where s.pepUrl = :pepUrl",
                 Attribute.class);
         Collection<Attribute> attributes = q.getResultList();
         em.close();
         return attributes;
     }
 
-    public UconSession startSession(List<PepRequestAttribute> pepAttributes) {
+    public Collection<Attribute> listAttributes(URL pepUrl) {
+        String url = pepUrl.toString();
+        EntityManager em = factory.createEntityManager();
+        TypedQuery<Attribute> q = em.createQuery(
+                "select distinct a from Attribute a, UconSession s where s.pepUrl = :pepUrl and s member of a.sessions",
+                Attribute.class)
+                .setParameter("pepUrl", pepUrl);
+        Collection<Attribute> attributes = q.getResultList();
+        em.close();
+        return attributes;
+    }
+
+    public UconSession startSession(List<PepRequestAttribute> pepAttributes, URL pepUrl) {
         // Store request's attributes to the database
         EntityManager em = factory.createEntityManager();
         //start transaction with method begin()
         em.getTransaction().begin();
         UconSession uconSession = new UconSession();
+        uconSession.setPepUrl(pepUrl.toString());
         em.persist(uconSession);
         for (PepRequestAttribute pepAttribute : pepAttributes) {
             Attribute attribute;
@@ -102,8 +128,15 @@ public class DAL {
         debugDump();
         return uconSession;
     }
+    
+    public UconSession getSession(Long sessionId) {
+        EntityManager em = factory.createEntityManager();
+        UconSession uconSession = em.find(UconSession.class, sessionId);
+        em.close();
+        return uconSession;        
+    }
 
-    public void endSession(Long sessionId) {
+    public UconSession endSession(Long sessionId) {
         EntityManager em = factory.createEntityManager();
         //start transaction with method begin()
         em.getTransaction().begin();
@@ -122,6 +155,7 @@ public class DAL {
         em.getTransaction().commit();
         em.close();
         debugDump();
+        return uconSession;
     }
     
 }

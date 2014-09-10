@@ -13,6 +13,7 @@ import javax.persistence.GeneratedValue;
 import javax.persistence.GenerationType;
 import javax.persistence.Id;
 import javax.persistence.ManyToMany;
+import org.eclipse.persistence.annotations.Index;
 
 /**
  *
@@ -27,6 +28,12 @@ public class UconSession implements Serializable {
     //@GeneratedValue(strategy = GenerationType.AUTO)
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
+    
+    @Index(unique=true)
+    private String cookie;
+    
+    private String pepUrl;
+
     @ManyToMany
     private Collection<Attribute> attributes;
 
@@ -40,7 +47,6 @@ public class UconSession implements Serializable {
         attributes.add(attribute);
         attribute.getSessions().add(this);
     }
-    private String cookie;
 
     public String getCookie() {
         return cookie;
@@ -58,10 +64,18 @@ public class UconSession implements Serializable {
         this.id = id;
     }
 
+    public String getPepUrl() {
+        return pepUrl;
+    }
+
+    public void setPepUrl(String pepUrl) {
+        this.pepUrl = pepUrl;
+    }
+    
     //this is optional, just for print out into console
     @Override
     public String toString() {
-        return "UconSession [id=" + id + ", cookie=" + cookie + "]";
+        return "UconSession [id=" + id + ", cookie=" + cookie + ", pepUrl="+pepUrl+"]";
     }
 
 }

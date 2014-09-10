@@ -8,12 +8,14 @@ package it.cnr.iit.retrail.server.db;
 import it.cnr.iit.retrail.commons.PepRequestAttribute;
 import java.io.Serializable;
 import java.util.Collection;
+import java.util.Date;
 import java.util.HashSet;
 import javax.persistence.Entity;
 import javax.persistence.GeneratedValue;
 import javax.persistence.GenerationType;
 import javax.persistence.Id;
 import javax.persistence.ManyToMany;
+import javax.persistence.Temporal;
 import org.eclipse.persistence.annotations.Index;
 
 
@@ -41,6 +43,9 @@ public class Attribute implements Serializable {
     
     private String type, value, issuer;
 
+    @Temporal(javax.persistence.TemporalType.TIMESTAMP)
+    private Date expires;
+    
     public static Attribute newInstance(PepRequestAttribute pepAttribute) {
         Attribute attribute = new Attribute();
         attribute.id = pepAttribute.id;
@@ -48,6 +53,7 @@ public class Attribute implements Serializable {
         attribute.value = pepAttribute.value;
         attribute.issuer = pepAttribute.issuer;
         attribute.category = pepAttribute.category;
+        attribute.expires = pepAttribute.expires;
         return attribute;
     }
     
@@ -101,10 +107,14 @@ public class Attribute implements Serializable {
         return rowId;
     }
 
-    public void setRowId(Long rowId) {
-        this.rowId = rowId;
+    public Date getExpires() {
+        return expires;
     }
 
+    public void setExpires(Date expires) {
+        this.expires = expires;
+    }
+    
     //this is optional, just for print out into console
     @Override
     public String toString() {
