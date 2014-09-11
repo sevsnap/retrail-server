@@ -45,8 +45,7 @@ import org.w3c.dom.Document;
 import org.w3c.dom.Node;
 import org.xml.sax.SAXException;
 
-public class UCon extends Server implements Runnable {
-    private static final int heartbeatPeriod = 15;
+public class UCon extends Server {
     private static final String defaultUrlString = "http://localhost:8080";
     private static UCon singleton;
 
@@ -76,11 +75,6 @@ public class UCon extends Server implements Runnable {
             }
         }
         return singleton;
-    }
-
-    public static void main(String[] args) throws Exception {
-        UCon ucon = getInstance();
-        ucon.pip.add(new PIP());
     }
 
     private UCon() throws UnknownHostException, XmlRpcException, IOException {
@@ -267,12 +261,9 @@ public class UCon extends Server implements Runnable {
         Long id = Long.parseLong(sessionId);
         dal.endSession(id);
     }
-    
-    public void init() {        // start watchdog
-        (new Thread(this)).start();
-    }
 
-    private void watchdog() {
+    @Override
+    protected void heartbeat() {
         // List all sessions that were not heartbeaten since at least 2 periods
         Date lastSeenBefore = new Date(new Date().getTime() - 1000*2*heartbeatPeriod);
         Collection<UconSession> sessions = dal.listSessions(lastSeenBefore);
@@ -283,19 +274,10 @@ public class UCon extends Server implements Runnable {
         }
         System.out.println("UCon.watchdog(): OK");
     }
-    
-    @Override
-    public void run() {
-        // Watchdog
-        while (true) {
-            try {
-                watchdog();
-                Thread.sleep(heartbeatPeriod * 1000);
-            } catch (InterruptedException ex) {
-                Logger.getLogger(UCon.class.getName()).log(Level.SEVERE, null, ex);
-                return;
-            }
-        }
+
+    public static void main(String[] args) throws Exception {
+        UCon ucon = getInstance();
+        ucon.pip.add(new PIP());
     }
 
 }
