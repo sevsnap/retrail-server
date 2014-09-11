@@ -57,6 +57,14 @@ public class Attribute implements Serializable {
         return attribute;
     }
     
+    public void copy(PepRequestAttribute pepAttribute) {
+        type = pepAttribute.type;
+        value = pepAttribute.value;
+        issuer = pepAttribute.issuer;
+        category = pepAttribute.category;
+        expires = pepAttribute.expires;        
+    }
+    
     public Collection<UconSession> getSessions() {
         if(sessions == null)
             sessions = new HashSet<>();

@@ -16,7 +16,6 @@ import java.net.UnknownHostException;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.Date;
-import java.util.HashMap;
 import java.util.HashSet;
 import java.util.Set;
 import java.util.logging.Level;
@@ -38,17 +37,16 @@ import org.wso2.balana.finder.impl.FileBasedPolicyFinderModule;
 import org.wso2.balana.finder.impl.SelectorModule;
 
 import java.util.List;
-import java.util.Map;
-import javax.xml.parsers.DocumentBuilder;
 import javax.xml.parsers.ParserConfigurationException;
 import org.apache.xmlrpc.client.XmlRpcClient;
 import org.apache.xmlrpc.client.XmlRpcClientConfigImpl;
 import org.apache.xmlrpc.client.XmlRpcCommonsTransportFactory;
 import org.w3c.dom.Document;
 import org.w3c.dom.Node;
+import org.xml.sax.SAXException;
 
-public class UCon extends Server {
-
+public class UCon extends Server implements Runnable {
+    private static final int heartbeatPeriod = 15;
     private static final String defaultUrlString = "http://localhost:8080";
     private static UCon singleton;
 
@@ -71,6 +69,7 @@ public class UCon extends Server {
         if (singleton == null) {
             try {
                 singleton = new UCon();
+                singleton.init();
             } catch (IOException e) {
 
             } catch (XmlRpcException e) {
@@ -86,10 +85,10 @@ public class UCon extends Server {
 
     private UCon() throws UnknownHostException, XmlRpcException, IOException {
         // FIXME absolute paths should be settable
-        super(new URL(defaultUrlString), API.class);
+        super(new URL(defaultUrlString), APIImpl.class);
         pdp[PdpEnum.PRE] = newPDP("/etc/contrail/contrail-authz-core/policies/pre/");
         pdp[PdpEnum.ON] = newPDP("/etc/contrail/contrail-authz-core/policies/on/");
-        pdp[PdpEnum.POST] = newPDP("/etc/contrail/contrail-authz-core/policies/post/");
+        pdp[PdpEnum.POST] = newPDP("/etc/contrail/contrail-authz-core/policies/on/");   //FIXME
         dal = DAL.getInstance();
     }
 
@@ -118,11 +117,9 @@ public class UCon extends Server {
         Document accessResponse = null;
         try {
             Element xacmlRequest = accessRequest.toElement();
-            DomUtils.write(xacmlRequest);
             AbstractRequestCtx request = RequestCtxFactory.getFactory().getRequestCtx(xacmlRequest);
             ResponseCtx response = p.evaluate(request);
             String responseString = response.encode();
-            System.out.println("*** RESPONSE: " + responseString);
             accessResponse = DomUtils.read(responseString);
         } catch (ParsingException ex) {
             System.out.println("*** STICAZZI");
@@ -181,39 +178,41 @@ public class UCon extends Server {
         return doc;
     }
     
-    private PepSession checkSession(UconSession uconSession) throws MalformedURLException, XmlRpcException {
-        // may return null if no evaluation is done (equivalent to Permit)
+    private PepAccessRequest buildPurifiedPepAccessRequest(UconSession uconSession, Collection<Attribute> expiredAttributes) {
         // Rebuild the PEP request with valid attributes only
-        System.out.println("*** UCON.checkSession: "+uconSession);
+        System.out.println("*** UCON.rebuildAndPurifyPepAccessRequest(): "+uconSession);
+        expiredAttributes.clear();
         Date now = new Date();
         PepAccessRequest accessRequest = new PepAccessRequest();
-        boolean isSomeAttributeExpired = false;
         for (Attribute a : uconSession.getAttributes()) {
             boolean isAttributeExpired = a.getExpires() != null && now.after(a.getExpires());
-            isSomeAttributeExpired |= isAttributeExpired;
             if(!isAttributeExpired) {           
                 PepRequestAttribute pepAttribute = new PepRequestAttribute(a.getId(), a.getType(), a.getValue(), a.getIssuer(), a.getCategory());
                 accessRequest.add(pepAttribute);
-            }
+            } else
+                expiredAttributes.add(a);
         }
+        return accessRequest;
+    }
+    
+    private PepSession checkSession(UconSession uconSession, boolean forceEvaluation) throws MalformedURLException, XmlRpcException {
+        // may return null if no evaluation is done (equivalent to Permit)
+        // Rebuild the PEP request with valid attributes only
+        System.out.println("*** UCON.checkSession(): "+uconSession);
+        Collection<Attribute> expiredAttributes = new HashSet<>();
+        PepAccessRequest accessRequest = buildPurifiedPepAccessRequest(uconSession, expiredAttributes);
         PepSession pepSession = null;
         // If some attribute expired, re-enrich the request the re-evaluate.
-        if(isSomeAttributeExpired)  {
-            System.out.println("*** UCON.checkSession: some attribute expired");
-
+        if(expiredAttributes.size() > 0 || forceEvaluation)  {
+            System.out.println("*** UCON.checkSession(): needs reevaluation -- enriching request");
             for (PIP p : pip) 
                 p.enrich(accessRequest);
-            System.out.println("*** UCON.checkSession: evaluating request:");
-            try {
-                DomUtils.write((Element) accessRequest.toElement());
-            } catch (Exception ex) {
-                Logger.getLogger(UCon.class.getName()).log(Level.SEVERE, null, ex);
-            }
             // Now make PDP evaluate the request
-            Document responseDocument = access(accessRequest, pdp[PdpEnum.PRE]);
+            System.out.println("*** UCON.checkSession(): reevaluating request");
+            Document responseDocument = access(accessRequest, pdp[PdpEnum.POST]);
             pepSession = new PepSession(responseDocument);
             pepSession.addSession(uconSession.getId().toString(), uconSession.getCookie());
-            System.out.println("*** UCON.checkSession: pepSession "+pepSession);
+            System.out.println("*** UCON.checkSession(): done, "+pepSession);
         } 
         return pepSession;
     }
@@ -221,7 +220,7 @@ public class UCon extends Server {
     public void updateAccess(String sessionId) throws MalformedURLException, XmlRpcException {
         Long id = Long.parseLong(sessionId);
         UconSession uconSession = dal.getSession(id);
-        PepSession pepSession = checkSession(uconSession);
+        PepSession pepSession = checkSession(uconSession, false);
         // Explicitly revoke access if anything went wrong
         if (pepSession != null && pepSession.decision != PepAccessResponse.DecisionEnum.Permit) {
             URL pepUrl = new URL(uconSession.getPepUrl());
@@ -230,19 +229,36 @@ public class UCon extends Server {
         }
     }
 
-    public Document heartbeat(URL pepUrl) throws ParserConfigurationException, MalformedURLException, XmlRpcException {
+    public Document heartbeat(URL pepUrl, List<String> sessionsList) throws ParserConfigurationException, MalformedURLException, XmlRpcException, SAXException, IOException {
         Collection<UconSession> sessions = dal.listSessions(pepUrl);
         // Revoke access to any sessions opened by the registered url if no more allowed.
         Document doc = DomUtils.newDocument();
         Element responses = doc.createElement("Responses");
         doc.appendChild(responses);
+        Date now = new Date();
         for(UconSession session: sessions) {
-            PepSession pepSession = checkSession(session);
-            if (pepSession != null && pepSession.decision != PepAccessResponse.DecisionEnum.Permit) {
+            boolean isNotKnownByClient = !sessionsList.remove(session.getId().toString());
+            
+            PepSession pepSession = checkSession(session, isNotKnownByClient);
+            boolean mustRemove = pepSession != null && pepSession.decision != PepAccessResponse.DecisionEnum.Permit;
+            if (isNotKnownByClient || mustRemove) {
                 Node n = doc.adoptNode(pepSession.toElement());
                 responses.appendChild(n);
+            } 
+            if(mustRemove)
                 dal.endSession(session.getId());
+            else  {
+                // "Touch" session
+                session.setLastSeen(now);
+                dal.save(session);
             }
+        }
+        // Process sessions known by the client, but unknown to the server.
+        for(String id: sessionsList) {
+            PepSession pepSession = new PepSession(PepAccessResponse.DecisionEnum.NotApplicable, "Unexistent session");
+            pepSession.addSession(id, null);
+            Node n = doc.adoptNode(pepSession.toElement());
+            responses.appendChild(n);
         }
         return doc;
     }
@@ -251,4 +267,35 @@ public class UCon extends Server {
         Long id = Long.parseLong(sessionId);
         dal.endSession(id);
     }
+    
+    public void init() {        // start watchdog
+        (new Thread(this)).start();
+    }
+
+    private void watchdog() {
+        // List all sessions that were not heartbeaten since at least 2 periods
+        Date lastSeenBefore = new Date(new Date().getTime() - 1000*2*heartbeatPeriod);
+        Collection<UconSession> sessions = dal.listSessions(lastSeenBefore);
+        // Remove them
+        for(UconSession session: sessions) {
+            System.out.println("UCon.watchdog(): removing stale session "+session);
+            dal.endSession(session.getId());
+        }
+        System.out.println("UCon.watchdog(): OK");
+    }
+    
+    @Override
+    public void run() {
+        // Watchdog
+        while (true) {
+            try {
+                watchdog();
+                Thread.sleep(heartbeatPeriod * 1000);
+            } catch (InterruptedException ex) {
+                Logger.getLogger(UCon.class.getName()).log(Level.SEVERE, null, ex);
+                return;
+            }
+        }
+    }
+
 }

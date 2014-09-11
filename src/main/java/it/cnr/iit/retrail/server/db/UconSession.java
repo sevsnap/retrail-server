@@ -7,12 +7,15 @@ package it.cnr.iit.retrail.server.db;
 
 import java.io.Serializable;
 import java.util.Collection;
+import java.util.Date;
 import java.util.HashSet;
+import java.util.Random;
 import javax.persistence.Entity;
 import javax.persistence.GeneratedValue;
 import javax.persistence.GenerationType;
 import javax.persistence.Id;
 import javax.persistence.ManyToMany;
+import javax.persistence.Temporal;
 import org.eclipse.persistence.annotations.Index;
 
 /**
@@ -30,9 +33,12 @@ public class UconSession implements Serializable {
     private Long id;
     
     @Index(unique=true)
-    private String cookie;
+    private String cookie = randomId();
     
     private String pepUrl;
+    
+    @Temporal(javax.persistence.TemporalType.TIMESTAMP)
+    private Date lastSeen = new Date();
 
     @ManyToMany
     private Collection<Attribute> attributes;
@@ -48,6 +54,13 @@ public class UconSession implements Serializable {
         attribute.getSessions().add(this);
     }
 
+    public void removeAttribute(Attribute attribute) {
+        if(attributes != null) {
+            attributes.remove(attribute);
+            attribute.getSessions().remove(this);
+        }
+    }
+    
     public String getCookie() {
         return cookie;
     }
@@ -71,11 +84,30 @@ public class UconSession implements Serializable {
     public void setPepUrl(String pepUrl) {
         this.pepUrl = pepUrl;
     }
+
+    public Date getLastSeen() {
+        return lastSeen;
+    }
+
+    public void setLastSeen(Date lastSeen) {
+        this.lastSeen = lastSeen;
+    }
     
     //this is optional, just for print out into console
     @Override
     public String toString() {
-        return "UconSession [id=" + id + ", cookie=" + cookie + ", pepUrl="+pepUrl+"]";
+        return "UconSession [id=" + id + ", cookie=" + cookie + ", pepUrl="+pepUrl+", lastSeen="+lastSeen+"]";
+    }
+    
+    private static String randomId() {
+        char[] chars = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz".toCharArray();
+        StringBuilder sb = new StringBuilder();
+        Random random = new Random();
+        for (int i = 0; i < 8; i++) {
+            char c = chars[random.nextInt(chars.length)];
+            sb.append(c);
+        }
+        return sb.toString();
     }
 
 }
