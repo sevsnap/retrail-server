@@ -12,11 +12,14 @@ import javax.xml.parsers.ParserConfigurationException;
 import javax.xml.transform.TransformerConfigurationException;
 import javax.xml.transform.TransformerException;
 import org.apache.xmlrpc.XmlRpcException;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.w3c.dom.Document;
 import org.w3c.dom.Node;
 import org.xml.sax.SAXException;
 
 public class APIImpl implements API {
+    protected static final Logger log = LoggerFactory.getLogger(APIImpl.class);
     private static UCon ucon = UCon.getInstance();
 
     @Override
@@ -28,7 +31,7 @@ public class APIImpl implements API {
 
     @Override
     public Node startAccess(Node accessRequest, String pepUrl) throws MalformedURLException {
-        System.out.println("API.startAccess(pepUrl="+pepUrl+")");
+        log.info("pepUrl="+pepUrl);
         PepAccessRequest request = new PepAccessRequest((Document) accessRequest);
         PepAccessResponse response =  ucon.startAccess(request, new URL(pepUrl));
         return response.toElement();
@@ -42,14 +45,13 @@ public class APIImpl implements API {
 
     @Override
     public Node heartbeat(String pepUrl, List<String> sessionsList) throws MalformedURLException, ParserConfigurationException, XmlRpcException, SAXException, IOException {
-          System.out.println("API.heartbeat(): called, with url: "+pepUrl);
+          log.info("called, with url: "+pepUrl);
           return ucon.heartbeat(new URL(pepUrl), sessionsList);
     }
     
     @Override
     public Node echo(Node node) throws TransformerConfigurationException, TransformerException {
-        System.out.println("API.echo(): reply service for testing called, with node:");
-        DomUtils.write(node);
+        log.info("reply service for testing called, with node: {}", node);
         return node;
     }
 

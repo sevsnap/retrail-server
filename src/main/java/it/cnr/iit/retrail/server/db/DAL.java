@@ -5,6 +5,7 @@
  */
 package it.cnr.iit.retrail.server.db;
 
+import it.cnr.iit.retrail.commons.PepAccessRequest;
 import it.cnr.iit.retrail.commons.PepRequestAttribute;
 import java.net.URL;
 import java.util.Collection;
@@ -15,6 +16,8 @@ import javax.persistence.EntityManagerFactory;
 import javax.persistence.NoResultException;
 import javax.persistence.Persistence;
 import javax.persistence.TypedQuery;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 /**
  *
@@ -27,7 +30,7 @@ public class DAL {
 
     private static final String PERSISTENCE_UNIT_NAME = "retrail";
     private static final EntityManagerFactory factory = Persistence.createEntityManagerFactory(PERSISTENCE_UNIT_NAME);
-
+    protected static final Logger log = LoggerFactory.getLogger(DAL.class);   
     final private ThreadLocal entityManager;
 
     public EntityManager getEntityManager() {
@@ -45,12 +48,12 @@ public class DAL {
 
     private void debugDump() {
         EntityManager em = getEntityManager();
-        System.out.println("DAL: current open sessions:");
+        log.info("current open sessions:");
         TypedQuery<UconSession> q = em.createQuery("select session from UconSession session", UconSession.class);
         for (UconSession s : q.getResultList()) {
-            System.out.println("DAL: " + s);
+            log.info("\t" + s);
             for (Attribute a : s.getAttributes()) {
-                System.out.println("\t" + a);
+                log.info("\t\t" + a);
             }
         }
         //System.out.println("DAL: all attributes:");
@@ -198,7 +201,7 @@ public class DAL {
             em.getTransaction().commit();
         }
         catch(Exception e) {
-            System.out.println("*** EXCEPTION: "+e.getMessage());
+            log.error("*** EXCEPTION: "+e.getMessage());
             em.getTransaction().rollback();
             throw e;
         }

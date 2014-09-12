@@ -116,10 +116,10 @@ public class UCon extends Server {
             String responseString = response.encode();
             accessResponse = DomUtils.read(responseString);
         } catch (ParsingException ex) {
-            System.out.println("*** STICAZZI");
+            log.error("*** STICAZZI");
             Logger.getLogger(UCon.class.getName()).log(Level.SEVERE, null, ex);
         } catch (Exception ex) {
-            System.out.println("*** STICAZZI GRAVE");
+            log.error("*** STICAZZI GRAVE");
             Logger.getLogger(UCon.class.getName()).log(Level.SEVERE, null, ex);
         }
         return accessResponse;
@@ -127,7 +127,7 @@ public class UCon extends Server {
     }
 
     public PepAccessResponse tryAccess(PepAccessRequest accessRequest) {
-        System.out.println("*** TRYACCESS: ");
+        log.info("called");
         // First enrich the request by calling the PIPs
         for (PIP p : pip) 
             p.enrich(accessRequest);
@@ -138,11 +138,11 @@ public class UCon extends Server {
     }
 
     public PepSession startAccess(PepAccessRequest accessRequest, URL pepUrl) {
-        System.out.println("*** PepSession.startAccess(): ");
+        log.info("called");
         // First enrich the request by calling the PIPs
         for (PIP p : pip) 
             p.enrich(accessRequest);
-        System.out.println("*** PepSession.startAccess(): PIP done");
+        log.info("PIP done");
         // Now send the enriched request to the PDP
         Document responseDocument = access(accessRequest, pdp[PdpEnum.ON]);
         PepSession pepSession = new PepSession(responseDocument);
@@ -174,7 +174,7 @@ public class UCon extends Server {
     
     private PepAccessRequest buildPurifiedPepAccessRequest(UconSession uconSession, Collection<Attribute> expiredAttributes) {
         // Rebuild the PEP request with valid attributes only
-        System.out.println("*** UCON.rebuildAndPurifyPepAccessRequest(): "+uconSession);
+        log.info(""+uconSession);
         expiredAttributes.clear();
         Date now = new Date();
         PepAccessRequest accessRequest = new PepAccessRequest();
@@ -192,21 +192,21 @@ public class UCon extends Server {
     private PepSession checkSession(UconSession uconSession, boolean forceEvaluation) throws MalformedURLException, XmlRpcException {
         // may return null if no evaluation is done (equivalent to Permit)
         // Rebuild the PEP request with valid attributes only
-        System.out.println("*** UCON.checkSession(): "+uconSession);
+        log.info(uconSession.toString());
         Collection<Attribute> expiredAttributes = new HashSet<>();
         PepAccessRequest accessRequest = buildPurifiedPepAccessRequest(uconSession, expiredAttributes);
         PepSession pepSession = null;
         // If some attribute expired, re-enrich the request the re-evaluate.
         if(expiredAttributes.size() > 0 || forceEvaluation)  {
-            System.out.println("*** UCON.checkSession(): needs reevaluation -- enriching request");
+            log.info("needs reevaluation -- enriching request");
             for (PIP p : pip) 
                 p.enrich(accessRequest);
             // Now make PDP evaluate the request
-            System.out.println("*** UCON.checkSession(): reevaluating request");
+            log.info("reevaluating request");
             Document responseDocument = access(accessRequest, pdp[PdpEnum.POST]);
             pepSession = new PepSession(responseDocument);
             pepSession.addSession(uconSession.getId().toString(), uconSession.getCookie());
-            System.out.println("*** UCON.checkSession(): done, "+pepSession);
+            log.info("done, "+pepSession);
         } 
         return pepSession;
     }
@@ -269,10 +269,10 @@ public class UCon extends Server {
         Collection<UconSession> sessions = dal.listSessions(lastSeenBefore);
         // Remove them
         for(UconSession session: sessions) {
-            System.out.println("UCon.watchdog(): removing stale session "+session);
+            log.warn("removing stale session "+session);
             dal.endSession(session.getId());
         }
-        System.out.println("UCon.watchdog(): OK");
+        log.info("OK");
     }
 
     public static void main(String[] args) throws Exception {
