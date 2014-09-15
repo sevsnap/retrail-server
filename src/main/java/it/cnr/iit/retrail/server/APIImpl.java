@@ -34,6 +34,7 @@ public class APIImpl implements API {
     
     @Override
     public Node endAccess(String sessionId) {
+        log.info("sessionId={}", sessionId);
         return ucon.endAccess(sessionId);
     }
     

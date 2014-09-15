@@ -7,6 +7,7 @@ package it.cnr.iit.retrail.server.db;
 
 import it.cnr.iit.retrail.commons.PepAccessRequest;
 import it.cnr.iit.retrail.commons.PepRequestAttribute;
+import it.cnr.iit.retrail.commons.PepSession;
 import java.net.URL;
 import java.util.Collection;
 import java.util.Date;
@@ -164,7 +165,7 @@ public class DAL {
 
     public void updateSession(UconSession uconSession, Collection<PepRequestAttribute> pepAttributes) {
         // Store request's attributes to the database
-        log.info(""+uconSession);
+        log.info("" + uconSession);
         EntityManager em = getEntityManager();
         //start transaction with method begin()
         em.getTransaction().begin();
@@ -184,7 +185,20 @@ public class DAL {
         return uconSession;
     }
 
-    public UconSession endSession(Long sessionId) {
+    private void removeAttributes(EntityManager em, UconSession uconSession) {
+        log.info("removing all attributes for " + uconSession);
+        while (uconSession.getAttributes().size() > 0) {
+            Attribute a = uconSession.getAttributes().iterator().next();
+            uconSession.removeAttribute(a);
+            if (a.getSessions().isEmpty()) {
+                em.remove(a);
+            }
+        }
+        uconSession.getAttributes().clear();
+    }
+
+    public UconSession revokeSession(Long sessionId) {
+        log.info("revoking " + sessionId);
         UconSession uconSession = null;
         EntityManager em = getEntityManager();
         //start transaction with method begin()
@@ -192,19 +206,36 @@ public class DAL {
         try {
             uconSession = em.find(UconSession.class, sessionId);
             if (uconSession != null) {
-                log.info(""+uconSession);
-                while(uconSession.getAttributes().size() > 0) {
-                    Attribute a = uconSession.getAttributes().iterator().next();
-                    uconSession.removeAttribute(a);
-                    if (a.getSessions().isEmpty()) {
-                        em.remove(a);
-                    }
-                }
-                uconSession.getAttributes().clear();
+                removeAttributes(em, uconSession);
+                uconSession.setStatus(PepSession.Status.REVOKED);
+                uconSession = em.merge(uconSession);
+            } else {
+                log.error("cannot find session with id={}", sessionId);
+            }
+            em.getTransaction().commit();
+        } catch (Exception e) {
+            em.getTransaction().rollback();
+            throw e;
+        }
+        debugDump();
+        return uconSession;
+    }
+
+    public UconSession endSession(Long sessionId) {
+        log.info("removing " + sessionId);
+        UconSession uconSession = null;
+        EntityManager em = getEntityManager();
+        //start transaction with method begin()
+        em.getTransaction().begin();
+        try {
+            uconSession = em.find(UconSession.class, sessionId);
+            if (uconSession != null) {
+                removeAttributes(em, uconSession);
                 uconSession = em.merge(uconSession);
                 em.remove(uconSession);
-            } else 
+            } else {
                 log.error("cannot find session with id={}", sessionId);
+            }
             em.getTransaction().commit();
         } catch (Exception e) {
             em.getTransaction().rollback();

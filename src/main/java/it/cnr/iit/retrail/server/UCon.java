@@ -154,8 +154,8 @@ public class UCon extends Server {
     }
 
     private Document revokeAccess(URL pepUrl, PepSession pepSession) throws XmlRpcException {
-        // remove session on db
-        dal.endSession(Long.parseLong(pepSession.getId()));
+        // revoke session on db
+        dal.revokeSession(Long.parseLong(pepSession.getId()));
         // create client
         log.warn("invoking PEP at " + pepUrl + " to revoke " + pepSession);
         Client client = new Client(pepUrl);
