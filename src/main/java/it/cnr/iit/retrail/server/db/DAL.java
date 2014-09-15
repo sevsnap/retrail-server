@@ -27,10 +27,9 @@ public class DAL {
 
     //Create entity manager, this step will connect to database, please check 
     //JDBC driver on classpath, jdbc URL, jdbc driver name on persistence.xml
-
     private static final String PERSISTENCE_UNIT_NAME = "retrail";
     private static final EntityManagerFactory factory = Persistence.createEntityManagerFactory(PERSISTENCE_UNIT_NAME);
-    protected static final Logger log = LoggerFactory.getLogger(DAL.class);   
+    protected static final Logger log = LoggerFactory.getLogger(DAL.class);
     final private ThreadLocal entityManager;
 
     public EntityManager getEntityManager() {
@@ -79,7 +78,7 @@ public class DAL {
         Collection<UconSession> sessions = q.getResultList();
         return sessions;
     }
-    
+
     public Collection<UconSession> listSessions(Date lastSeenBefore) {
         EntityManager em = getEntityManager();
         TypedQuery<UconSession> q = em.createQuery(
@@ -101,11 +100,12 @@ public class DAL {
         return sessions;
     }
 
-    public Collection<Attribute> listAttributes() {
+    public Collection<Attribute> listAttributes(Date invalidAfter) {
         EntityManager em = getEntityManager();
         TypedQuery<Attribute> q = em.createQuery(
-                "select a from UconSession s join Attribute a on where s.pepUrl = :pepUrl",
-                Attribute.class);
+                "select a from Attribute a where a is not null and a.expires < :invalidAfter",
+                Attribute.class)
+                .setParameter("invalidAfter", invalidAfter);
         Collection<Attribute> attributes = q.getResultList();
         return attributes;
     }
@@ -121,7 +121,29 @@ public class DAL {
         return attributes;
     }
 
-    public UconSession startSession(List<PepRequestAttribute> pepAttributes, URL pepUrl) {
+    private void updateSession(EntityManager em, UconSession uconSession, Collection<PepRequestAttribute> pepAttributes) {
+        for (PepRequestAttribute pepAttribute : pepAttributes) {
+            Attribute attribute;
+            TypedQuery<Attribute> q = em.createQuery(
+                    "select a from Attribute a where a.id = :id and a.category = :category",
+                    Attribute.class)
+                    .setParameter("id", pepAttribute.id)
+                    .setParameter("category", pepAttribute.category);
+            try {
+                attribute = q.getSingleResult();
+                attribute.copy(pepAttribute);
+                attribute = em.merge(attribute);
+                // If this attribute is already in the session, remove it first for safety.
+                uconSession.removeAttribute(attribute);
+            } catch (NoResultException e) {
+                attribute = Attribute.newInstance(pepAttribute);
+                em.persist(attribute);
+            }
+            uconSession.addAttribute(attribute);
+        }
+    }
+
+    public UconSession startSession(Collection<PepRequestAttribute> pepAttributes, URL pepUrl) {
         UconSession uconSession = null;
         // Store request's attributes to the database
         EntityManager em = getEntityManager();
@@ -131,32 +153,29 @@ public class DAL {
             uconSession = new UconSession();
             uconSession.setPepUrl(pepUrl.toString());
             em.persist(uconSession);
-            for (PepRequestAttribute pepAttribute : pepAttributes) {
-                Attribute attribute;
-                TypedQuery<Attribute> q = em.createQuery(
-                        "select a from Attribute a where a.id = :id and a.category = :category",
-                        Attribute.class)
-                        .setParameter("id", pepAttribute.id)
-                        .setParameter("category", pepAttribute.category);
-                try {
-                    attribute = q.getSingleResult();
-                    attribute.copy(pepAttribute);
-                    attribute = em.merge(attribute);
-                    // If this attribute is already in the session, remove it first for safety.
-                    uconSession.removeAttribute(attribute);
-                } catch (NoResultException e) {
-                    attribute = Attribute.newInstance(pepAttribute);
-                    em.persist(attribute);
-                }
-                uconSession.addAttribute(attribute);
-            }
+            updateSession(em, uconSession, pepAttributes);
+            em.getTransaction().commit();
+        } catch (Exception e) {
+            em.getTransaction().rollback();
+            throw e;
+        }
+        return uconSession;
+    }
+
+    public void updateSession(UconSession uconSession, Collection<PepRequestAttribute> pepAttributes) {
+        // Store request's attributes to the database
+        log.info(""+uconSession);
+        EntityManager em = getEntityManager();
+        //start transaction with method begin()
+        em.getTransaction().begin();
+        try {
+            updateSession(em, uconSession, pepAttributes);
             em.getTransaction().commit();
         } catch (Exception e) {
             em.getTransaction().rollback();
             throw e;
         }
         debugDump();
-        return uconSession;
     }
 
     public UconSession getSession(Long sessionId) {
@@ -171,21 +190,23 @@ public class DAL {
         //start transaction with method begin()
         em.getTransaction().begin();
         try {
-        uconSession = em.find(UconSession.class, sessionId);
-        if (uconSession != null) {
-            for (Attribute a : uconSession.getAttributes()) {
-                a.getSessions().remove(uconSession);
-                a = em.merge(a);
-                if (a.getSessions().isEmpty()) {
-                    em.remove(a);
+            uconSession = em.find(UconSession.class, sessionId);
+            if (uconSession != null) {
+                log.info(""+uconSession);
+                while(uconSession.getAttributes().size() > 0) {
+                    Attribute a = uconSession.getAttributes().iterator().next();
+                    uconSession.removeAttribute(a);
+                    if (a.getSessions().isEmpty()) {
+                        em.remove(a);
+                    }
                 }
-            }
-            uconSession.getAttributes().clear();
-            uconSession = em.merge(uconSession);
-            em.remove(uconSession);
-        }
-        em.getTransaction().commit();
-        } catch(Exception e) {
+                uconSession.getAttributes().clear();
+                uconSession = em.merge(uconSession);
+                em.remove(uconSession);
+            } else 
+                log.error("cannot find session with id={}", sessionId);
+            em.getTransaction().commit();
+        } catch (Exception e) {
             em.getTransaction().rollback();
             throw e;
         }
@@ -199,9 +220,8 @@ public class DAL {
         try {
             o = em.merge(o);
             em.getTransaction().commit();
-        }
-        catch(Exception e) {
-            log.error("*** EXCEPTION: "+e.getMessage());
+        } catch (Exception e) {
+            log.error(e.getMessage());
             em.getTransaction().rollback();
             throw e;
         }

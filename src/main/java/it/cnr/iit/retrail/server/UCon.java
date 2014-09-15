@@ -1,5 +1,6 @@
 package it.cnr.iit.retrail.server;
 
+import it.cnr.iit.retrail.commons.Client;
 import it.cnr.iit.retrail.commons.DomUtils;
 import it.cnr.iit.retrail.commons.PepAccessRequest;
 import it.cnr.iit.retrail.commons.PepAccessResponse;
@@ -16,12 +17,17 @@ import java.net.UnknownHostException;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.Date;
+import java.util.HashMap;
 import java.util.HashSet;
+import java.util.List;
+import java.util.Map;
 import java.util.Set;
 import java.util.logging.Level;
 import java.util.logging.Logger;
 import org.apache.xmlrpc.XmlRpcException;
+import org.w3c.dom.Document;
 import org.w3c.dom.Element;
+import org.w3c.dom.Node;
 import org.wso2.balana.PDP;
 import org.wso2.balana.PDPConfig;
 import org.wso2.balana.ParsingException;
@@ -36,16 +42,8 @@ import org.wso2.balana.finder.impl.CurrentEnvModule;
 import org.wso2.balana.finder.impl.FileBasedPolicyFinderModule;
 import org.wso2.balana.finder.impl.SelectorModule;
 
-import java.util.List;
-import javax.xml.parsers.ParserConfigurationException;
-import org.apache.xmlrpc.client.XmlRpcClient;
-import org.apache.xmlrpc.client.XmlRpcClientConfigImpl;
-import org.apache.xmlrpc.client.XmlRpcCommonsTransportFactory;
-import org.w3c.dom.Document;
-import org.w3c.dom.Node;
-import org.xml.sax.SAXException;
-
 public class UCon extends Server {
+
     private static final String defaultUrlString = "http://localhost:8080";
     private static UCon singleton;
 
@@ -58,6 +56,7 @@ public class UCon extends Server {
 
     private final PDP pdp[] = new PDP[3];
     public List<PIP> pip = new ArrayList<>();
+    public Map<String, PIP> pipNameToInstanceMap = new HashMap<>();
     private final DAL dal;
 
     /**
@@ -82,7 +81,7 @@ public class UCon extends Server {
         super(new URL(defaultUrlString), APIImpl.class);
         pdp[PdpEnum.PRE] = newPDP("/etc/contrail/contrail-authz-core/policies/pre/");
         pdp[PdpEnum.ON] = newPDP("/etc/contrail/contrail-authz-core/policies/on/");
-        pdp[PdpEnum.POST] = newPDP("/etc/contrail/contrail-authz-core/policies/on/");   //FIXME
+        pdp[PdpEnum.POST] = newPDP("/etc/contrail/contrail-authz-core/policies/post/");
         dal = DAL.getInstance();
     }
 
@@ -129,8 +128,9 @@ public class UCon extends Server {
     public PepAccessResponse tryAccess(PepAccessRequest accessRequest) {
         log.info("called");
         // First enrich the request by calling the PIPs
-        for (PIP p : pip) 
+        for (PIP p : pip) {
             p.enrich(accessRequest);
+        }
         // Now send the enriched request to the PDP
         Document responseDocument = access(accessRequest, pdp[PdpEnum.PRE]);
         PepAccessResponse response = new PepAccessResponse(responseDocument);
@@ -140,8 +140,9 @@ public class UCon extends Server {
     public PepSession startAccess(PepAccessRequest accessRequest, URL pepUrl) {
         log.info("called");
         // First enrich the request by calling the PIPs
-        for (PIP p : pip) 
+        for (PIP p : pip) {
             p.enrich(accessRequest);
+        }
         log.info("PIP done");
         // Now send the enriched request to the PDP
         Document responseDocument = access(accessRequest, pdp[PdpEnum.ON]);
@@ -154,101 +155,76 @@ public class UCon extends Server {
     }
 
     private Document revokeAccess(URL pepUrl, PepSession pepSession) throws XmlRpcException {
-        // create configuration
-        XmlRpcClientConfigImpl config = new XmlRpcClientConfigImpl();
-        config.setServerURL(pepUrl);
-        config.setEnabledForExtensions(true);
-        config.setConnectionTimeout(60 * 1000);
-        config.setReplyTimeout(60 * 1000);
-
-        XmlRpcClient client = new XmlRpcClient();
-        // use Commons HttpClient as transport
-        client.setTransportFactory(
-                new XmlRpcCommonsTransportFactory(client));
-        // set configuration
-        client.setConfig(config);
+        // remove session on db
+        dal.endSession(Long.parseLong(pepSession.getId()));
+        // create client
+        log.warn("invoking PEP at " + pepUrl + " to revoke " + pepSession);
+        Client client = new Client(pepUrl);
+        // remote call. TODO: should consider error handling
         Object[] params = new Object[]{pepSession.toElement(), myUrl.toString()};
         Document doc = (Document) client.execute("PEP.revokeAccess", params);
         return doc;
     }
-    
-    private PepAccessRequest buildPurifiedPepAccessRequest(UconSession uconSession, Collection<Attribute> expiredAttributes) {
-        // Rebuild the PEP request with valid attributes only
-        log.info(""+uconSession);
-        expiredAttributes.clear();
+
+    private PepAccessRequest rebuildPepAccessRequest(UconSession uconSession) {
+        // Rebuild the PEP request with valid attributes only.
+        // Puts expired ones in the expiredAttributes collection.
+        log.info("" + uconSession);
         Date now = new Date();
         PepAccessRequest accessRequest = new PepAccessRequest();
         for (Attribute a : uconSession.getAttributes()) {
             boolean isAttributeExpired = a.getExpires() != null && now.after(a.getExpires());
-            if(!isAttributeExpired) {           
+            if (!isAttributeExpired) {
                 PepRequestAttribute pepAttribute = new PepRequestAttribute(a.getId(), a.getType(), a.getValue(), a.getIssuer(), a.getCategory());
                 accessRequest.add(pepAttribute);
-            } else
-                expiredAttributes.add(a);
+            }
         }
         return accessRequest;
     }
-    
-    private PepSession checkSession(UconSession uconSession, boolean forceEvaluation) throws MalformedURLException, XmlRpcException {
-        // may return null if no evaluation is done (equivalent to Permit)
-        // Rebuild the PEP request with valid attributes only
-        log.info(uconSession.toString());
-        Collection<Attribute> expiredAttributes = new HashSet<>();
-        PepAccessRequest accessRequest = buildPurifiedPepAccessRequest(uconSession, expiredAttributes);
+
+    private PepSession evaluateRequest(PepAccessRequest accessRequest) throws MalformedURLException, XmlRpcException {
         PepSession pepSession = null;
-        // If some attribute expired, re-enrich the request the re-evaluate.
-        if(expiredAttributes.size() > 0 || forceEvaluation)  {
-            log.info("needs reevaluation -- enriching request");
-            for (PIP p : pip) 
-                p.enrich(accessRequest);
-            // Now make PDP evaluate the request
-            log.info("reevaluating request");
-            Document responseDocument = access(accessRequest, pdp[PdpEnum.POST]);
-            pepSession = new PepSession(responseDocument);
-            pepSession.addSession(uconSession.getId().toString(), uconSession.getCookie());
-            log.info("done, "+pepSession);
-        } 
+        // enrich the request the re-evaluate.
+        // TODO: should call only pips for changed attributes
+        log.info("enriching request");
+        for (PIP p : pip) {
+            p.enrich(accessRequest);
+        }
+        // Now make PDP evaluate the request
+        log.info("evaluating request");
+        Document responseDocument = access(accessRequest, pdp[PdpEnum.POST]);
+        pepSession = new PepSession(responseDocument);
+        log.info("done, " + pepSession);
         return pepSession;
     }
 
-    public void updateAccess(String sessionId) throws MalformedURLException, XmlRpcException {
-        Long id = Long.parseLong(sessionId);
-        UconSession uconSession = dal.getSession(id);
-        PepSession pepSession = checkSession(uconSession, false);
-        // Explicitly revoke access if anything went wrong
-        if (pepSession != null && pepSession.decision != PepAccessResponse.DecisionEnum.Permit) {
-            URL pepUrl = new URL(uconSession.getPepUrl());
-            revokeAccess(pepUrl, pepSession);
-            dal.endSession(id);
-        }
-    }
-
-    public Document heartbeat(URL pepUrl, List<String> sessionsList) throws ParserConfigurationException, MalformedURLException, XmlRpcException, SAXException, IOException {
+    public Document heartbeat(URL pepUrl, List<String> sessionsList) throws Exception {
         Collection<UconSession> sessions = dal.listSessions(pepUrl);
-        // Revoke access to any sessions opened by the registered url if no more allowed.
         Document doc = DomUtils.newDocument();
         Element responses = doc.createElement("Responses");
         doc.appendChild(responses);
         Date now = new Date();
-        for(UconSession session: sessions) {
+        // Permit sessions unknown to the client.
+        for (UconSession session : sessions) {
             boolean isNotKnownByClient = !sessionsList.remove(session.getId().toString());
-            
-            PepSession pepSession = checkSession(session, isNotKnownByClient);
-            boolean mustRemove = pepSession != null && pepSession.decision != PepAccessResponse.DecisionEnum.Permit;
-            if (isNotKnownByClient || mustRemove) {
+            if (isNotKnownByClient) {
+                PepAccessRequest pepAccessRequest = rebuildPepAccessRequest(session);
+                // Reevaluate request for safety
+                //PepSession pepSession = evaluateRequest(pepAccessRequest);
+                PepSession pepSession = new PepSession(PepAccessResponse.DecisionEnum.Permit, "Ongoing session");
+                pepSession.addSession(session.getId().toString(), session.getCookie());
+                log.warn("found session unknown to client: "+pepSession);
                 Node n = doc.adoptNode(pepSession.toElement());
+                // including enriched request information
+                n.appendChild(doc.adoptNode(pepAccessRequest.toElement()));
                 responses.appendChild(n);
-            } 
-            if(mustRemove)
-                dal.endSession(session.getId());
-            else  {
-                // "Touch" session
-                session.setLastSeen(now);
-                dal.save(session);
             }
+            // "Touch" session
+            session.setLastSeen(now);
+            dal.save(session);
         }
-        // Process sessions known by the client, but unknown to the server.
-        for(String id: sessionsList) {
+        // Revoke sessions known by the client, but unknown to the server.
+        for (String id : sessionsList) {
             PepSession pepSession = new PepSession(PepAccessResponse.DecisionEnum.NotApplicable, "Unexistent session");
             pepSession.addSession(id, null);
             Node n = doc.adoptNode(pepSession.toElement());
@@ -256,28 +232,64 @@ public class UCon extends Server {
         }
         return doc;
     }
-    
+
     public void endAccess(String sessionId) {
         Long id = Long.parseLong(sessionId);
         dal.endSession(id);
     }
 
     @Override
-    protected void heartbeat() {
+    protected void watchdog() {
         // List all sessions that were not heartbeaten since at least 2 periods
-        Date lastSeenBefore = new Date(new Date().getTime() - 1000*2*heartbeatPeriod);
-        Collection<UconSession> sessions = dal.listSessions(lastSeenBefore);
+        Date now = new Date();
+        Date lastSeenBefore = new Date(now.getTime() - 1000 * 2 * watchdogPeriod);
+        Collection<UconSession> expiredSessions = dal.listSessions(lastSeenBefore);
         // Remove them
-        for(UconSession session: sessions) {
-            log.warn("removing stale session "+session);
-            dal.endSession(session.getId());
+        for (UconSession expiredSession : expiredSessions) {
+            log.warn("removing stale session " + expiredSession);
+            dal.endSession(expiredSession.getId());
         }
-        log.info("OK");
+        // Gather all the sessions that involve expired attributes
+        Collection<Attribute> expiredAttributes = dal.listAttributes(now);
+        Collection<UconSession> involvedSessions = new HashSet<>();
+        for (Attribute expiredAttribute : expiredAttributes) {
+            log.info("changed attribute: {}", expiredAttribute);
+            involvedSessions.addAll(expiredAttribute.getSessions());
+        }
+        // Re-evaluating possible changed sessions
+        for (UconSession involvedSession : involvedSessions) {
+            try {
+                log.warn("involved session: {}", involvedSession);
+                // Rebuild PEP request without expired attributes 
+                PepAccessRequest pepAccessRequest = rebuildPepAccessRequest(involvedSession);
+                PepSession pepSession = evaluateRequest(pepAccessRequest);
+                pepSession.addSession(involvedSession.getId().toString(), involvedSession.getCookie());
+                boolean mustRevoke = pepSession.decision != PepAccessResponse.DecisionEnum.Permit;
+                // Explicitly revoke access if anything went wrong
+                if (mustRevoke) {
+                    log.warn("revoking {}", pepSession);
+                    URL pepUrl = new URL(involvedSession.getPepUrl());
+                    revokeAccess(pepUrl, pepSession);
+                } else {
+                    log.warn("updating {}", pepSession);
+                    dal.updateSession(involvedSession, pepAccessRequest);
+                }
+            } catch (MalformedURLException | XmlRpcException ex) {
+                log.error(ex.toString());
+            }
+
+        }
+        log.debug("OK (sessions: {})", dal.listSessions().size());
     }
 
-    public static void main(String[] args) throws Exception {
-        UCon ucon = getInstance();
-        ucon.pip.add(new PIP());
+    public synchronized void addPIP(PIP p) {
+        pip.add(p);
+        pipNameToInstanceMap.put(p.getClass().getCanonicalName(), p);
+    }
+
+    public synchronized PIP removePIP(PIP p) {
+        pipNameToInstanceMap.remove(p.getClass().getCanonicalName());
+        return pip.remove(p) ? p : null;
     }
 
 }

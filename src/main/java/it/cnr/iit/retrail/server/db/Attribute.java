@@ -42,10 +42,12 @@ public class Attribute implements Serializable {
     private String category;
     
     private String type, value, issuer;
-
+    
     @Temporal(javax.persistence.TemporalType.TIMESTAMP)
     private Date expires;
     
+    private String factory;
+
     public static Attribute newInstance(PepRequestAttribute pepAttribute) {
         Attribute attribute = new Attribute();
         attribute.id = pepAttribute.id;
@@ -54,6 +56,7 @@ public class Attribute implements Serializable {
         attribute.issuer = pepAttribute.issuer;
         attribute.category = pepAttribute.category;
         attribute.expires = pepAttribute.expires;
+        attribute.factory = pepAttribute.factory;
         return attribute;
     }
     
@@ -63,6 +66,7 @@ public class Attribute implements Serializable {
         issuer = pepAttribute.issuer;
         category = pepAttribute.category;
         expires = pepAttribute.expires;        
+        factory = pepAttribute.factory;        
     }
     
     public Collection<UconSession> getSessions() {
@@ -122,11 +126,19 @@ public class Attribute implements Serializable {
     public void setExpires(Date expires) {
         this.expires = expires;
     }
+
+    public String getFactory() {
+        return factory;
+    }
+
+    public void setFactory(String factory) {
+        this.factory = factory;
+    }
     
     //this is optional, just for print out into console
     @Override
     public String toString() {
-        return "Attribute [rowId="+rowId+", sessions="+sessions.size()+", id=" + id + ", type=" + type + ", value=" + value + ", issuer=" + issuer + ", category=" + category + "]";
+        return "Attribute [rowId="+rowId+", sessions="+sessions.size()+", id=" + id + ", type=" + type + ", value=" + value + ", issuer=" + issuer + ", category=" + category + "; constructor = "+factory+"]";
     }
 
 }

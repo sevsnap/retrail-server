@@ -26,7 +26,7 @@ public interface API {
 
     Node endAccess(String sessionId);
 
-    Node heartbeat(String pepUrl, List<String> sessionsList) throws MalformedURLException, ParserConfigurationException, XmlRpcException, SAXException, IOException;
+    Node heartbeat(String pepUrl, List<String> sessionsList) throws Exception;
 
     Node startAccess(Node accessRequest, String pepUrl) throws MalformedURLException;
 
