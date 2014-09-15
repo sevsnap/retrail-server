@@ -5,6 +5,7 @@
  */
 package it.cnr.iit.retrail.server.db;
 
+import it.cnr.iit.retrail.commons.PepSession;
 import java.io.Serializable;
 import java.util.Collection;
 import java.util.Date;
@@ -36,6 +37,8 @@ public class UconSession implements Serializable {
     private String cookie = randomId();
     
     private String pepUrl;
+    
+    PepSession.Status status = PepSession.Status.TRY;
     
     @Temporal(javax.persistence.TemporalType.TIMESTAMP)
     private Date lastSeen = new Date();
@@ -91,6 +94,14 @@ public class UconSession implements Serializable {
 
     public void setLastSeen(Date lastSeen) {
         this.lastSeen = lastSeen;
+    }
+
+    public PepSession.Status getStatus() {
+        return status;
+    }
+
+    public void setStatus(PepSession.Status status) {
+        this.status = status;
     }
     
     //this is optional, just for print out into console

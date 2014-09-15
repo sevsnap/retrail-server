@@ -18,20 +18,25 @@ public class APIImpl implements API {
     private static UCon ucon = UCon.getInstance();
 
     @Override
-    public Node tryAccess(Node accessRequest) {
+    public Node tryAccess(Node accessRequest, String pepUrl) throws MalformedURLException {
+        log.info("pepUrl={}", pepUrl);
         PepAccessRequest request = new PepAccessRequest((Document) accessRequest);
-        PepAccessResponse response =  ucon.tryAccess(request);
+        PepAccessResponse response =  ucon.tryAccess(request, new URL(pepUrl));
         return response.toElement();
     }
 
     @Override
-    public Node startAccess(Node accessRequest, String pepUrl) throws MalformedURLException {
-        log.info("pepUrl="+pepUrl);
-        PepAccessRequest request = new PepAccessRequest((Document) accessRequest);
-        PepAccessResponse response =  ucon.startAccess(request, new URL(pepUrl));
+    public Node startAccess(String sessionId) {
+        log.info("sessionId={}", sessionId);
+        PepAccessResponse response =  ucon.startAccess(Long.parseLong(sessionId));
         return response.toElement();
     }
-
+    
+    @Override
+    public Node endAccess(String sessionId) {
+        return ucon.endAccess(sessionId);
+    }
+    
     @Override
     public Node heartbeat(String pepUrl, List<String> sessionsList) throws Exception {
           log.debug("called, with url: "+pepUrl);
@@ -42,11 +47,6 @@ public class APIImpl implements API {
     public Node echo(Node node) throws TransformerConfigurationException, TransformerException {
         log.info("reply service for testing called, with node: {}", node);
         return node;
-    }
-
-    @Override
-    public Node endAccess(String sessionId) {
-        throw new UnsupportedOperationException("Not supported yet."); //To change body of generated methods, choose Tools | Templates.
     }
 
 }

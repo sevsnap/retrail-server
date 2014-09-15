@@ -24,12 +24,12 @@ public interface API {
 
     Node echo(Node node) throws TransformerConfigurationException, TransformerException;
 
+    Node tryAccess(Node accessRequest, String pepUrl) throws MalformedURLException;
+
+    Node startAccess(String sessionId);
+
     Node endAccess(String sessionId);
 
     Node heartbeat(String pepUrl, List<String> sessionsList) throws Exception;
 
-    Node startAccess(Node accessRequest, String pepUrl) throws MalformedURLException;
-
-    Node tryAccess(Node accessRequest);
-    
 }

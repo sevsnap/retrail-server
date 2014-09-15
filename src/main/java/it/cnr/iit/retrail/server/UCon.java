@@ -125,31 +125,30 @@ public class UCon extends Server {
 
     }
 
-    public PepAccessResponse tryAccess(PepAccessRequest accessRequest) {
-        log.info("called");
+    public PepSession tryAccess(PepAccessRequest accessRequest, URL pepUrl) {
         // First enrich the request by calling the PIPs
-        for (PIP p : pip) {
-            p.enrich(accessRequest);
-        }
+        enrichPepAccessRequest(accessRequest);
         // Now send the enriched request to the PDP
         Document responseDocument = access(accessRequest, pdp[PdpEnum.PRE]);
-        PepAccessResponse response = new PepAccessResponse(responseDocument);
-        return response;
-    }
-
-    public PepSession startAccess(PepAccessRequest accessRequest, URL pepUrl) {
-        log.info("called");
-        // First enrich the request by calling the PIPs
-        for (PIP p : pip) {
-            p.enrich(accessRequest);
-        }
-        log.info("PIP done");
-        // Now send the enriched request to the PDP
-        Document responseDocument = access(accessRequest, pdp[PdpEnum.ON]);
         PepSession pepSession = new PepSession(responseDocument);
         if (pepSession.decision == PepAccessResponse.DecisionEnum.Permit) {
             UconSession session = dal.startSession(accessRequest, pepUrl);
-            pepSession.addSession(session.getId().toString(), session.getCookie());
+            pepSession.addSession(session.getId().toString(), session.getCookie(), session.getStatus());
+        }
+        return pepSession;
+    }
+
+    public PepSession startAccess(Long sessionId) {
+        // Now send the enriched request to the PDP
+        UconSession uconSession = dal.getSession(sessionId);
+        PepAccessRequest pepAccessRequest = rebuildPepAccessRequest(uconSession);
+        enrichPepAccessRequest(pepAccessRequest);
+        Document responseDocument = access(pepAccessRequest, pdp[PdpEnum.ON]);
+        PepSession pepSession = new PepSession(responseDocument);
+        if (pepSession.decision == PepAccessResponse.DecisionEnum.Permit) {
+            pepSession.setStatus(PepSession.Status.ONGOING);
+            uconSession.setStatus(pepSession.getStatus());
+            dal.updateSession(uconSession, pepAccessRequest);
         }
         return pepSession;
     }
@@ -182,17 +181,21 @@ public class UCon extends Server {
         return accessRequest;
     }
 
-    private PepSession evaluateRequest(PepAccessRequest accessRequest) throws MalformedURLException, XmlRpcException {
-        PepSession pepSession = null;
-        // enrich the request the re-evaluate.
+    private void enrichPepAccessRequest(PepAccessRequest accessRequest) {
         // TODO: should call only pips for changed attributes
         log.info("enriching request");
         for (PIP p : pip) {
             p.enrich(accessRequest);
         }
+    }
+    
+    private PepSession evaluateRequest(PepAccessRequest accessRequest) throws MalformedURLException, XmlRpcException {
+        PepSession pepSession = null;
+        // enrich the request the re-evaluate.
+        enrichPepAccessRequest(accessRequest);
         // Now make PDP evaluate the request
         log.info("evaluating request");
-        Document responseDocument = access(accessRequest, pdp[PdpEnum.POST]);
+        Document responseDocument = access(accessRequest, pdp[PdpEnum.ON]);
         pepSession = new PepSession(responseDocument);
         log.info("done, " + pepSession);
         return pepSession;
@@ -212,7 +215,7 @@ public class UCon extends Server {
                 // Reevaluate request for safety
                 //PepSession pepSession = evaluateRequest(pepAccessRequest);
                 PepSession pepSession = new PepSession(PepAccessResponse.DecisionEnum.Permit, "Ongoing session");
-                pepSession.addSession(session.getId().toString(), session.getCookie());
+                pepSession.addSession(session.getId().toString(), session.getCookie(), session.getStatus());
                 log.warn("found session unknown to client: "+pepSession);
                 Node n = doc.adoptNode(pepSession.toElement());
                 // including enriched request information
@@ -226,16 +229,17 @@ public class UCon extends Server {
         // Revoke sessions known by the client, but unknown to the server.
         for (String id : sessionsList) {
             PepSession pepSession = new PepSession(PepAccessResponse.DecisionEnum.NotApplicable, "Unexistent session");
-            pepSession.addSession(id, null);
+            pepSession.addSession(id, null, PepSession.Status.REVOKED);
             Node n = doc.adoptNode(pepSession.toElement());
             responses.appendChild(n);
         }
         return doc;
     }
 
-    public void endAccess(String sessionId) {
+    public Node endAccess(String sessionId) {
         Long id = Long.parseLong(sessionId);
         dal.endSession(id);
+        return null;
     }
 
     @Override
@@ -263,7 +267,7 @@ public class UCon extends Server {
                 // Rebuild PEP request without expired attributes 
                 PepAccessRequest pepAccessRequest = rebuildPepAccessRequest(involvedSession);
                 PepSession pepSession = evaluateRequest(pepAccessRequest);
-                pepSession.addSession(involvedSession.getId().toString(), involvedSession.getCookie());
+                pepSession.addSession(involvedSession.getId().toString(), involvedSession.getCookie(), involvedSession.getStatus());
                 boolean mustRevoke = pepSession.decision != PepAccessResponse.DecisionEnum.Permit;
                 // Explicitly revoke access if anything went wrong
                 if (mustRevoke) {
@@ -279,7 +283,7 @@ public class UCon extends Server {
             }
 
         }
-        log.debug("OK (sessions: {})", dal.listSessions().size());
+        log.info("OK (sessions: {})", dal.listSessions().size());
     }
 
     public synchronized void addPIP(PIP p) {
