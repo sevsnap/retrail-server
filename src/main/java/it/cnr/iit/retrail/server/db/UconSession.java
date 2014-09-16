@@ -107,7 +107,7 @@ public class UconSession implements Serializable {
     //this is optional, just for print out into console
     @Override
     public String toString() {
-        return "UconSession [id=" + id + ", cookie=" + cookie + ", pepUrl="+pepUrl+", lastSeen="+lastSeen+"]";
+        return "UconSession [id=" + id + ", cookie=" + cookie +", status="+status+ ", pepUrl="+pepUrl+", lastSeen="+lastSeen+"]";
     }
     
     private static String randomId() {

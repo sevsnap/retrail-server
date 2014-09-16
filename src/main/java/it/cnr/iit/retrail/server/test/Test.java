@@ -16,8 +16,9 @@ public class Test {
 
     public static void main(String[] args) throws Exception {
         UCon ucon = UCon.getInstance();
-        ucon.addPIP(new TestPIPbalance(5));
-        ucon.addPIP(new TestPIPreputation("bronze"));
+        ucon.addPIP(new TestPIPSessions(1));
+        ucon.addPIP(new TestPIPReputation("bronze"));
+        ucon.addPIP(new TestPIPTimer(16));
     }
     
 }

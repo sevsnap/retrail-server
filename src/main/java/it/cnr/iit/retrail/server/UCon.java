@@ -127,13 +127,17 @@ public class UCon extends Server {
 
     public PepSession tryAccess(PepAccessRequest accessRequest, URL pepUrl) {
         // First enrich the request by calling the PIPs
-        enrichPepAccessRequest(accessRequest);
+        for (PIP p : pip) {
+            p.open(accessRequest);
+        }
         // Now send the enriched request to the PDP
         Document responseDocument = access(accessRequest, pdp[PdpEnum.PRE]);
         PepSession pepSession = new PepSession(responseDocument);
         if (pepSession.decision == PepAccessResponse.DecisionEnum.Permit) {
             UconSession session = dal.startSession(accessRequest, pepUrl);
             pepSession.addSession(session.getId().toString(), session.getCookie(), session.getStatus());
+        } else for (PIP p : pip) {
+                p.close(accessRequest);
         }
         return pepSession;
     }
@@ -142,7 +146,7 @@ public class UCon extends Server {
         // Now send the enriched request to the PDP
         UconSession uconSession = dal.getSession(sessionId);
         PepAccessRequest pepAccessRequest = rebuildPepAccessRequest(uconSession);
-        enrichPepAccessRequest(pepAccessRequest);
+        refreshPepAccessRequest(pepAccessRequest);
         Document responseDocument = access(pepAccessRequest, pdp[PdpEnum.ON]);
         PepSession pepSession = new PepSession(responseDocument);
         if (pepSession.decision == PepAccessResponse.DecisionEnum.Permit) {
@@ -168,7 +172,20 @@ public class UCon extends Server {
     private PepAccessRequest rebuildPepAccessRequest(UconSession uconSession) {
         // Rebuild the PEP request with valid attributes only.
         // Puts expired ones in the expiredAttributes collection.
-        log.info("" + uconSession);
+        log.debug("" + uconSession);
+        Date now = new Date();
+        PepAccessRequest accessRequest = new PepAccessRequest();
+        for (Attribute a : uconSession.getAttributes()) {
+            PepRequestAttribute pepAttribute = new PepRequestAttribute(a.getId(), a.getType(), a.getValue(), a.getIssuer(), a.getCategory(), a.getFactory());
+            accessRequest.add(pepAttribute);
+        }
+        return accessRequest;
+    }
+
+    private PepAccessRequest rebuildCleanPepAccessRequest(UconSession uconSession) {
+        // Rebuild the PEP request with valid attributes only.
+        // Puts expired ones in the expiredAttributes collection.
+        log.debug("" + uconSession);
         Date now = new Date();
         PepAccessRequest accessRequest = new PepAccessRequest();
         for (Attribute a : uconSession.getAttributes()) {
@@ -181,24 +198,12 @@ public class UCon extends Server {
         return accessRequest;
     }
 
-    private void enrichPepAccessRequest(PepAccessRequest accessRequest) {
+    private void refreshPepAccessRequest(PepAccessRequest accessRequest) {
         // TODO: should call only pips for changed attributes
-        log.info("enriching request");
+        log.debug("refreshing request attributes");
         for (PIP p : pip) {
-            p.enrich(accessRequest);
+            p.refresh(accessRequest);
         }
-    }
-    
-    private PepSession evaluateRequest(PepAccessRequest accessRequest) throws MalformedURLException, XmlRpcException {
-        PepSession pepSession = null;
-        // enrich the request the re-evaluate.
-        enrichPepAccessRequest(accessRequest);
-        // Now make PDP evaluate the request
-        log.info("evaluating request");
-        Document responseDocument = access(accessRequest, pdp[PdpEnum.ON]);
-        pepSession = new PepSession(responseDocument);
-        log.info("done, " + pepSession);
-        return pepSession;
     }
 
     public Document heartbeat(URL pepUrl, List<String> sessionsList) throws Exception {
@@ -216,7 +221,7 @@ public class UCon extends Server {
                 //PepSession pepSession = evaluateRequest(pepAccessRequest);
                 PepSession pepSession = new PepSession(PepAccessResponse.DecisionEnum.Permit, "Ongoing session");
                 pepSession.addSession(session.getId().toString(), session.getCookie(), session.getStatus());
-                log.warn("found session unknown to client: "+pepSession);
+                log.warn("found session unknown to client: " + pepSession);
                 Node n = doc.adoptNode(pepSession.toElement());
                 // including enriched request information
                 n.appendChild(doc.adoptNode(pepAccessRequest.toElement()));
@@ -236,9 +241,63 @@ public class UCon extends Server {
         return doc;
     }
 
+    private void reevaluateSessions(Collection<UconSession> involvedSessions) {
+        for (UconSession involvedSession : involvedSessions) {
+            PepSession pepSession = null;
+            try {
+                log.debug("involved session: {}", involvedSession);
+                // Rebuild PEP request without expired attributes 
+                PepAccessRequest pepAccessRequest = rebuildPepAccessRequest(involvedSession);
+                // refresh the request the ren-evaluate.
+                refreshPepAccessRequest(pepAccessRequest);
+                // Now make PDP evaluate the request
+                log.debug("evaluating request");
+                Document responseDocument = access(pepAccessRequest, pdp[PdpEnum.ON]);
+                pepSession = new PepSession(responseDocument);
+                pepSession.addSession(involvedSession.getId().toString(), involvedSession.getCookie(), involvedSession.getStatus());
+                log.debug("evaluated request: " + pepSession);
+                boolean mustRevoke = pepSession.decision != PepAccessResponse.DecisionEnum.Permit;
+                // Explicitly revoke access if anything went wrong
+                if (mustRevoke) {
+                    log.warn("revoking {}", pepSession);
+                    URL pepUrl = new URL(involvedSession.getPepUrl());
+                    revokeAccess(pepUrl, pepSession);
+                } else {
+                    log.info("updating {}", pepSession);
+                    dal.updateSession(involvedSession, pepAccessRequest);
+                }
+            } catch (MalformedURLException | XmlRpcException ex) {
+                log.error(ex.toString());
+            }
+        }
+    }
+
+    public void notifyChanges(Collection<PepRequestAttribute> changedAttributes) {
+        // Gather all the sessions that involve the changed attributes
+        log.info("{} attributes changed, updating db", changedAttributes.size());
+        Collection<UconSession> involvedSessions = dal.updateAttributes(changedAttributes);
+        reevaluateSessions(involvedSessions);
+        log.debug("done (total sessions: {})", dal.listSessions().size());
+    }
+
+    public void notifyChanges(PepRequestAttribute changedAttribute) {
+        Collection<PepRequestAttribute> attributes = new ArrayList(1);
+        attributes.add(changedAttribute);
+        notifyChanges(attributes);
+    }
+
     public Node endAccess(String sessionId) {
         Long id = Long.parseLong(sessionId);
-        dal.endSession(id);
+        UconSession session = dal.getSession(id);
+        if (session != null) {
+            PepAccessRequest request = rebuildPepAccessRequest(session);
+            for (PIP p : pip) {
+                p.close(request);
+            }
+            dal.endSession(session);
+        } else {
+            log.error("session {} is unknown, ignoring", sessionId);
+        }
         return null;
     }
 
@@ -251,49 +310,36 @@ public class UCon extends Server {
         // Remove them
         for (UconSession expiredSession : expiredSessions) {
             log.warn("removing stale session " + expiredSession);
-            dal.endSession(expiredSession.getId());
+            endAccess(expiredSession.getId().toString());
         }
         // Gather all the sessions that involve expired attributes
-        Collection<Attribute> expiredAttributes = dal.listAttributes(now);
-        Collection<UconSession> involvedSessions = new HashSet<>();
-        for (Attribute expiredAttribute : expiredAttributes) {
-            log.info("changed attribute: {}", expiredAttribute);
-            involvedSessions.addAll(expiredAttribute.getSessions());
-        }
-        // Re-evaluating possible changed sessions
-        for (UconSession involvedSession : involvedSessions) {
-            try {
-                log.warn("involved session: {}", involvedSession);
-                // Rebuild PEP request without expired attributes 
-                PepAccessRequest pepAccessRequest = rebuildPepAccessRequest(involvedSession);
-                PepSession pepSession = evaluateRequest(pepAccessRequest);
-                pepSession.addSession(involvedSession.getId().toString(), involvedSession.getCookie(), involvedSession.getStatus());
-                boolean mustRevoke = pepSession.decision != PepAccessResponse.DecisionEnum.Permit;
-                // Explicitly revoke access if anything went wrong
-                if (mustRevoke) {
-                    log.warn("revoking {}", pepSession);
-                    URL pepUrl = new URL(involvedSession.getPepUrl());
-                    revokeAccess(pepUrl, pepSession);
-                } else {
-                    log.warn("updating {}", pepSession);
-                    dal.updateSession(involvedSession, pepAccessRequest);
-                }
-            } catch (MalformedURLException | XmlRpcException ex) {
-                log.error(ex.toString());
-            }
-
-        }
-        log.info("OK (sessions: {})", dal.listSessions().size());
+        Collection<UconSession> outdatedSessions = dal.listOutdatedSessions();
+        // Re-evaluating possible outdated sessions
+        reevaluateSessions(outdatedSessions);
+        log.debug("OK (sessions: {})", dal.listSessions().size());
     }
 
     public synchronized void addPIP(PIP p) {
-        pip.add(p);
-        pipNameToInstanceMap.put(p.getClass().getCanonicalName(), p);
+        String uuid = p.getUUID();
+        if (!pipNameToInstanceMap.containsKey(uuid)) {
+            p.init();
+            pipNameToInstanceMap.put(uuid, p);
+            pip.add(p);
+        } else {
+            log.warn("{} already in filter chain -- ignoring", p);
+        }
     }
 
     public synchronized PIP removePIP(PIP p) {
-        pipNameToInstanceMap.remove(p.getClass().getCanonicalName());
-        return pip.remove(p) ? p : null;
+        String uuid = p.getUUID();
+        if (pipNameToInstanceMap.containsKey(uuid)) {
+            p.term();
+            pipNameToInstanceMap.remove(uuid);
+            pip.remove(p);
+        } else {
+            log.warn("{} not in filter chain -- ignoring", p);
+        }
+        return p;
     }
 
 }

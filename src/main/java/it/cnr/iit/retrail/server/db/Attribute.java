@@ -138,7 +138,7 @@ public class Attribute implements Serializable {
     //this is optional, just for print out into console
     @Override
     public String toString() {
-        return "Attribute [rowId="+rowId+", sessions="+sessions.size()+", id=" + id + ", type=" + type + ", value=" + value + ", issuer=" + issuer + ", category=" + category + "; constructor = "+factory+"]";
+        return "Attribute [rowId="+rowId+", sessions="+sessions.size()+", id=" + id + ", type=" + type + ", value=" + value + ", issuer=" + issuer + ", category=" + category + "; factory="+factory+"]";
     }
 
 }

@@ -11,6 +11,7 @@ import it.cnr.iit.retrail.commons.PepSession;
 import java.net.URL;
 import java.util.Collection;
 import java.util.Date;
+import java.util.HashSet;
 import java.util.List;
 import javax.persistence.EntityManager;
 import javax.persistence.EntityManagerFactory;
@@ -46,11 +47,10 @@ public class DAL {
         return instance;
     }
 
-    private void debugDump() {
-        EntityManager em = getEntityManager();
+    public void debugDump() {
         log.info("current open sessions:");
-        TypedQuery<UconSession> q = em.createQuery("select session from UconSession session", UconSession.class);
-        for (UconSession s : q.getResultList()) {
+        Collection<UconSession> q = listSessions();
+        for (UconSession s : q) {
             log.info("\t" + s);
             for (Attribute a : s.getAttributes()) {
                 log.info("\t\t" + a);
@@ -101,14 +101,14 @@ public class DAL {
         return sessions;
     }
 
-    public Collection<Attribute> listAttributes(Date invalidAfter) {
+    public Collection<UconSession> listOutdatedSessions() {
         EntityManager em = getEntityManager();
-        TypedQuery<Attribute> q = em.createQuery(
-                "select a from Attribute a where a is not null and a.expires < :invalidAfter",
-                Attribute.class)
-                .setParameter("invalidAfter", invalidAfter);
-        Collection<Attribute> attributes = q.getResultList();
-        return attributes;
+        TypedQuery<UconSession> q = em.createQuery(
+                "select distinct s from Attribute a, UconSession s where s member of a.sessions and a.expires < :now",
+                UconSession.class)
+                .setParameter("now", new Date());
+        Collection<UconSession> involvedSessions = q.getResultList();
+        return involvedSessions;
     }
 
     public Collection<Attribute> listAttributes(URL pepUrl) {
@@ -122,18 +122,55 @@ public class DAL {
         return attributes;
     }
 
-    private void updateSession(EntityManager em, UconSession uconSession, Collection<PepRequestAttribute> pepAttributes) {
+    public Collection<Attribute> listAttributes(String factory) {
+        EntityManager em = getEntityManager();
+        TypedQuery<Attribute> q = em.createQuery(
+                "select a from Attribute a where a.factory = :factory and a.expires is null",
+                Attribute.class)
+                .setParameter("factory", factory);
+        Collection<Attribute> attributes = q.getResultList();
+        //debugDump();
+        return attributes;
+    }
+
+    private Attribute updateAttribute(EntityManager em, PepRequestAttribute pepAttribute) {
+        Attribute attribute;
+        TypedQuery<Attribute> q = em.createQuery(
+                "select a from Attribute a where a.id = :id and a.category = :category",
+                Attribute.class)
+                .setParameter("id", pepAttribute.id)
+                .setParameter("category", pepAttribute.category);
+        attribute = q.getSingleResult();
+        attribute.copy(pepAttribute);
+        attribute = em.merge(attribute);
+        return attribute;
+    }
+
+    public Collection<UconSession> updateAttributes(Collection<PepRequestAttribute> pepAttributes) {
+        EntityManager em = getEntityManager();
+        Collection<UconSession> involvedSessions = new HashSet<>();
+        //start transaction with method begin()
+        em.getTransaction().begin();
+        try {
+            for (PepRequestAttribute pepAttribute : pepAttributes) {
+                Attribute attribute = updateAttribute(em, pepAttribute);
+                involvedSessions.addAll(attribute.getSessions());
+            }
+            em.getTransaction().commit();
+        } catch (Exception e) {
+            log.error("cannot update");
+            em.getTransaction().rollback();
+            throw e;
+        }
+        return involvedSessions;
+    }
+
+    private Collection<UconSession> updateSession(EntityManager em, UconSession uconSession, Collection<PepRequestAttribute> pepAttributes) {
+        Collection<UconSession> involvedSessions = new HashSet<>();
+        Attribute attribute;
         for (PepRequestAttribute pepAttribute : pepAttributes) {
-            Attribute attribute;
-            TypedQuery<Attribute> q = em.createQuery(
-                    "select a from Attribute a where a.id = :id and a.category = :category",
-                    Attribute.class)
-                    .setParameter("id", pepAttribute.id)
-                    .setParameter("category", pepAttribute.category);
             try {
-                attribute = q.getSingleResult();
-                attribute.copy(pepAttribute);
-                attribute = em.merge(attribute);
+                attribute = updateAttribute(em, pepAttribute);
                 // If this attribute is already in the session, remove it first for safety.
                 uconSession.removeAttribute(attribute);
             } catch (NoResultException e) {
@@ -141,7 +178,9 @@ public class DAL {
                 em.persist(attribute);
             }
             uconSession.addAttribute(attribute);
+            involvedSessions.addAll(attribute.getSessions());
         }
+        return involvedSessions;
     }
 
     public UconSession startSession(Collection<PepRequestAttribute> pepAttributes, URL pepUrl) {
@@ -163,9 +202,10 @@ public class DAL {
         return uconSession;
     }
 
+    @Deprecated
     public void updateSession(UconSession uconSession, Collection<PepRequestAttribute> pepAttributes) {
         // Store request's attributes to the database
-        log.info("" + uconSession);
+        log.debug("" + uconSession);
         EntityManager em = getEntityManager();
         //start transaction with method begin()
         em.getTransaction().begin();
@@ -176,7 +216,7 @@ public class DAL {
             em.getTransaction().rollback();
             throw e;
         }
-        debugDump();
+
     }
 
     public UconSession getSession(Long sessionId) {
@@ -186,7 +226,7 @@ public class DAL {
     }
 
     private void removeAttributes(EntityManager em, UconSession uconSession) {
-        log.info("removing all attributes for " + uconSession);
+        log.debug("removing all attributes for " + uconSession);
         while (uconSession.getAttributes().size() > 0) {
             Attribute a = uconSession.getAttributes().iterator().next();
             uconSession.removeAttribute(a);
@@ -195,6 +235,18 @@ public class DAL {
             }
         }
         uconSession.getAttributes().clear();
+    }
+
+    public Attribute getAttribute(String id, String category, String factory) {
+        EntityManager em = getEntityManager();
+        TypedQuery<Attribute> q = em.createQuery(
+                "select a from Attribute a where a.id = :id and a: category = :category and a.factory = :factory",
+                Attribute.class)
+                .setParameter("id", id)
+                .setParameter("category", category)
+                .setParameter("factory", factory);
+        Attribute attribute = q.getSingleResult();
+        return attribute;
     }
 
     public UconSession revokeSession(Long sessionId) {
@@ -217,31 +269,30 @@ public class DAL {
             em.getTransaction().rollback();
             throw e;
         }
-        debugDump();
+        //debugDump();
         return uconSession;
     }
 
-    public UconSession endSession(Long sessionId) {
-        log.info("removing " + sessionId);
-        UconSession uconSession = null;
+    public UconSession endSession(UconSession uconSession) {
+        log.info("revoking " + uconSession);
         EntityManager em = getEntityManager();
         //start transaction with method begin()
         em.getTransaction().begin();
         try {
-            uconSession = em.find(UconSession.class, sessionId);
+            uconSession = em.merge(uconSession);
             if (uconSession != null) {
                 removeAttributes(em, uconSession);
                 uconSession = em.merge(uconSession);
                 em.remove(uconSession);
             } else {
-                log.error("cannot find session with id={}", sessionId);
+                log.error("cannot find {}", uconSession);
             }
             em.getTransaction().commit();
         } catch (Exception e) {
             em.getTransaction().rollback();
             throw e;
         }
-        debugDump();
+        //debugDump();
         return uconSession;
     }
 
