@@ -40,7 +40,7 @@ public abstract class PIP {
     
     protected Collection<PepRequestAttribute> listAttributes() {
         Collection<PepRequestAttribute> pepAttributes = new ArrayList<>();
-        for(Attribute a: dal.listAttributes(uuid))
+        for(Attribute a: dal.listAttributesByFactory(uuid))
             pepAttributes.add(new PepRequestAttribute(a.getId(), a.getType(), a.getValue(), a.getIssuer(), a.getCategory(), a.getFactory()));
         return pepAttributes;
     }

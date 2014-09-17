@@ -22,15 +22,12 @@ import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
-import java.util.logging.Level;
-import java.util.logging.Logger;
 import org.apache.xmlrpc.XmlRpcException;
 import org.w3c.dom.Document;
 import org.w3c.dom.Element;
 import org.w3c.dom.Node;
 import org.wso2.balana.PDP;
 import org.wso2.balana.PDPConfig;
-import org.wso2.balana.ParsingException;
 import org.wso2.balana.ctx.AbstractRequestCtx;
 import org.wso2.balana.ctx.RequestCtxFactory;
 import org.wso2.balana.ctx.ResponseCtx;
@@ -168,7 +165,10 @@ public class UCon extends Server {
 
     private Document revokeAccess(URL pepUrl, PepSession pepSession) throws XmlRpcException {
         // revoke session on db
-        dal.revokeSession(pepSession.getUuid());
+        UconSession uconSession = dal.getSession(pepSession.getUuid());
+        if(uconSession == null)
+            throw new RuntimeException("cannot find session with uuid=" + pepSession.getUuid());
+        dal.revokeSession(uconSession);
         // create client
         log.warn("invoking PEP at " + pepUrl + " to revoke " + pepSession);
         Client client = new Client(pepUrl);
@@ -243,7 +243,7 @@ public class UCon extends Server {
         // Revoke sessions known by the client, but unknown to the server.
         for (String uuid : sessionsList) {
             PepSession pepSession = new PepSession(PepAccessResponse.DecisionEnum.NotApplicable, "Unexistent session");
-            pepSession.addSessionElement(uuid, null, PepSession.Status.REVOKED, myUrl);
+            pepSession.addSessionElement(uuid, null, PepSession.Status.DELETED, myUrl);
             Node n = doc.adoptNode(pepSession.toElement());
             responses.appendChild(n);
         }

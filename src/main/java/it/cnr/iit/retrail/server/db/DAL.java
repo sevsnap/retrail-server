@@ -35,7 +35,11 @@ public class DAL {
     final private ThreadLocal entityManager;
 
     public EntityManager getEntityManager() {
-        return (EntityManager) entityManager.get();
+        EntityManager em = (EntityManager) entityManager.get();
+        // clearing the entity manager is fundamental to avoid stale objects that
+        // may have been updated by other threads!
+        em.clear();
+        return em;
     }
 
     private static DAL instance;
@@ -57,7 +61,7 @@ public class DAL {
             }
         }
         //System.out.println("DAL: all attributes:");
-        //for (Attribute a: listAttributes())
+        //for (Attribute a: listAttributesByFactory())
         //        System.out.println("\t" + a);
     }
 
@@ -123,7 +127,8 @@ public class DAL {
         return attributes;
     }
 
-    public Collection<Attribute> listAttributes(String factory) {
+    public Collection<Attribute> listAttributesByFactory(String factory) {
+        log.debug("begin");
         EntityManager em = getEntityManager();
         TypedQuery<Attribute> q = em.createQuery(
                 "select a from Attribute a where a.factory = :factory and a.expires is null",
@@ -131,6 +136,7 @@ public class DAL {
                 .setParameter("factory", factory);
         Collection<Attribute> attributes = q.getResultList();
         //debugDump();
+        log.debug("end");
         return attributes;
     }
 
@@ -155,7 +161,11 @@ public class DAL {
         try {
             for (PepRequestAttribute pepAttribute : pepAttributes) {
                 Attribute attribute = updateAttribute(em, pepAttribute);
-                involvedSessions.addAll(attribute.getSessions());
+                for (UconSession uconSession : attribute.getSessions()) {
+                    if (uconSession.getStatus() == PepSession.Status.ONGOING) {
+                        involvedSessions.add(uconSession);
+                    }
+                }
             }
             em.getTransaction().commit();
         } catch (Exception e) {
@@ -193,10 +203,12 @@ public class DAL {
         try {
             uconSession = new UconSession();
             uconSession.setPepUrl(pepUrl.toString());
-            if(customId == null)
-                customId = uconSession.getUuid();
-            uconSession.setCustomId(customId);
             em.persist(uconSession);
+            uconSession = em.merge(uconSession);
+            if (customId == null || customId.length() == 0) {
+                customId = uconSession.getUuid();
+            }
+            uconSession.setCustomId(customId);
             updateSession(em, uconSession, pepAttributes);
             em.getTransaction().commit();
         } catch (Exception e) {
@@ -209,10 +221,12 @@ public class DAL {
     @Deprecated
     public void updateSession(UconSession uconSession, Collection<PepRequestAttribute> pepAttributes) {
         // Store request's attributes to the database
-        log.debug("" + uconSession);
+        log.debug("begin " + uconSession);
         EntityManager em = getEntityManager();
         //start transaction with method begin()
         em.getTransaction().begin();
+        uconSession = em.merge(uconSession);
+        
         try {
             updateSession(em, uconSession, pepAttributes);
             em.getTransaction().commit();
@@ -220,6 +234,7 @@ public class DAL {
             em.getTransaction().rollback();
             throw e;
         }
+        log.debug("end " + uconSession);
 
     }
 
@@ -264,21 +279,16 @@ public class DAL {
         return attribute;
     }
 
-    public UconSession revokeSession(String uuid) {
-        log.info("revoking " + uuid);
-        UconSession uconSession = null;
+    public UconSession revokeSession(UconSession uconSession) {
+        log.info("revoking " + uconSession);
         EntityManager em = getEntityManager();
         //start transaction with method begin()
         em.getTransaction().begin();
         try {
-            uconSession = getSession(uuid);
-            if (uconSession != null) {
-                removeAttributes(em, uconSession);
-                uconSession.setStatus(PepSession.Status.REVOKED);
-                uconSession = em.merge(uconSession);
-            } else {
-                log.error("cannot find session with uuid={}", uuid);
-            }
+            uconSession = em.merge(uconSession);
+            removeAttributes(em, uconSession);
+            uconSession.setStatus(PepSession.Status.REVOKED);
+            uconSession = em.merge(uconSession);
             em.getTransaction().commit();
         } catch (Exception e) {
             em.getTransaction().rollback();

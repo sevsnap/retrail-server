@@ -11,13 +11,19 @@ import java.util.Collection;
 import java.util.Date;
 import java.util.HashSet;
 import java.util.Random;
+import javax.persistence.Basic;
+import javax.persistence.Convert;
 import javax.persistence.Entity;
+import javax.persistence.EnumType;
+import javax.persistence.Enumerated;
 import javax.persistence.GeneratedValue;
 import javax.persistence.GenerationType;
 import javax.persistence.Id;
 import javax.persistence.ManyToMany;
 import javax.persistence.Temporal;
+
 import org.eclipse.persistence.annotations.Index;
+
 
 /**
  *
@@ -40,7 +46,7 @@ public class UconSession implements Serializable {
     
     private String pepUrl;
     
-    PepSession.Status status = PepSession.Status.TRY;
+    private PepSession.Status status = PepSession.Status.TRY;
     
     @Temporal(javax.persistence.TemporalType.TIMESTAMP)
     private Date lastSeen = new Date();
