@@ -183,7 +183,7 @@ public class DAL {
         return involvedSessions;
     }
 
-    public UconSession startSession(Collection<PepRequestAttribute> pepAttributes, URL pepUrl) {
+    public UconSession startSession(Collection<PepRequestAttribute> pepAttributes, URL pepUrl, String customId) {
         UconSession uconSession = null;
         // Store request's attributes to the database
         EntityManager em = getEntityManager();
@@ -192,6 +192,9 @@ public class DAL {
         try {
             uconSession = new UconSession();
             uconSession.setPepUrl(pepUrl.toString());
+            if(customId == null)
+                customId = uconSession.getSystemId();
+            uconSession.setCustomId(customId);
             em.persist(uconSession);
             updateSession(em, uconSession, pepAttributes);
             em.getTransaction().commit();
@@ -219,9 +222,29 @@ public class DAL {
 
     }
 
-    public UconSession getSession(Long sessionId) {
+    public UconSession getSession(String systemId) {
+        // TODO use custom generated value
         EntityManager em = getEntityManager();
-        UconSession uconSession = em.find(UconSession.class, sessionId);
+        TypedQuery<UconSession> q = em.createQuery(
+                "select s from UconSession s where s.systemId = :id",
+                UconSession.class)
+                .setParameter("id", systemId);
+        UconSession uconSession = null;
+        try {
+            uconSession = q.getSingleResult();            
+        } catch(NoResultException e) {
+        }
+        return uconSession;
+    }
+
+    @Deprecated
+    public UconSession getSessionByCustomId(String customId) {
+        EntityManager em = getEntityManager();
+        TypedQuery<UconSession> q = em.createQuery(
+                "select s from UconSession s where s.customId = :id",
+                UconSession.class)
+                .setParameter("id", customId);
+        UconSession uconSession = q.getSingleResult();
         return uconSession;
     }
 
@@ -249,20 +272,20 @@ public class DAL {
         return attribute;
     }
 
-    public UconSession revokeSession(Long sessionId) {
-        log.info("revoking " + sessionId);
+    public UconSession revokeSession(String systemId) {
+        log.info("revoking " + systemId);
         UconSession uconSession = null;
         EntityManager em = getEntityManager();
         //start transaction with method begin()
         em.getTransaction().begin();
         try {
-            uconSession = em.find(UconSession.class, sessionId);
+            uconSession = getSession(systemId);
             if (uconSession != null) {
                 removeAttributes(em, uconSession);
                 uconSession.setStatus(PepSession.Status.REVOKED);
                 uconSession = em.merge(uconSession);
             } else {
-                log.error("cannot find session with id={}", sessionId);
+                log.error("cannot find session with systemId={}", systemId);
             }
             em.getTransaction().commit();
         } catch (Exception e) {
@@ -274,7 +297,7 @@ public class DAL {
     }
 
     public UconSession endSession(UconSession uconSession) {
-        log.info("revoking " + uconSession);
+        log.info("ending " + uconSession);
         EntityManager em = getEntityManager();
         //start transaction with method begin()
         em.getTransaction().begin();

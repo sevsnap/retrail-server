@@ -15,27 +15,29 @@ import org.w3c.dom.Node;
 
 public class APIImpl implements API {
     protected static final Logger log = LoggerFactory.getLogger(APIImpl.class);
-    private static UCon ucon = UCon.getInstance();
+    private static final UCon ucon = UCon.getInstance();
 
     @Override
-    public Node tryAccess(Node accessRequest, String pepUrl) throws MalformedURLException {
-        log.info("pepUrl={}", pepUrl);
+    public Node tryAccess(Node accessRequest, String pepUrl, String customId) throws MalformedURLException {
+        log.info("pepUrl={}, customId={}", pepUrl, customId);
         PepAccessRequest request = new PepAccessRequest((Document) accessRequest);
-        PepAccessResponse response =  ucon.tryAccess(request, new URL(pepUrl));
+        PepAccessResponse response =  ucon.tryAccess(request, new URL(pepUrl), customId);
         return response.toElement();
     }
 
     @Override
-    public Node startAccess(String sessionId) {
-        log.info("sessionId={}", sessionId);
-        PepAccessResponse response =  ucon.startAccess(Long.parseLong(sessionId));
+    public Node startAccess(String systemId, String customId) throws MalformedURLException {
+        log.info("systemId={}, customId={}", systemId, customId);
+        systemId = ucon.getSessionId(systemId, customId);
+        PepAccessResponse response =  ucon.startAccess(systemId);
         return response.toElement();
     }
     
     @Override
-    public Node endAccess(String sessionId) {
-        log.info("sessionId={}", sessionId);
-        return ucon.endAccess(sessionId);
+    public Node endAccess(String systemId, String customId) {
+        log.info("systemId={}, customId={}", systemId, customId);
+        systemId = ucon.getSessionId(systemId, customId);
+        return ucon.endAccess(systemId);
     }
     
     @Override
@@ -48,6 +50,13 @@ public class APIImpl implements API {
     public Node echo(Node node) throws TransformerConfigurationException, TransformerException {
         log.info("reply service for testing called, with node: {}", node);
         return node;
+    }
+
+    @Override
+    public Node assignCustomId(String systemId, String oldCustomId, String newCustomId) {
+        log.info("systemId={}, oldCustomId={}, newCustomId={}", systemId, oldCustomId, newCustomId);
+        systemId = ucon.getSessionId(systemId, oldCustomId);
+        return ucon.assignCustomId(systemId, newCustomId);
     }
 
 }

@@ -26,15 +26,18 @@ import org.eclipse.persistence.annotations.Index;
 @Entity
 public class UconSession implements Serializable {
 
-    //For SQLite use GenerationType.AUTO to generate id
+    //For SQLite use GenerationType.AUTO to generate rowId
     //for derby, H2, MySQL etc use GenerationType.IDENTITY
     @Id
     //@GeneratedValue(strategy = GenerationType.AUTO)
     @GeneratedValue(strategy = GenerationType.IDENTITY)
-    private Long id;
+    private Long rowId;
     
     @Index(unique=true)
-    private String cookie = randomId();
+    private final String systemId = randomId();
+    
+    @Index(unique=true)
+    private String customId;
     
     private String pepUrl;
     
@@ -64,20 +67,16 @@ public class UconSession implements Serializable {
         }
     }
     
-    public String getCookie() {
-        return cookie;
+    public String getCustomId() {
+        return customId;
     }
 
-    public void setCookie(String cookie) {
-        this.cookie = cookie;
+    public void setCustomId(String customId) {
+        this.customId = customId;
     }
 
-    public Long getId() {
-        return id;
-    }
-
-    public void setId(Long id) {
-        this.id = id;
+    public Long getRowId() {
+        return rowId;
     }
 
     public String getPepUrl() {
@@ -103,11 +102,15 @@ public class UconSession implements Serializable {
     public void setStatus(PepSession.Status status) {
         this.status = status;
     }
-    
+
+    public String getSystemId() {
+        return systemId;
+    }
+
     //this is optional, just for print out into console
     @Override
     public String toString() {
-        return "UconSession [id=" + id + ", cookie=" + cookie +", status="+status+ ", pepUrl="+pepUrl+", lastSeen="+lastSeen+"]";
+        return "UconSession [id=" + rowId + ", systemId=" + systemId  + ", customId=" + customId +", status="+status+ ", pepUrl="+pepUrl+", lastSeen="+lastSeen+"]";
     }
     
     private static String randomId() {

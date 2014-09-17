@@ -6,15 +6,11 @@
 
 package it.cnr.iit.retrail.server;
 
-import java.io.IOException;
 import java.net.MalformedURLException;
 import java.util.List;
-import javax.xml.parsers.ParserConfigurationException;
 import javax.xml.transform.TransformerConfigurationException;
 import javax.xml.transform.TransformerException;
-import org.apache.xmlrpc.XmlRpcException;
 import org.w3c.dom.Node;
-import org.xml.sax.SAXException;
 
 /**
  *
@@ -24,11 +20,13 @@ public interface API {
 
     Node echo(Node node) throws TransformerConfigurationException, TransformerException;
 
-    Node tryAccess(Node accessRequest, String pepUrl) throws MalformedURLException;
+    Node tryAccess(Node accessRequest, String pepUrl, String customId) throws MalformedURLException;
 
-    Node startAccess(String sessionId);
+    Node assignCustomId(String systemid, String oldCustomId, String newCustomId);
+    
+    Node startAccess(String systemId, String customId) throws MalformedURLException;
 
-    Node endAccess(String sessionId);
+    Node endAccess(String systemId, String customId) throws MalformedURLException;
 
     Node heartbeat(String pepUrl, List<String> sessionsList) throws Exception;
 

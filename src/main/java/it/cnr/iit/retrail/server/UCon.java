@@ -114,18 +114,14 @@ public class UCon extends Server {
             ResponseCtx response = p.evaluate(request);
             String responseString = response.encode();
             accessResponse = DomUtils.read(responseString);
-        } catch (ParsingException ex) {
-            log.error("*** STICAZZI");
-            Logger.getLogger(UCon.class.getName()).log(Level.SEVERE, null, ex);
         } catch (Exception ex) {
-            log.error("*** STICAZZI GRAVE");
-            Logger.getLogger(UCon.class.getName()).log(Level.SEVERE, null, ex);
+            log.error(ex.getMessage());
         }
         return accessResponse;
 
     }
 
-    public PepSession tryAccess(PepAccessRequest accessRequest, URL pepUrl) {
+    public PepSession tryAccess(PepAccessRequest accessRequest, URL pepUrl, String customId) throws MalformedURLException {
         // First enrich the request by calling the PIPs
         for (PIP p : pip) {
             p.open(accessRequest);
@@ -134,17 +130,30 @@ public class UCon extends Server {
         Document responseDocument = access(accessRequest, pdp[PdpEnum.PRE]);
         PepSession pepSession = new PepSession(responseDocument);
         if (pepSession.decision == PepAccessResponse.DecisionEnum.Permit) {
-            UconSession session = dal.startSession(accessRequest, pepUrl);
-            pepSession.addSession(session.getId().toString(), session.getCookie(), session.getStatus());
-        } else for (PIP p : pip) {
+            UconSession session = dal.startSession(accessRequest, pepUrl, customId);
+            pepSession.addSessionElement(session.getSystemId(), session.getCustomId(), session.getStatus(), myUrl);
+        } else {
+            for (PIP p : pip) {
                 p.close(accessRequest);
+            }
         }
         return pepSession;
     }
 
-    public PepSession startAccess(Long sessionId) {
+    public Node assignCustomId(String systemId, String customId) {
+        UconSession uconSession = dal.getSession(systemId);
+        uconSession.setCustomId(customId);
+        dal.save(uconSession);
+        return null;
+    }
+    
+    public PepSession startAccess(String systemId) throws MalformedURLException {
         // Now send the enriched request to the PDP
-        UconSession uconSession = dal.getSession(sessionId);
+        UconSession uconSession = dal.getSession(systemId);
+        if(uconSession == null)
+            throw new RuntimeException("no session with systemId: "+systemId);
+        if(uconSession.getStatus() != PepSession.Status.TRY)
+            throw new RuntimeException(uconSession+" must be in TRY state to perform this operation");
         PepAccessRequest pepAccessRequest = rebuildPepAccessRequest(uconSession);
         refreshPepAccessRequest(pepAccessRequest);
         Document responseDocument = access(pepAccessRequest, pdp[PdpEnum.ON]);
@@ -159,7 +168,7 @@ public class UCon extends Server {
 
     private Document revokeAccess(URL pepUrl, PepSession pepSession) throws XmlRpcException {
         // revoke session on db
-        dal.revokeSession(Long.parseLong(pepSession.getId()));
+        dal.revokeSession(pepSession.getSystemId());
         // create client
         log.warn("invoking PEP at " + pepUrl + " to revoke " + pepSession);
         Client client = new Client(pepUrl);
@@ -214,13 +223,13 @@ public class UCon extends Server {
         Date now = new Date();
         // Permit sessions unknown to the client.
         for (UconSession session : sessions) {
-            boolean isNotKnownByClient = !sessionsList.remove(session.getId().toString());
+            boolean isNotKnownByClient = !sessionsList.remove(session.getRowId().toString());
             if (isNotKnownByClient) {
                 PepAccessRequest pepAccessRequest = rebuildPepAccessRequest(session);
                 // Reevaluate request for safety
                 //PepSession pepSession = evaluateRequest(pepAccessRequest);
                 PepSession pepSession = new PepSession(PepAccessResponse.DecisionEnum.Permit, "Ongoing session");
-                pepSession.addSession(session.getId().toString(), session.getCookie(), session.getStatus());
+                pepSession.addSessionElement(session.getSystemId(), session.getCustomId(), session.getStatus(), myUrl);
                 log.warn("found session unknown to client: " + pepSession);
                 Node n = doc.adoptNode(pepSession.toElement());
                 // including enriched request information
@@ -232,9 +241,9 @@ public class UCon extends Server {
             dal.save(session);
         }
         // Revoke sessions known by the client, but unknown to the server.
-        for (String id : sessionsList) {
+        for (String systemId : sessionsList) {
             PepSession pepSession = new PepSession(PepAccessResponse.DecisionEnum.NotApplicable, "Unexistent session");
-            pepSession.addSession(id, null, PepSession.Status.REVOKED);
+            pepSession.addSessionElement(systemId, null, PepSession.Status.REVOKED, myUrl);
             Node n = doc.adoptNode(pepSession.toElement());
             responses.appendChild(n);
         }
@@ -254,7 +263,7 @@ public class UCon extends Server {
                 log.debug("evaluating request");
                 Document responseDocument = access(pepAccessRequest, pdp[PdpEnum.ON]);
                 pepSession = new PepSession(responseDocument);
-                pepSession.addSession(involvedSession.getId().toString(), involvedSession.getCookie(), involvedSession.getStatus());
+                pepSession.addSessionElement(involvedSession.getSystemId(), involvedSession.getCustomId(), involvedSession.getStatus(), myUrl);
                 log.debug("evaluated request: " + pepSession);
                 boolean mustRevoke = pepSession.decision != PepAccessResponse.DecisionEnum.Permit;
                 // Explicitly revoke access if anything went wrong
@@ -287,8 +296,7 @@ public class UCon extends Server {
     }
 
     public Node endAccess(String sessionId) {
-        Long id = Long.parseLong(sessionId);
-        UconSession session = dal.getSession(id);
+        UconSession session = dal.getSession(sessionId);
         if (session != null) {
             PepAccessRequest request = rebuildPepAccessRequest(session);
             for (PIP p : pip) {
@@ -296,11 +304,17 @@ public class UCon extends Server {
             }
             dal.endSession(session);
         } else {
-            log.error("session {} is unknown, ignoring", sessionId);
+            log.error("session {} is unknown, ignoring call", sessionId);
         }
         return null;
     }
 
+    public String getSessionId(String systemId, String customId) {
+        if(systemId != null)
+            return systemId;
+        return dal.getSessionByCustomId(customId).getSystemId();
+    }
+    
     @Override
     protected void watchdog() {
         // List all sessions that were not heartbeaten since at least 2 periods
@@ -310,7 +324,7 @@ public class UCon extends Server {
         // Remove them
         for (UconSession expiredSession : expiredSessions) {
             log.warn("removing stale session " + expiredSession);
-            endAccess(expiredSession.getId().toString());
+            endAccess(expiredSession.getRowId().toString());
         }
         // Gather all the sessions that involve expired attributes
         Collection<UconSession> outdatedSessions = dal.listOutdatedSessions();
