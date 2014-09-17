@@ -104,8 +104,9 @@ public class DAL {
     public Collection<UconSession> listOutdatedSessions() {
         EntityManager em = getEntityManager();
         TypedQuery<UconSession> q = em.createQuery(
-                "select distinct s from Attribute a, UconSession s where s member of a.sessions and a.expires < :now",
+                "select distinct s from UconSession s, Attribute a where s.status = :status and s member of a.sessions and a.expires < :now",
                 UconSession.class)
+                .setParameter("status", PepSession.Status.ONGOING)
                 .setParameter("now", new Date());
         Collection<UconSession> involvedSessions = q.getResultList();
         return involvedSessions;
