@@ -22,11 +22,11 @@ public interface API {
 
     Node tryAccess(Node accessRequest, String pepUrl, String customId) throws MalformedURLException;
 
-    Node assignCustomId(String systemid, String oldCustomId, String newCustomId);
+    Node assignCustomId(String uuid, String oldCustomId, String newCustomId);
     
-    Node startAccess(String systemId, String customId) throws MalformedURLException;
+    Node startAccess(String uuid, String customId) throws MalformedURLException;
 
-    Node endAccess(String systemId, String customId) throws MalformedURLException;
+    Node endAccess(String uuid, String customId) throws MalformedURLException;
 
     Node heartbeat(String pepUrl, List<String> sessionsList) throws Exception;
 

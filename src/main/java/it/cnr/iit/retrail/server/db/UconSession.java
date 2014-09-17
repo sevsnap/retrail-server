@@ -28,13 +28,12 @@ public class UconSession implements Serializable {
 
     //For SQLite use GenerationType.AUTO to generate rowId
     //for derby, H2, MySQL etc use GenerationType.IDENTITY
-    @Id
-    //@GeneratedValue(strategy = GenerationType.AUTO)
-    @GeneratedValue(strategy = GenerationType.IDENTITY)
-    private Long rowId;
     
-    @Index(unique=true)
-    private final String systemId = randomId();
+    //@GeneratedValue(strategy = GenerationType.AUTO)
+    //@GeneratedValue(strategy = GenerationType.IDENTITY)
+    @Id
+    @GeneratedValue(generator="system-uuid")
+    private String uuid;
     
     @Index(unique=true)
     private String customId;
@@ -75,10 +74,6 @@ public class UconSession implements Serializable {
         this.customId = customId;
     }
 
-    public Long getRowId() {
-        return rowId;
-    }
-
     public String getPepUrl() {
         return pepUrl;
     }
@@ -103,25 +98,14 @@ public class UconSession implements Serializable {
         this.status = status;
     }
 
-    public String getSystemId() {
-        return systemId;
+    public String getUuid() {
+        return uuid;
     }
 
     //this is optional, just for print out into console
     @Override
     public String toString() {
-        return "UconSession [id=" + rowId + ", systemId=" + systemId  + ", customId=" + customId +", status="+status+ ", pepUrl="+pepUrl+", lastSeen="+lastSeen+"]";
-    }
-    
-    private static String randomId() {
-        char[] chars = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz".toCharArray();
-        StringBuilder sb = new StringBuilder();
-        Random random = new Random();
-        for (int i = 0; i < 8; i++) {
-            char c = chars[random.nextInt(chars.length)];
-            sb.append(c);
-        }
-        return sb.toString();
+        return "UconSession [uuid=" + uuid  + ", customId=" + customId +", status="+status+ ", pepUrl="+pepUrl+", lastSeen="+lastSeen+"]";
     }
 
 }

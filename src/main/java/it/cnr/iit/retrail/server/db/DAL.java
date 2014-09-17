@@ -194,7 +194,7 @@ public class DAL {
             uconSession = new UconSession();
             uconSession.setPepUrl(pepUrl.toString());
             if(customId == null)
-                customId = uconSession.getSystemId();
+                customId = uconSession.getUuid();
             uconSession.setCustomId(customId);
             em.persist(uconSession);
             updateSession(em, uconSession, pepAttributes);
@@ -223,19 +223,10 @@ public class DAL {
 
     }
 
-    public UconSession getSession(String systemId) {
+    public UconSession getSession(String uuid) {
         // TODO use custom generated value
         EntityManager em = getEntityManager();
-        TypedQuery<UconSession> q = em.createQuery(
-                "select s from UconSession s where s.systemId = :id",
-                UconSession.class)
-                .setParameter("id", systemId);
-        UconSession uconSession = null;
-        try {
-            uconSession = q.getSingleResult();            
-        } catch(NoResultException e) {
-        }
-        return uconSession;
+        return em.find(UconSession.class, uuid);
     }
 
     @Deprecated
@@ -273,20 +264,20 @@ public class DAL {
         return attribute;
     }
 
-    public UconSession revokeSession(String systemId) {
-        log.info("revoking " + systemId);
+    public UconSession revokeSession(String uuid) {
+        log.info("revoking " + uuid);
         UconSession uconSession = null;
         EntityManager em = getEntityManager();
         //start transaction with method begin()
         em.getTransaction().begin();
         try {
-            uconSession = getSession(systemId);
+            uconSession = getSession(uuid);
             if (uconSession != null) {
                 removeAttributes(em, uconSession);
                 uconSession.setStatus(PepSession.Status.REVOKED);
                 uconSession = em.merge(uconSession);
             } else {
-                log.error("cannot find session with systemId={}", systemId);
+                log.error("cannot find session with uuid={}", uuid);
             }
             em.getTransaction().commit();
         } catch (Exception e) {

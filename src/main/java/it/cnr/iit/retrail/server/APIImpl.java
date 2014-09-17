@@ -26,18 +26,18 @@ public class APIImpl implements API {
     }
 
     @Override
-    public Node startAccess(String systemId, String customId) throws MalformedURLException {
-        log.info("systemId={}, customId={}", systemId, customId);
-        systemId = ucon.getSessionId(systemId, customId);
-        PepAccessResponse response =  ucon.startAccess(systemId);
+    public Node startAccess(String uuid, String customId) throws MalformedURLException {
+        log.info("uuid={}, customId={}", uuid, customId);
+        uuid = ucon.getUuid(uuid, customId);
+        PepAccessResponse response =  ucon.startAccess(uuid);
         return response.toElement();
     }
     
     @Override
-    public Node endAccess(String systemId, String customId) {
-        log.info("systemId={}, customId={}", systemId, customId);
-        systemId = ucon.getSessionId(systemId, customId);
-        return ucon.endAccess(systemId);
+    public Node endAccess(String uuid, String customId) {
+        log.info("uuid={}, customId={}", uuid, customId);
+        uuid = ucon.getUuid(uuid, customId);
+        return ucon.endAccess(uuid);
     }
     
     @Override
@@ -53,10 +53,10 @@ public class APIImpl implements API {
     }
 
     @Override
-    public Node assignCustomId(String systemId, String oldCustomId, String newCustomId) {
-        log.info("systemId={}, oldCustomId={}, newCustomId={}", systemId, oldCustomId, newCustomId);
-        systemId = ucon.getSessionId(systemId, oldCustomId);
-        return ucon.assignCustomId(systemId, newCustomId);
+    public Node assignCustomId(String uuid, String oldCustomId, String newCustomId) {
+        log.info("uuid={}, oldCustomId={}, newCustomId={}", uuid, oldCustomId, newCustomId);
+        uuid = ucon.getUuid(uuid, oldCustomId);
+        return ucon.assignCustomId(uuid, newCustomId);
     }
 
 }
