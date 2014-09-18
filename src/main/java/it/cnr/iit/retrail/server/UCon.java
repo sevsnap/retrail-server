@@ -10,6 +10,7 @@ import it.cnr.iit.retrail.commons.Server;
 import it.cnr.iit.retrail.server.db.Attribute;
 import it.cnr.iit.retrail.server.db.DAL;
 import it.cnr.iit.retrail.server.db.UconSession;
+import it.cnr.iit.retrail.server.pip.PIPInterface;
 import java.io.IOException;
 import java.net.MalformedURLException;
 import java.net.URL;
@@ -52,8 +53,8 @@ public class UCon extends Server {
     }
 
     private final PDP pdp[] = new PDP[3];
-    public List<PIP> pip = new ArrayList<>();
-    public Map<String, PIP> pipNameToInstanceMap = new HashMap<>();
+    public List<PIPInterface> pip = new ArrayList<>();
+    public Map<String, PIPInterface> pipNameToInstanceMap = new HashMap<>();
     private final DAL dal;
 
     /**
@@ -65,9 +66,8 @@ public class UCon extends Server {
             try {
                 singleton = new UCon();
                 singleton.init();
-            } catch (IOException e) {
-
-            } catch (XmlRpcException e) {
+            } catch (IOException | XmlRpcException e) {
+                log.error(e.getMessage());
             }
         }
         return singleton;
@@ -75,7 +75,7 @@ public class UCon extends Server {
 
     private UCon() throws UnknownHostException, XmlRpcException, IOException {
         // FIXME absolute paths should be settable
-        super(new URL(defaultUrlString), APIImpl.class);
+        super(new URL(defaultUrlString), XmlRpc.class);
         pdp[PdpEnum.PRE] = newPDP("/etc/contrail/contrail-authz-core/policies/pre/");
         pdp[PdpEnum.ON] = newPDP("/etc/contrail/contrail-authz-core/policies/on/");
         pdp[PdpEnum.POST] = newPDP("/etc/contrail/contrail-authz-core/policies/post/");
@@ -120,8 +120,8 @@ public class UCon extends Server {
 
     public PepSession tryAccess(PepAccessRequest accessRequest, URL pepUrl, String customId) throws MalformedURLException {
         // First enrich the request by calling the PIPs
-        for (PIP p : pip) {
-            p.open(accessRequest);
+        for (PIPInterface p : pip) {
+            p.onTryAccess(accessRequest);
         }
         // Now send the enriched request to the PDP
         Document responseDocument = access(accessRequest, pdp[PdpEnum.PRE]);
@@ -130,8 +130,8 @@ public class UCon extends Server {
             UconSession session = dal.startSession(accessRequest, pepUrl, customId);
             pepSession.addSessionElement(session.getUuid(), session.getCustomId(), session.getStatus(), myUrl);
         } else {
-            for (PIP p : pip) {
-                p.close(accessRequest);
+            for (PIPInterface p : pip) {
+                p.onEndAccess(accessRequest);
             }
         }
         return pepSession;
@@ -153,6 +153,8 @@ public class UCon extends Server {
             throw new RuntimeException(uconSession+" must be in TRY state to perform this operation");
         PepAccessRequest pepAccessRequest = rebuildPepAccessRequest(uconSession);
         refreshPepAccessRequest(pepAccessRequest);
+        for(PIPInterface p: pip)
+            p.onStartAccess(pepAccessRequest);
         Document responseDocument = access(pepAccessRequest, pdp[PdpEnum.ON]);
         PepSession pepSession = new PepSession(responseDocument);
         if (pepSession.decision == PepAccessResponse.DecisionEnum.Permit) {
@@ -210,7 +212,7 @@ public class UCon extends Server {
     private void refreshPepAccessRequest(PepAccessRequest accessRequest) {
         // TODO: should call only pips for changed attributes
         log.debug("refreshing request attributes");
-        for (PIP p : pip) {
+        for (PIPInterface p : pip) {
             p.refresh(accessRequest);
         }
     }
@@ -299,8 +301,8 @@ public class UCon extends Server {
         UconSession session = dal.getSession(uuid);
         if (session != null) {
             PepAccessRequest request = rebuildPepAccessRequest(session);
-            for (PIP p : pip) {
-                p.close(request);
+            for (PIPInterface p : pip) {
+                p.onEndAccess(request);
             }
             dal.endSession(session);
         } else {
@@ -333,7 +335,7 @@ public class UCon extends Server {
         log.debug("OK (sessions: {})", dal.listSessions().size());
     }
 
-    public synchronized void addPIP(PIP p) {
+    public synchronized void addPIP(PIPInterface p) {
         String uuid = p.getUUID();
         if (!pipNameToInstanceMap.containsKey(uuid)) {
             p.init();
@@ -344,7 +346,7 @@ public class UCon extends Server {
         }
     }
 
-    public synchronized PIP removePIP(PIP p) {
+    public synchronized PIPInterface removePIP(PIPInterface p) {
         String uuid = p.getUUID();
         if (pipNameToInstanceMap.containsKey(uuid)) {
             p.term();

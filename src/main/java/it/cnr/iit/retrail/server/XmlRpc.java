@@ -13,9 +13,9 @@ import org.slf4j.LoggerFactory;
 import org.w3c.dom.Document;
 import org.w3c.dom.Node;
 
-public class APIImpl implements API {
+public class XmlRpc implements XmlRpcInterface {
 
-    protected static final Logger log = LoggerFactory.getLogger(APIImpl.class);
+    protected static final Logger log = LoggerFactory.getLogger(XmlRpc.class);
     private static final UCon ucon = UCon.getInstance();
 
     @Override

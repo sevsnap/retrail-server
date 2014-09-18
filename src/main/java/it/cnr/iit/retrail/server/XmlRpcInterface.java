@@ -16,7 +16,7 @@ import org.w3c.dom.Node;
  *
  * @author oneadmin
  */
-public interface API {
+public interface XmlRpcInterface {
 
     Node echo(Node node) throws TransformerConfigurationException, TransformerException;
 

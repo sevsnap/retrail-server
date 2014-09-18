@@ -1,10 +1,10 @@
 /*
  * To change this license header, choose License Headers in Project Properties.
  * To change this template file, choose Tools | Templates
- * and open the template in the editor.
+ * and onTryAccess the template in the editor.
  */
 
-package it.cnr.iit.retrail.server;
+package it.cnr.iit.retrail.server.pip;
 
 import it.cnr.iit.retrail.commons.PepAccessRequest;
 import it.cnr.iit.retrail.commons.PepRequestAttribute;
@@ -20,11 +20,12 @@ import org.slf4j.LoggerFactory;
  *
  * @author kicco
  */
-public abstract class PIP {
-    protected static final Logger log = LoggerFactory.getLogger(PIP.class);
+public abstract class PIP implements PIPInterface {
+    protected Logger log = LoggerFactory.getLogger(PIP.class);
     protected static final DAL dal = DAL.getInstance();
     private final String uuid = getUUID();
 
+    @Override
     public void init() {
         log.info("initializing {}", this);
     }
@@ -45,18 +46,27 @@ public abstract class PIP {
         return pepAttributes;
     }
     
-    public void open(PepAccessRequest request) {
+    @Override
+    public void onTryAccess(PepAccessRequest request) {
         log.debug("dummy PIP processor called, ignoring");
     }
     
-    public void close(PepAccessRequest request) {
+    @Override
+    public void onStartAccess(PepAccessRequest request) {
         log.debug("dummy PIP processor called, ignoring");
     }
     
     protected void refresh(PepRequestAttribute pepAttribute) {
         log.debug("dummy PIP processor called, ignoring");
     }
+      
+    @Override
+    public void onEndAccess(PepAccessRequest request) {
+        log.debug("dummy PIP processor called, ignoring");
+    }
     
+
+    @Override
     public void refresh(PepAccessRequest accessRequest) {
         log.debug("{} refreshing {}", uuid, accessRequest);
         Date now = new Date();
@@ -65,10 +75,12 @@ public abstract class PIP {
                 refresh(a);
     }
         
+    @Override
     public String getUUID() {
         return getClass().getCanonicalName();
     }
     
+    @Override
     public void term() {
         log.info("{} terminated", this);
     }

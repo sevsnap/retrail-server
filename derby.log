@@ -1,6 +1,6 @@
 ----------------------------------------------------------------
-Wed Sep 17 16:35:37 CEST 2014:
-Booting Derby version The Apache Software Foundation - Apache Derby - 10.11.1.1 - (1616546): instance a816c00e-0148-840a-40f9-0000020a1738 
+Thu Sep 18 10:38:53 CEST 2014:
+Booting Derby version The Apache Software Foundation - Apache Derby - 10.11.1.1 - (1616546): instance a816c00e-0148-87ea-0205-0000021c5ce8 
 on database directory /home/oneadmin/retrail.derby with class loader sun.misc.Launcher$AppClassLoader@1d16e93 
 Loaded from file:/home/oneadmin/.m2/repository/org/apache/derby/derby/10.11.1.1/derby-10.11.1.1.jar
 java.vendor=Oracle Corporation

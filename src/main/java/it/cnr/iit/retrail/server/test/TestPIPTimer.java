@@ -1,31 +1,33 @@
 /*
  * To change this license header, choose License Headers in Project Properties.
  * To change this template file, choose Tools | Templates
- * and open the template in the editor.
+ * and onTryAccess the template in the editor.
  */
 
 package it.cnr.iit.retrail.server.test;
 
 import it.cnr.iit.retrail.commons.PepAccessRequest;
 import it.cnr.iit.retrail.commons.PepRequestAttribute;
-import it.cnr.iit.retrail.server.PIPThread;
+import it.cnr.iit.retrail.server.pip.StandAlonePIP;
 import java.util.Collection;
+import org.slf4j.LoggerFactory;
 
 /**
  *
  * @author kicco
  */
-public class TestPIPTimer extends PIPThread {
+public class TestPIPTimer extends StandAlonePIP {
     final private int timeToGo;
     final private int resolution = 1;
     
     public TestPIPTimer(int timeToGo) {
         super();
+        this.log = LoggerFactory.getLogger(TestPIPTimer.class);
         this.timeToGo = timeToGo;
     }
     
     @Override
-    public void open(PepAccessRequest request) {
+    public void onStartAccess(PepAccessRequest request) {
         PepRequestAttribute a = newAttribute("timer", "http://www.w3.org/2001/XMLSchema#integer", Integer.toString(timeToGo), "http://localhost:8080/federation-id-prov/saml", "urn:oasis:names:tc:xacml:1.0:subject-category:access-subject");
         request.add(a);
     }

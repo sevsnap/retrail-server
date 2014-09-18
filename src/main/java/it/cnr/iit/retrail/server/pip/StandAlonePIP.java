@@ -1,24 +1,20 @@
 /*
  * To change this license header, choose License Headers in Project Properties.
  * To change this template file, choose Tools | Templates
- * and open the template in the editor.
+ * and onTryAccess the template in the editor.
  */
 
-package it.cnr.iit.retrail.server;
+package it.cnr.iit.retrail.server.pip;
 
 import it.cnr.iit.retrail.commons.PepRequestAttribute;
-import it.cnr.iit.retrail.server.db.Attribute;
-import it.cnr.iit.retrail.server.db.DAL;
-import java.util.ArrayList;
+import it.cnr.iit.retrail.server.UCon;
 import java.util.Collection;
-import java.util.logging.Level;
-import java.util.logging.Logger;
 
 /**
  *
  * @author oneadmin
  */
-public class PIPThread extends PIP implements Runnable {
+public abstract class StandAlonePIP extends PIP implements Runnable {
     private Thread thread;
     final private UCon ucon = UCon.getInstance();
     
@@ -30,12 +26,6 @@ public class PIPThread extends PIP implements Runnable {
         log.info("starting standalone thread "+thread);
         thread.start();
     }
-    
-    @Override
-    public void run() {
-        throw new UnsupportedOperationException("Not supported yet.");
-    }
-    
 
     protected void notifyChanges(Collection<PepRequestAttribute> changedAttributes) {
         ucon.notifyChanges(changedAttributes);
