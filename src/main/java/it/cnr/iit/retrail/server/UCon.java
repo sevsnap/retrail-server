@@ -1,12 +1,6 @@
 package it.cnr.iit.retrail.server;
 
-import it.cnr.iit.retrail.commons.Client;
-import it.cnr.iit.retrail.commons.DomUtils;
-import it.cnr.iit.retrail.commons.PepAccessRequest;
-import it.cnr.iit.retrail.commons.PepAccessResponse;
-import it.cnr.iit.retrail.commons.PepRequestAttribute;
-import it.cnr.iit.retrail.commons.PepSession;
-import it.cnr.iit.retrail.commons.Server;
+import it.cnr.iit.retrail.commons.*;
 import it.cnr.iit.retrail.server.db.Attribute;
 import it.cnr.iit.retrail.server.db.DAL;
 import it.cnr.iit.retrail.server.db.UconSession;
@@ -23,6 +17,9 @@ import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
+import java.util.logging.Level;
+import java.util.logging.Logger;
+import javax.xml.parsers.ParserConfigurationException;
 import org.apache.xmlrpc.XmlRpcException;
 import org.w3c.dom.Document;
 import org.w3c.dom.Element;
@@ -39,6 +36,7 @@ import org.wso2.balana.finder.PolicyFinderModule;
 import org.wso2.balana.finder.impl.CurrentEnvModule;
 import org.wso2.balana.finder.impl.FileBasedPolicyFinderModule;
 import org.wso2.balana.finder.impl.SelectorModule;
+import org.xml.sax.SAXException;
 
 public class UCon extends Server {
 
@@ -297,18 +295,23 @@ public class UCon extends Server {
         notifyChanges(attributes);
     }
 
-    public Node endAccess(String uuid) {
+    public Node endAccess(String uuid) throws Exception {
         UconSession session = dal.getSession(uuid);
+        PepSession response = new PepSession(PepAccessResponse.DecisionEnum.NotApplicable, "session ended");
         if (session != null) {
+            response = new PepSession(PepAccessResponse.DecisionEnum.NotApplicable, "session ended");
+            
             PepAccessRequest request = rebuildPepAccessRequest(session);
             for (PIPInterface p : pip) {
                 p.onEndAccess(request);
             }
+            response.addSessionElement(uuid, session.getCustomId(), PepSession.Status.DELETED, myUrl);
             dal.endSession(session);
         } else {
-            log.error("session {} is unknown, ignoring call", uuid);
+            log.error("session {} is unknown, emulating normal endAccess call", uuid);
+            response.addSessionElement(uuid, null, PepSession.Status.DELETED, myUrl);
         }
-        return null;
+        return response.toElement();
     }
 
     public String getUuid(String uuid, String customId) {
@@ -325,8 +328,12 @@ public class UCon extends Server {
         Collection<UconSession> expiredSessions = dal.listSessions(lastSeenBefore);
         // Remove them
         for (UconSession expiredSession : expiredSessions) {
-            log.warn("removing stale session " + expiredSession);
-            endAccess(expiredSession.getUuid());
+            try {
+                log.warn("removing stale " + expiredSession);
+                endAccess(expiredSession.getUuid());
+            } catch (Exception ex) {
+                log.error("could not properly end {}: {}", expiredSession, ex.getMessage());
+            }
         }
         // Gather all the sessions that involve expired attributes
         Collection<UconSession> outdatedSessions = dal.listOutdatedSessions();
