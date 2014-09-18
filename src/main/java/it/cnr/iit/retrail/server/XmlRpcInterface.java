@@ -22,7 +22,7 @@ public interface XmlRpcInterface {
 
     Node tryAccess(Node accessRequest, String pepUrl, String customId) throws MalformedURLException;
 
-    Node assignCustomId(String uuid, String oldCustomId, String newCustomId);
+    Node assignCustomId(String uuid, String oldCustomId, String newCustomId) throws Exception;
     
     Node startAccess(String uuid, String customId) throws MalformedURLException;
 

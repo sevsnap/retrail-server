@@ -54,7 +54,7 @@ public class XmlRpc implements XmlRpcInterface {
     }
 
     @Override
-    public Node assignCustomId(String uuid, String oldCustomId, String newCustomId) {
+    public Node assignCustomId(String uuid, String oldCustomId, String newCustomId) throws Exception {
         log.info("uuid={}, oldCustomId={}, newCustomId={}", uuid, oldCustomId, newCustomId);
         uuid = ucon.getUuid(uuid, oldCustomId);
         return ucon.assignCustomId(uuid, newCustomId);
