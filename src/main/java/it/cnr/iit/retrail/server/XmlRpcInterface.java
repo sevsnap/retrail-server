@@ -26,7 +26,7 @@ public interface XmlRpcInterface {
     
     Node startAccess(String uuid, String customId) throws MalformedURLException;
 
-    Node endAccess(String uuid, String customId) throws MalformedURLException;
+    Node endAccess(String uuid, String customId) throws Exception;
 
     Node heartbeat(String pepUrl, List<String> sessionsList) throws Exception;
 

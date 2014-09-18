@@ -35,7 +35,7 @@ public class XmlRpc implements XmlRpcInterface {
     }
 
     @Override
-    public Node endAccess(String uuid, String customId) {
+    public Node endAccess(String uuid, String customId) throws Exception {
         log.info("uuid={}, customId={}", uuid, customId);
         uuid = ucon.getUuid(uuid, customId);
         return ucon.endAccess(uuid);
