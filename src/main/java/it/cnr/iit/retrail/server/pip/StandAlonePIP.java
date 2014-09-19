@@ -38,6 +38,7 @@ public abstract class StandAlonePIP extends PIP implements Runnable {
     @Override
     public void term() {
         try {
+            thread.interrupt();
             thread.join();
         } catch (InterruptedException ex) {
             log.error(ex.toString());
