@@ -19,7 +19,7 @@ public class XmlRpc implements XmlRpcInterface {
     private static final UCon ucon = UCon.getInstance();
 
     @Override
-    public Node tryAccess(Node accessRequest, String pepUrl, String customId) throws MalformedURLException {
+    public Node tryAccess(Node accessRequest, String pepUrl, String customId) throws Exception {
         log.info("pepUrl={}, customId={}", pepUrl, customId);
         PepAccessRequest request = new PepAccessRequest((Document) accessRequest);
         PepAccessResponse response = ucon.tryAccess(request, new URL(pepUrl), customId);
@@ -27,7 +27,7 @@ public class XmlRpc implements XmlRpcInterface {
     }
 
     @Override
-    public Node startAccess(String uuid, String customId) throws MalformedURLException {
+    public Node startAccess(String uuid, String customId) throws Exception {
         log.info("uuid={}, customId={}", uuid, customId);
         uuid = ucon.getUuid(uuid, customId);
         PepAccessResponse response = ucon.startAccess(uuid);

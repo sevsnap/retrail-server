@@ -20,11 +20,11 @@ public interface XmlRpcInterface {
 
     Node echo(Node node) throws TransformerConfigurationException, TransformerException;
 
-    Node tryAccess(Node accessRequest, String pepUrl, String customId) throws MalformedURLException;
+    Node tryAccess(Node accessRequest, String pepUrl, String customId) throws Exception;
 
     Node assignCustomId(String uuid, String oldCustomId, String newCustomId) throws Exception;
     
-    Node startAccess(String uuid, String customId) throws MalformedURLException;
+    Node startAccess(String uuid, String customId) throws Exception;
 
     Node endAccess(String uuid, String customId) throws Exception;
 

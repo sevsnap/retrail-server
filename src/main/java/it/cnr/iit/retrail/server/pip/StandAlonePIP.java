@@ -27,11 +27,11 @@ public abstract class StandAlonePIP extends PIP implements Runnable {
         thread.start();
     }
 
-    protected void notifyChanges(Collection<PepRequestAttribute> changedAttributes) {
+    protected void notifyChanges(Collection<PepRequestAttribute> changedAttributes) throws Exception {
         ucon.notifyChanges(changedAttributes);
     }
     
-    protected void notifyChanges(PepRequestAttribute changedAttribute) {
+    protected void notifyChanges(PepRequestAttribute changedAttribute) throws Exception {
         ucon.notifyChanges(changedAttribute);
     }
     
