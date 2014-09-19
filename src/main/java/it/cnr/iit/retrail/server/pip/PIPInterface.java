@@ -18,11 +18,13 @@ public interface PIPInterface {
 
     void init();
 
-    void onEndAccess(PepAccessRequest request);
+    void onTryAccess(PepAccessRequest request);
 
     void onStartAccess(PepAccessRequest request);
 
-    void onTryAccess(PepAccessRequest request);
+    void onRevokeAccess(PepAccessRequest request);
+
+    void onEndAccess(PepAccessRequest request);
 
     void refresh(PepAccessRequest accessRequest);
 

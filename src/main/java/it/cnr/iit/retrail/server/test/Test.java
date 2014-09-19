@@ -19,6 +19,7 @@ public class Test {
         ucon.addPIP(new TestPIPSessions(1));
         ucon.addPIP(new TestPIPReputation("bronze"));
         ucon.addPIP(new TestPIPTimer(16));
+        ucon.init();
     }
     
 }

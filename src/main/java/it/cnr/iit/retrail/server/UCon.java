@@ -60,7 +60,6 @@ public class UCon extends Server {
         if (singleton == null) {
             try {
                 singleton = new UCon();
-                singleton.init();
             } catch (IOException | XmlRpcException e) {
                 log.error(e.getMessage());
             }
@@ -172,6 +171,11 @@ public class UCon extends Server {
         UconSession uconSession = dal.getSession(pepSession.getUuid());
         if (uconSession == null) {
             throw new RuntimeException("cannot find session with uuid=" + pepSession.getUuid());
+        }
+        PepAccessRequest pepAccessRequest = rebuildPepAccessRequest(uconSession);
+        refreshPepAccessRequest(pepAccessRequest);
+        for (PIPInterface p : pip) {
+            p.onRevokeAccess(pepAccessRequest);                
         }
         dal.revokeSession(uconSession);
         // create client

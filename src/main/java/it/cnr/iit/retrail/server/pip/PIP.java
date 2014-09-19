@@ -61,11 +61,15 @@ public abstract class PIP implements PIPInterface {
     }
       
     @Override
-    public void onEndAccess(PepAccessRequest request) {
+    public void onRevokeAccess(PepAccessRequest request) {
         log.debug("dummy PIP processor called, ignoring");
     }
     
-
+    @Override
+    public void onEndAccess(PepAccessRequest request) {
+        log.debug("dummy PIP processor called, ignoring");
+    }
+   
     @Override
     public void refresh(PepAccessRequest accessRequest) {
         log.debug("{} refreshing {}", uuid, accessRequest);
