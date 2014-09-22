@@ -87,7 +87,7 @@ public class UCon extends Server {
 
     private UCon(URL pre, URL on, URL post) throws UnknownHostException, XmlRpcException, IOException, URISyntaxException {
         super(new URL(defaultUrlString), XmlRpc.class);
-        log.info("policy: {}", pre);
+        log.info("pre policy URL: {}, on policy URL: {}", pre, on);
         pdp[PdpEnum.PRE] = newPDP(pre);
         pdp[PdpEnum.ON] = newPDP(on);
         pdp[PdpEnum.POST] = newPDP(post);
