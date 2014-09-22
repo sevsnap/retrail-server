@@ -166,11 +166,11 @@ public class URLBasedPolicyFinderModule extends PolicyFinderModule {
         for(URL policyLocation : policyLocations) {
 
             try {
-                log.info("Reading policy location: {}", policyLocation);
+                log.debug("Reading policy location: {}", policyLocation);
                 URI policyUri = policyLocation.toURI();
                 File file = new File(policyUri);
                 if(!file.exists()){
-                    log.error("does not exist: "+policyLocation);
+                    log.error("URL {} does not exist",policyLocation);
                     continue;
                 }
                 if(file.isDirectory()){
@@ -186,7 +186,7 @@ public class URLBasedPolicyFinderModule extends PolicyFinderModule {
                     loadPolicy(policyUri, finder);
                 }
             } catch (URISyntaxException ex) {
-                log.error("uri syntax error: {}", policyLocation);    
+                log.error("{}: {}", policyLocation, ex.getMessage());    
             }
         }
     }    
