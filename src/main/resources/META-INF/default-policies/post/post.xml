@@ -1,0 +1,21 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<Policy xmlns="urn:oasis:names:tc:xacml:3.0:core:schema:wd-17" PolicyId="post-policy"
+RuleCombiningAlgId="urn:oasis:names:tc:xacml:1.0:rule-combining-algorithm:first-applicable" Version="1.0">
+<Description>Test on-authorization policy</Description>
+<Target></Target>
+<Rule Effect="Permit" RuleId="test:rule">
+<Target>
+<AnyOf>
+<AllOf>
+<Match MatchId="urn:oasis:names:tc:xacml:1.0:function:integer-less-than">
+<AttributeDesignator AttributeId="balance" 
+Category="urn:oasis:names:tc:xacml:1.0:subject-category:access-subject" 
+DataType="http://www.w3.org/2001/XMLSchema#integer" MustBePresent="true" Issuer="http://localhost:8080/federation-id-prov/saml">
+</AttributeDesignator>
+<AttributeValue DataType="http://www.w3.org/2001/XMLSchema#integer">0</AttributeValue>
+</Match>
+</AllOf>
+</AnyOf>
+</Target>
+</Rule>
+</Policy>

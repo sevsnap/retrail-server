@@ -12,6 +12,7 @@ import it.cnr.iit.retrail.server.db.DAL;
 import it.cnr.iit.retrail.server.db.UconSession;
 import it.cnr.iit.retrail.server.pip.PIPInterface;
 import java.io.IOException;
+import java.net.URISyntaxException;
 import java.net.URL;
 import java.net.UnknownHostException;
 import java.util.ArrayList;
@@ -39,6 +40,7 @@ import org.wso2.balana.finder.PolicyFinderModule;
 import org.wso2.balana.finder.impl.CurrentEnvModule;
 import org.wso2.balana.finder.impl.FileBasedPolicyFinderModule;
 import org.wso2.balana.finder.impl.SelectorModule;
+import org.wso2.balana.finder.impl.URLBasedPolicyFinderModule;
 
 public class UCon extends Server {
 
@@ -63,31 +65,42 @@ public class UCon extends Server {
      */
     public static UCon getInstance() {
         if (singleton == null) {
-            try {
-                singleton = new UCon();
-            } catch (IOException | XmlRpcException e) {
-                log.error(e.getMessage());
-            }
+            getInstance(
+                    UCon.class.getResource("/META-INF/default-policies/pre"), 
+                    UCon.class.getResource("/META-INF/default-policies/on"), 
+                    UCon.class.getResource("/META-INF/default-policies/post")
+            );
         }
         return singleton;
     }
 
-    private UCon() throws UnknownHostException, XmlRpcException, IOException {
-        // FIXME absolute paths should be settable
+    public static UCon getInstance(URL pre, URL on, URL post) {
+        if (singleton == null) {
+            try {
+                singleton = new UCon(pre, on, post);
+            } catch (XmlRpcException | IOException | URISyntaxException e) {
+                log.error(e.getMessage());
+            }
+        } else throw new RuntimeException("UCon already initialized!");
+        return singleton;
+    }
+
+    private UCon(URL pre, URL on, URL post) throws UnknownHostException, XmlRpcException, IOException, URISyntaxException {
         super(new URL(defaultUrlString), XmlRpc.class);
-        pdp[PdpEnum.PRE] = newPDP("/etc/contrail/contrail-authz-core/policies/pre/");
-        pdp[PdpEnum.ON] = newPDP("/etc/contrail/contrail-authz-core/policies/on/");
-        pdp[PdpEnum.POST] = newPDP("/etc/contrail/contrail-authz-core/policies/post/");
+        log.info("policy: {}", pre);
+        pdp[PdpEnum.PRE] = newPDP(pre);
+        pdp[PdpEnum.ON] = newPDP(on);
+        pdp[PdpEnum.POST] = newPDP(post);
         dal = DAL.getInstance();
     }
 
-    private PDP newPDP(String location) {
+    private PDP newPDP(URL location) {
         PolicyFinder policyFinder = new PolicyFinder();
         Set<PolicyFinderModule> policyFinderModules = new HashSet<>();
-        Set<String> locationSet = new HashSet<>();
+        Set<URL> locationSet = new HashSet<>();
         locationSet.add(location); //set the correct policy location
-        FileBasedPolicyFinderModule fileBasedPolicyFinderModule = new FileBasedPolicyFinderModule(locationSet);
-        policyFinderModules.add(fileBasedPolicyFinderModule);
+        URLBasedPolicyFinderModule URLBasedPolicyFinderModule = new URLBasedPolicyFinderModule(locationSet);
+        policyFinderModules.add(URLBasedPolicyFinderModule);
         policyFinder.setModules(policyFinderModules);
 
         AttributeFinder attributeFinder = new AttributeFinder();
@@ -97,11 +110,10 @@ public class UCon extends Server {
         attributeFinderModules.add(selectorModule);
         attributeFinderModules.add(currentEnvModule);
         attributeFinder.setModules(attributeFinderModules);
-
         PDPConfig pdpConfig = new PDPConfig(attributeFinder, policyFinder, null, false);
         return new PDP(pdpConfig);
     }
-
+    
     private Document access(PepAccessRequest accessRequest, PDP p) {
         Document accessResponse = null;
         try {
