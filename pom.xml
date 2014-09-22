@@ -26,20 +26,10 @@
 
     <dependencies>
         <dependency>
-            <groupId>com.atlassian.maven.plugins</groupId>
-            <artifactId>bash-maven-plugin</artifactId>
-            <version>1.0-SNAPSHOT</version>
-            <scope>provided</scope>
-        </dependency>
-        <dependency>
-            <groupId>org.apache.xmlrpc</groupId>
-            <artifactId>xmlrpc-server</artifactId>
-            <version>3.1.3</version>
-        </dependency>
-        <dependency>
             <groupId>it.cnr.iit.retrail</groupId>
             <artifactId>commons</artifactId>
             <version>1.0-SNAPSHOT</version>
+            <scope>provided</scope>
         </dependency>
         <dependency>
             <groupId>org.wso2.balana</groupId>
@@ -65,28 +55,6 @@
     
     <build>
         <plugins>
-            <plugin>
-                <groupId>com.atlassian.maven.plugins</groupId>
-                <artifactId>bash-maven-plugin</artifactId>
-                <version>1.0-SNAPSHOT</version>
-                <executions>
-                    <execution>
-                        <id>kill-server</id>
-                        <phase>deploy</phase>
-                        <goals>
-                            <goal>run</goal>
-                        </goals>
-                    </execution>
-                </executions>
-                <configuration>
-                    <script>
-                        echo -n "killing previously running retrail server on port 8080 (if any)..."
-                        netstat --listening --programs -n 2> /dev/null | grep 8080 | awk '{split($7,a,"/"); print a[1]}' | xargs kill 2> /dev/null
-                        echo done.
-                        exit 0
-                    </script>
-                </configuration>
-            </plugin>
             <plugin>
                 <groupId>org.apache.maven.plugins</groupId>
                 <artifactId>maven-compiler-plugin</artifactId>
