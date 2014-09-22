@@ -12,6 +12,7 @@ import it.cnr.iit.retrail.server.db.DAL;
 import it.cnr.iit.retrail.server.db.UconSession;
 import it.cnr.iit.retrail.server.pip.PIPInterface;
 import java.io.IOException;
+import java.io.InputStream;
 import java.net.URISyntaxException;
 import java.net.URL;
 import java.net.UnknownHostException;
@@ -23,6 +24,8 @@ import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
+import java.util.logging.Level;
+import java.util.logging.Logger;
 import org.apache.commons.beanutils.BeanUtils;
 import org.apache.xmlrpc.XmlRpcException;
 import org.w3c.dom.Document;
@@ -38,8 +41,8 @@ import org.wso2.balana.finder.AttributeFinderModule;
 import org.wso2.balana.finder.PolicyFinder;
 import org.wso2.balana.finder.PolicyFinderModule;
 import org.wso2.balana.finder.impl.CurrentEnvModule;
-import org.wso2.balana.finder.impl.FileBasedPolicyFinderModule;
 import org.wso2.balana.finder.impl.SelectorModule;
+import org.wso2.balana.finder.impl.StreamBasedPolicyFinderModule;
 import org.wso2.balana.finder.impl.URLBasedPolicyFinderModule;
 
 public class UCon extends Server {
@@ -65,11 +68,15 @@ public class UCon extends Server {
      */
     public static UCon getInstance() {
         if (singleton == null) {
-            getInstance(
-                    UCon.class.getResource("/META-INF/default-policies/pre"), 
-                    UCon.class.getResource("/META-INF/default-policies/on"), 
-                    UCon.class.getResource("/META-INF/default-policies/post")
-            );
+            try {
+                singleton = new UCon(
+                        UCon.class.getResourceAsStream("/META-INF/default-policies/pre.xml"),
+                        UCon.class.getResourceAsStream("/META-INF/default-policies/on.xml"),
+                        UCon.class.getResourceAsStream("/META-INF/default-policies/post.xml")
+                );
+            } catch (XmlRpcException | IOException | URISyntaxException e) {
+                log.error(e.getMessage());
+            }
         }
         return singleton;
     }
@@ -93,6 +100,15 @@ public class UCon extends Server {
         pdp[PdpEnum.POST] = newPDP(post);
         dal = DAL.getInstance();
     }
+    
+    private UCon(InputStream pre, InputStream on, InputStream post) throws UnknownHostException, XmlRpcException, IOException, URISyntaxException {
+        super(new URL(defaultUrlString), XmlRpc.class);
+        log.info("loading policies by streams");
+        pdp[PdpEnum.PRE] = newPDP(pre);
+        pdp[PdpEnum.ON] = newPDP(on);
+        pdp[PdpEnum.POST] = newPDP(post);
+        dal = DAL.getInstance();
+    }
 
     private PDP newPDP(URL location) {
         PolicyFinder policyFinder = new PolicyFinder();
@@ -103,6 +119,23 @@ public class UCon extends Server {
         policyFinderModules.add(URLBasedPolicyFinderModule);
         policyFinder.setModules(policyFinderModules);
 
+        AttributeFinder attributeFinder = new AttributeFinder();
+        List<AttributeFinderModule> attributeFinderModules = new ArrayList<>();
+        SelectorModule selectorModule = new SelectorModule();
+        CurrentEnvModule currentEnvModule = new CurrentEnvModule();
+        attributeFinderModules.add(selectorModule);
+        attributeFinderModules.add(currentEnvModule);
+        attributeFinder.setModules(attributeFinderModules);
+        PDPConfig pdpConfig = new PDPConfig(attributeFinder, policyFinder, null, false);
+        return new PDP(pdpConfig);
+    }
+    
+    private PDP newPDP(InputStream stream) {
+        PolicyFinder policyFinder = new PolicyFinder();
+        Set<PolicyFinderModule> policyFinderModules = new HashSet<>();
+        StreamBasedPolicyFinderModule streamBasedPolicyFinderModule = new StreamBasedPolicyFinderModule(stream);
+        policyFinderModules.add(streamBasedPolicyFinderModule);
+        policyFinder.setModules(policyFinderModules);
         AttributeFinder attributeFinder = new AttributeFinder();
         List<AttributeFinderModule> attributeFinderModules = new ArrayList<>();
         SelectorModule selectorModule = new SelectorModule();
