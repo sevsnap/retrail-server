@@ -69,6 +69,7 @@ public class UCon extends Server {
     public static UCon getInstance() {
         if (singleton == null) {
             try {
+                log.warn("loading builtin policies (permit anthing)");
                 singleton = new UCon(
                         UCon.class.getResourceAsStream("/META-INF/default-policies/pre.xml"),
                         UCon.class.getResourceAsStream("/META-INF/default-policies/on.xml"),
