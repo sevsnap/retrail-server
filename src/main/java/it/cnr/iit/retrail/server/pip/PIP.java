@@ -51,9 +51,19 @@ public abstract class PIP implements PIPInterface {
     public void onBeforeTryAccess(PepAccessRequest request) {
         log.debug("dummy PIP processor called, ignoring");
     }
+        
+    @Override
+    public void onAfterTryAccess(PepAccessRequest request, PepSession session) {
+        log.debug("dummy PIP processor called, ignoring");
+    }
     
     @Override
     public void onBeforeStartAccess(PepAccessRequest request, PepSession session) {
+        log.debug("dummy PIP processor called, ignoring");
+    }
+    
+    @Override
+    public void onAfterStartAccess(PepAccessRequest request, PepSession session) {
         log.debug("dummy PIP processor called, ignoring");
     }
     
@@ -67,7 +77,17 @@ public abstract class PIP implements PIPInterface {
     }
     
     @Override
+    public void onAfterRevokeAccess(PepAccessRequest request, PepSession session) {
+        log.debug("dummy PIP processor called, ignoring");
+    }
+    
+    @Override
     public void onBeforeEndAccess(PepAccessRequest request, PepSession session) {
+        log.debug("dummy PIP processor called, ignoring");
+    }
+    
+    @Override
+    public void onAfterEndAccess(PepAccessRequest request, PepSession session) {
         log.debug("dummy PIP processor called, ignoring");
     }
    

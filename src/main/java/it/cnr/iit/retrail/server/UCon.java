@@ -24,8 +24,6 @@ import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
-import java.util.logging.Level;
-import java.util.logging.Logger;
 import org.apache.commons.beanutils.BeanUtils;
 import org.apache.xmlrpc.XmlRpcException;
 import org.w3c.dom.Document;
@@ -46,7 +44,8 @@ import org.wso2.balana.finder.impl.StreamBasedPolicyFinderModule;
 import org.wso2.balana.finder.impl.URLBasedPolicyFinderModule;
 
 public class UCon extends Server {
-
+    public int maxMissedHeartbeats = 1;
+    
     private static final String defaultUrlString = "http://localhost:8080";
     private static UCon singleton;
 
@@ -170,14 +169,13 @@ public class UCon extends Server {
         // Now send the enriched request to the PDP
         Document responseDocument = access(accessRequest, pdp[PdpEnum.PRE]);
         PepSession pepSession = new PepSession(responseDocument);
-        if (pepSession.decision == PepAccessResponse.DecisionEnum.Permit) {
+        if (pepSession.getDecision() == PepAccessResponse.DecisionEnum.Permit) {
             UconSession uconSession = dal.startSession(accessRequest, pepUrl, customId);
             updatePepSession(pepSession, uconSession);
-        } else {
+        }  else 
             pepSession.setStatus(PepSession.Status.REJECTED);
-            for (PIPInterface p : pip) {
-                p.onBeforeEndAccess(accessRequest, pepSession);
-            }
+        for (PIPInterface p : pip) {
+            p.onAfterTryAccess(accessRequest, pepSession);
         }
         return pepSession;
     }
@@ -213,15 +211,18 @@ public class UCon extends Server {
         }
         Document responseDocument = access(pepAccessRequest, pdp[PdpEnum.ON]);
         pepSession = new PepSession(responseDocument);
-        if (pepSession.decision == PepAccessResponse.DecisionEnum.Permit) {
+        if (pepSession.getDecision() == PepAccessResponse.DecisionEnum.Permit) {
             uconSession.setStatus(PepSession.Status.ONGOING);
             dal.updateSession(uconSession, pepAccessRequest);
         }
         updatePepSession(pepSession, uconSession);
+        for (PIPInterface p : pip) {
+            p.onAfterStartAccess(pepAccessRequest, pepSession);
+        }
         return pepSession;
     }
 
-    private Document revokeAccess(URL pepUrl, PepSession pepSession) throws XmlRpcException {
+    private Document revokeAccess(URL pepUrl, PepSession pepSession) throws Exception {
         // revoke session on db
         UconSession uconSession = dal.getSession(pepSession.getUuid());
         if (uconSession == null) {
@@ -232,7 +233,11 @@ public class UCon extends Server {
         for (PIPInterface p : pip) {
             p.onBeforeRevokeAccess(pepAccessRequest, pepSession);                
         }
-        dal.revokeSession(uconSession);
+        uconSession = dal.revokeSession(uconSession);
+        updatePepSession(pepSession, uconSession);
+        for (PIPInterface p : pip) {
+            p.onAfterRevokeAccess(pepAccessRequest, pepSession);                
+        }
         // create client
         log.warn("invoking PEP at " + pepUrl + " to revoke " + pepSession);
         Client client = new Client(pepUrl);
@@ -323,7 +328,7 @@ public class UCon extends Server {
                 pepSession = new PepSession(responseDocument);
                 updatePepSession(pepSession, involvedSession);
                 log.debug("evaluated request: " + pepSession);
-                boolean mustRevoke = pepSession.decision != PepAccessResponse.DecisionEnum.Permit;
+                boolean mustRevoke = pepSession.getDecision() != PepAccessResponse.DecisionEnum.Permit;
                 // Explicitly revoke access if anything went wrong
                 if (mustRevoke) {
                     log.warn("revoking {}", pepSession);
@@ -357,18 +362,21 @@ public class UCon extends Server {
         UconSession session = dal.getSession(uuid);
         PepSession response = new PepSession(PepAccessResponse.DecisionEnum.NotApplicable, "session ended");
         if (session != null) {
+            updatePepSession(response, session);
             PepAccessRequest request = rebuildPepAccessRequest(session);
             for (PIPInterface p : pip) {
                 p.onBeforeEndAccess(request, response);
             }
-            updatePepSession(response, session);
             response.setStatus(PepSession.Status.DELETED);
             dal.endSession(session);
+            for (PIPInterface p : pip) {
+                p.onAfterEndAccess(request, response);
+            }
         } else {
             log.error("unknown session with uuid: {}", uuid);
             throw new RuntimeException("unknown session with uuid: "+uuid);
         }
-        return response.toElement();
+       return response.toElement();
     }
 
     public String getUuid(String uuid, String customId) {
@@ -380,9 +388,9 @@ public class UCon extends Server {
 
     @Override
     protected void watchdog() {
-        // List all sessions that were not heartbeaten since at least 2 periods
+        // List all sessions that were not heartbeaten since at least maxMissedHeartbeats+1 periods
         Date now = new Date();
-        Date lastSeenBefore = new Date(now.getTime() - 1000 * 2 * watchdogPeriod);
+        Date lastSeenBefore = new Date(now.getTime() - 1000 * (maxMissedHeartbeats+1) * watchdogPeriod);
         Collection<UconSession> expiredSessions = dal.listSessions(lastSeenBefore);
         // Remove them
         for (UconSession expiredSession : expiredSessions) {

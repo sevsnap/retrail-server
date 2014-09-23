@@ -21,11 +21,19 @@ public interface PIPInterface {
 
     void onBeforeTryAccess(PepAccessRequest request);
 
+    void onAfterTryAccess(PepAccessRequest request, PepSession session);
+
     void onBeforeStartAccess(PepAccessRequest request, PepSession session);
+
+    void onAfterStartAccess(PepAccessRequest request, PepSession session);
 
     void onBeforeRevokeAccess(PepAccessRequest request, PepSession session);
 
+    void onAfterRevokeAccess(PepAccessRequest request, PepSession session);
+
     void onBeforeEndAccess(PepAccessRequest request, PepSession session);
+
+    void onAfterEndAccess(PepAccessRequest request, PepSession session);
 
     void refresh(PepAccessRequest accessRequest, PepSession session);
 
