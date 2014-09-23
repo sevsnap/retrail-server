@@ -69,7 +69,7 @@ public class UCon extends Server {
     public static UCon getInstance() {
         if (singleton == null) {
             try {
-                log.warn("loading builtin policies (permit anthing)");
+                log.warn("loading builtin policies (permit anything)");
                 singleton = new UCon(
                         UCon.class.getResourceAsStream("/META-INF/default-policies/pre.xml"),
                         UCon.class.getResourceAsStream("/META-INF/default-policies/on.xml"),
@@ -165,7 +165,7 @@ public class UCon extends Server {
     public PepSession tryAccess(PepAccessRequest accessRequest, URL pepUrl, String customId) throws Exception {
         // First enrich the request by calling the PIPs
         for (PIPInterface p : pip) {
-            p.onTryAccess(accessRequest);
+            p.onBeforeTryAccess(accessRequest);
         }
         // Now send the enriched request to the PDP
         Document responseDocument = access(accessRequest, pdp[PdpEnum.PRE]);
@@ -174,8 +174,9 @@ public class UCon extends Server {
             UconSession uconSession = dal.startSession(accessRequest, pepUrl, customId);
             updatePepSession(pepSession, uconSession);
         } else {
+            pepSession.setStatus(PepSession.Status.REJECTED);
             for (PIPInterface p : pip) {
-                p.onEndAccess(accessRequest);
+                p.onBeforeEndAccess(accessRequest, pepSession);
             }
         }
         return pepSession;
@@ -203,12 +204,15 @@ public class UCon extends Server {
             throw new RuntimeException(uconSession + " must be in TRY state to perform this operation");
         }
         PepAccessRequest pepAccessRequest = rebuildPepAccessRequest(uconSession);
-        refreshPepAccessRequest(pepAccessRequest);
+        // rebuild pepSession for PIP's onBeforeStartAccess argument
+        PepSession pepSession = new PepSession(PepAccessResponse.DecisionEnum.Permit, null);
+        updatePepSession(pepSession, uconSession);
+        refreshPepAccessRequest(pepAccessRequest, pepSession);
         for (PIPInterface p : pip) {
-            p.onStartAccess(pepAccessRequest);
+            p.onBeforeStartAccess(pepAccessRequest, pepSession);
         }
         Document responseDocument = access(pepAccessRequest, pdp[PdpEnum.ON]);
-        PepSession pepSession = new PepSession(responseDocument);
+        pepSession = new PepSession(responseDocument);
         if (pepSession.decision == PepAccessResponse.DecisionEnum.Permit) {
             uconSession.setStatus(PepSession.Status.ONGOING);
             dal.updateSession(uconSession, pepAccessRequest);
@@ -224,9 +228,9 @@ public class UCon extends Server {
             throw new RuntimeException("cannot find session with uuid=" + pepSession.getUuid());
         }
         PepAccessRequest pepAccessRequest = rebuildPepAccessRequest(uconSession);
-        refreshPepAccessRequest(pepAccessRequest);
+        refreshPepAccessRequest(pepAccessRequest, pepSession);
         for (PIPInterface p : pip) {
-            p.onRevokeAccess(pepAccessRequest);                
+            p.onBeforeRevokeAccess(pepAccessRequest, pepSession);                
         }
         dal.revokeSession(uconSession);
         // create client
@@ -251,11 +255,12 @@ public class UCon extends Server {
         return accessRequest;
     }
 
-    private void refreshPepAccessRequest(PepAccessRequest accessRequest) {
+    private void refreshPepAccessRequest(PepAccessRequest accessRequest, PepSession session) {
         // TODO: should call only pips for changed attributes
         log.debug("refreshing request attributes");
+        
         for (PIPInterface p : pip) {
-            p.refresh(accessRequest);
+            p.refresh(accessRequest, session);
         }
     }
 
@@ -309,7 +314,9 @@ public class UCon extends Server {
                 // Rebuild PEP request without expired attributes 
                 PepAccessRequest pepAccessRequest = rebuildPepAccessRequest(involvedSession);
                 // refresh the request the ren-evaluate.
-                refreshPepAccessRequest(pepAccessRequest);
+                pepSession = new PepSession(PepAccessResponse.DecisionEnum.Permit, null);
+                updatePepSession(pepSession, involvedSession);
+                refreshPepAccessRequest(pepAccessRequest, pepSession);
                 // Now make PDP evaluate the request
                 log.debug("evaluating request");
                 Document responseDocument = access(pepAccessRequest, pdp[PdpEnum.ON]);
@@ -352,7 +359,7 @@ public class UCon extends Server {
         if (session != null) {
             PepAccessRequest request = rebuildPepAccessRequest(session);
             for (PIPInterface p : pip) {
-                p.onEndAccess(request);
+                p.onBeforeEndAccess(request, response);
             }
             updatePepSession(response, session);
             response.setStatus(PepSession.Status.DELETED);

@@ -7,6 +7,7 @@
 package it.cnr.iit.retrail.server.pip;
 
 import it.cnr.iit.retrail.commons.PepAccessRequest;
+import it.cnr.iit.retrail.commons.PepSession;
 
 /**
  *
@@ -18,15 +19,15 @@ public interface PIPInterface {
 
     void init();
 
-    void onTryAccess(PepAccessRequest request);
+    void onBeforeTryAccess(PepAccessRequest request);
 
-    void onStartAccess(PepAccessRequest request);
+    void onBeforeStartAccess(PepAccessRequest request, PepSession session);
 
-    void onRevokeAccess(PepAccessRequest request);
+    void onBeforeRevokeAccess(PepAccessRequest request, PepSession session);
 
-    void onEndAccess(PepAccessRequest request);
+    void onBeforeEndAccess(PepAccessRequest request, PepSession session);
 
-    void refresh(PepAccessRequest accessRequest);
+    void refresh(PepAccessRequest accessRequest, PepSession session);
 
     void term();
     

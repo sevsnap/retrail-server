@@ -1,13 +1,14 @@
 /*
  * To change this license header, choose License Headers in Project Properties.
  * To change this template file, choose Tools | Templates
- * and onTryAccess the template in the editor.
+ * and onBeforeTryAccess the template in the editor.
  */
 
 package it.cnr.iit.retrail.server.pip;
 
 import it.cnr.iit.retrail.commons.PepAccessRequest;
 import it.cnr.iit.retrail.commons.PepRequestAttribute;
+import it.cnr.iit.retrail.commons.PepSession;
 import it.cnr.iit.retrail.server.db.Attribute;
 import it.cnr.iit.retrail.server.db.DAL;
 import java.util.ArrayList;
@@ -47,36 +48,36 @@ public abstract class PIP implements PIPInterface {
     }
     
     @Override
-    public void onTryAccess(PepAccessRequest request) {
+    public void onBeforeTryAccess(PepAccessRequest request) {
         log.debug("dummy PIP processor called, ignoring");
     }
     
     @Override
-    public void onStartAccess(PepAccessRequest request) {
+    public void onBeforeStartAccess(PepAccessRequest request, PepSession session) {
         log.debug("dummy PIP processor called, ignoring");
     }
     
-    protected void refresh(PepRequestAttribute pepAttribute) {
+    protected void refresh(PepRequestAttribute pepAttribute, PepSession session) {
         log.debug("dummy PIP processor called, ignoring");
     }
       
     @Override
-    public void onRevokeAccess(PepAccessRequest request) {
+    public void onBeforeRevokeAccess(PepAccessRequest request, PepSession session) {
         log.debug("dummy PIP processor called, ignoring");
     }
     
     @Override
-    public void onEndAccess(PepAccessRequest request) {
+    public void onBeforeEndAccess(PepAccessRequest request, PepSession session) {
         log.debug("dummy PIP processor called, ignoring");
     }
    
     @Override
-    public void refresh(PepAccessRequest accessRequest) {
+    public void refresh(PepAccessRequest accessRequest, PepSession session) {
         log.debug("{} refreshing {}", uuid, accessRequest);
         Date now = new Date();
         for(PepRequestAttribute a: accessRequest)
             if(uuid.equals(a.factory) && a.expires != null && a.expires.before(now))
-                refresh(a);
+                refresh(a, session);
     }
         
     @Override
