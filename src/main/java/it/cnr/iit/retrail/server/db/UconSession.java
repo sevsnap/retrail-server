@@ -1,8 +1,8 @@
 /*
- * To change this license header, choose License Headers in Project Properties.
- * To change this template file, choose Tools | Templates
- * and open the template in the editor.
+ * CNR - IIT
+ * Coded by: 2014 Enrico "KMcC;) Carniani
  */
+
 package it.cnr.iit.retrail.server.db;
 
 import it.cnr.iit.retrail.commons.PepSession;

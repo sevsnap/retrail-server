@@ -1,9 +1,12 @@
-/* */
+/*
+ * CNR - IIT
+ * Coded by: 2014 Enrico "KMcC;) Carniani
+ */
+
 package it.cnr.iit.retrail.server;
 
 import it.cnr.iit.retrail.commons.PepAccessRequest;
 import it.cnr.iit.retrail.commons.PepAccessResponse;
-import java.net.MalformedURLException;
 import java.net.URL;
 import java.util.List;
 import javax.xml.transform.TransformerConfigurationException;
