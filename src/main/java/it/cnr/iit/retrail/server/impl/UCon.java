@@ -3,8 +3,10 @@
  * Coded by: 2014 Enrico "KMcC;) Carniani
  */
 
-package it.cnr.iit.retrail.server;
+package it.cnr.iit.retrail.server.impl;
 
+import it.cnr.iit.retrail.server.UConInterface;
+import it.cnr.iit.retrail.server.XmlRpcInterface;
 import it.cnr.iit.retrail.commons.Client;
 import it.cnr.iit.retrail.commons.DomUtils;
 import it.cnr.iit.retrail.commons.PepAccessRequest;
@@ -29,6 +31,8 @@ import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
+import javax.xml.transform.TransformerConfigurationException;
+import javax.xml.transform.TransformerException;
 import org.apache.commons.beanutils.BeanUtils;
 import org.apache.xmlrpc.XmlRpcException;
 import org.w3c.dom.Document;
@@ -48,11 +52,52 @@ import org.wso2.balana.finder.impl.SelectorModule;
 import org.wso2.balana.finder.impl.StreamBasedPolicyFinderModule;
 import org.wso2.balana.finder.impl.URLBasedPolicyFinderModule;
 
-public class UCon extends Server {
+public class UCon extends Server implements UConInterface, XmlRpcInterface {
     public int maxMissedHeartbeats = 1;
     
     private static final String defaultUrlString = "http://localhost:8080";
     private static UCon singleton;
+
+    @Override
+    public Node echo(Node node) throws TransformerConfigurationException, TransformerException {
+        return node;
+    }
+
+    @Override
+    public Node tryAccess(Node accessRequest, String pepUrl, String customId) throws Exception {
+        log.info("pepUrl={}, customId={}", pepUrl, customId);
+        PepAccessRequest request = new PepAccessRequest((Document) accessRequest);
+        PepAccessResponse response = tryAccess(request, new URL(pepUrl), customId);
+        return response.toElement();
+    }
+
+    @Override
+    public Node assignCustomId(String uuid, String oldCustomId, String newCustomId) throws Exception {
+        log.info("uuid={}, oldCustomId={}, newCustomId={}", uuid, oldCustomId, newCustomId);
+        uuid = getUuid(uuid, oldCustomId);
+        return assignCustomId(uuid, newCustomId);
+    }
+
+    @Override
+    public Node startAccess(String uuid, String customId) throws Exception {
+        log.info("uuid={}, customId={}", uuid, customId);
+        uuid = getUuid(uuid, customId);
+        PepAccessResponse response = startAccess(uuid);
+        return response.toElement();
+    }
+
+    @Override
+    public Node endAccess(String uuid, String customId) throws Exception {
+        log.info("uuid={}, customId={}", uuid, customId);
+        uuid = getUuid(uuid, customId);
+        return endAccess(uuid);
+    }
+
+    @Override
+    public Node heartbeat(String pepUrl, List<String> sessionsList) throws Exception {
+        log.debug("called, with url: " + pepUrl);
+        return heartbeat(new URL(pepUrl), sessionsList);
+    }
 
     private static class PdpEnum {
 
@@ -70,7 +115,7 @@ public class UCon extends Server {
      *
      * @return
      */
-    public static UCon getInstance() {
+    public static UConInterface getInstance() {
         if (singleton == null) {
             try {
                 log.warn("loading builtin policies (permit anything)");
@@ -86,7 +131,11 @@ public class UCon extends Server {
         return singleton;
     }
 
-    public static UCon getInstance(URL pre, URL on, URL post) {
+    public static XmlRpcInterface getXmlRpcInstance() {
+        getInstance();
+        return singleton;
+    }
+    public static UConInterface getInstance(URL pre, URL on, URL post) {
         if (singleton == null) {
             try {
                 singleton = new UCon(pre, on, post);
@@ -98,7 +147,7 @@ public class UCon extends Server {
     }
 
     private UCon(URL pre, URL on, URL post) throws UnknownHostException, XmlRpcException, IOException, URISyntaxException {
-        super(new URL(defaultUrlString), XmlRpc.class);
+        super(new URL(defaultUrlString), XmlRpcProxy.class);
         log.info("pre policy URL: {}, on policy URL: {}", pre, on);
         pdp[PdpEnum.PRE] = newPDP(pre);
         pdp[PdpEnum.ON] = newPDP(on);
@@ -107,7 +156,7 @@ public class UCon extends Server {
     }
     
     private UCon(InputStream pre, InputStream on, InputStream post) throws UnknownHostException, XmlRpcException, IOException, URISyntaxException {
-        super(new URL(defaultUrlString), XmlRpc.class);
+        super(new URL(defaultUrlString), XmlRpcProxy.class);
         log.info("loading policies by streams");
         pdp[PdpEnum.PRE] = newPDP(pre);
         pdp[PdpEnum.ON] = newPDP(on);
@@ -166,7 +215,7 @@ public class UCon extends Server {
         return accessResponse;
     }
 
-    public PepSession tryAccess(PepAccessRequest accessRequest, URL pepUrl, String customId) throws Exception {
+    protected PepSession tryAccess(PepAccessRequest accessRequest, URL pepUrl, String customId) throws Exception {
         // First enrich the request by calling the PIPs
         for (PIPInterface p : pip) {
             p.onBeforeTryAccess(accessRequest);
@@ -197,7 +246,7 @@ public class UCon extends Server {
         return pepSession.toElement();
     }
 
-    public PepSession startAccess(String uuid) throws Exception {
+    protected PepSession startAccess(String uuid) throws Exception {
         // Now send the enriched request to the PDP
         UconSession uconSession = dal.getSession(uuid);
         if (uconSession == null) {
@@ -349,6 +398,7 @@ public class UCon extends Server {
         }
     }
 
+    @Override
     public void notifyChanges(Collection<PepRequestAttribute> changedAttributes) throws Exception {
         // Gather all the sessions that involve the changed attributes
         log.info("{} attributes changed, updating db", changedAttributes.size());
@@ -357,6 +407,7 @@ public class UCon extends Server {
         log.debug("done (total sessions: {})", dal.listSessions().size());
     }
 
+    @Override
     public void notifyChanges(PepRequestAttribute changedAttribute) throws Exception {
         Collection<PepRequestAttribute> attributes = new ArrayList(1);
         attributes.add(changedAttribute);
@@ -415,6 +466,7 @@ public class UCon extends Server {
         log.debug("OK (sessions: {})", dal.listSessions().size());
     }
 
+    @Override
     public synchronized void addPIP(PIPInterface p) {
         String uuid = p.getUUID();
         if (!pipNameToInstanceMap.containsKey(uuid)) {
@@ -426,6 +478,7 @@ public class UCon extends Server {
         }
     }
 
+    @Override
     public synchronized PIPInterface removePIP(PIPInterface p) {
         String uuid = p.getUUID();
         if (pipNameToInstanceMap.containsKey(uuid)) {

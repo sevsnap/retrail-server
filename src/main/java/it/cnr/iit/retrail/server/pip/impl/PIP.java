@@ -3,13 +3,14 @@
  * Coded by: 2014 Enrico "KMcC;) Carniani
  */
 
-package it.cnr.iit.retrail.server.pip;
+package it.cnr.iit.retrail.server.pip.impl;
 
 import it.cnr.iit.retrail.commons.PepAccessRequest;
 import it.cnr.iit.retrail.commons.PepRequestAttribute;
 import it.cnr.iit.retrail.commons.PepSession;
 import it.cnr.iit.retrail.server.db.Attribute;
 import it.cnr.iit.retrail.server.db.DAL;
+import it.cnr.iit.retrail.server.pip.PIPInterface;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.Date;

@@ -3,10 +3,11 @@
  * Coded by: 2014 Enrico "KMcC;) Carniani
  */
 
-package it.cnr.iit.retrail.server.pip;
+package it.cnr.iit.retrail.server.pip.impl;
 
 import it.cnr.iit.retrail.commons.PepRequestAttribute;
-import it.cnr.iit.retrail.server.UCon;
+import it.cnr.iit.retrail.server.UConInterface;
+import it.cnr.iit.retrail.server.impl.UCon;
 import java.util.Collection;
 
 /**
@@ -15,7 +16,7 @@ import java.util.Collection;
  */
 public abstract class StandAlonePIP extends PIP implements Runnable {
     private Thread thread;
-    final private UCon ucon = UCon.getInstance();
+    final private UConInterface ucon = UCon.getInstance();
     
     @Override
     public void init() {
