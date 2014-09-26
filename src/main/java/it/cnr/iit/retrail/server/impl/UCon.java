@@ -169,89 +169,51 @@ public class UCon extends Server implements UConInterface, XmlRpcInterface {
     }
 
     @Override
-    public Node tryAccess(Node accessRequest, String pepUrl, String customId) throws Exception {
-        log.info("pepUrl={}, customId={}", pepUrl, customId);
+    public Node tryAccess(Node accessRequest, String pepUrlString, String customId) throws Exception {
+        log.info("pepUrl={}, customId={}", pepUrlString, customId);
         PepAccessRequest request = new PepAccessRequest((Document) accessRequest);
-        PepAccessResponse response = tryAccess(request, new URL(pepUrl), customId);
-        return response.toElement();
+        URL pepUrl = new URL(pepUrlString);
+ 
+        // First enrich the request by calling the PIPs
+        for (PIPInterface p : pip) {
+            p.onBeforeTryAccess(request);
+        }
+        // Now send the enriched request to the PDP
+        Document responseDocument = access(request, pdp[PdpEnum.PRE]);
+        PepSession pepSession = new PepSession(responseDocument);
+        if (pepSession.getDecision() == PepAccessResponse.DecisionEnum.Permit) {
+            UconSession uconSession = dal.startSession(request, pepUrl, customId);
+            updatePepSession(pepSession, uconSession);
+        } else {
+            pepSession.setStatus(PepSession.Status.REJECTED);
+        }
+        
+        for (PIPInterface p : pip) {
+            p.onAfterTryAccess(request, pepSession);
+        }
+
+        return pepSession.toXacml3Element();
     }
 
     @Override
     public Node assignCustomId(String uuid, String oldCustomId, String newCustomId) throws Exception {
         log.info("uuid={}, oldCustomId={}, newCustomId={}", uuid, oldCustomId, newCustomId);
         uuid = getUuid(uuid, oldCustomId);
-        return assignCustomId(uuid, newCustomId);
+        if (newCustomId == null || newCustomId.length() == 0) {
+            throw new RuntimeException("invalid customId: " + uuid);
+        }
+        UconSession uconSession = dal.getSession(uuid);
+        uconSession.setCustomId(newCustomId);
+        dal.save(uconSession);
+        PepSession pepSession = new PepSession(PepAccessResponse.DecisionEnum.Permit, "new customId assigned");
+        updatePepSession(pepSession, uconSession);
+        return pepSession.toXacml3Element();
     }
 
     @Override
     public Node startAccess(String uuid, String customId) throws Exception {
         log.info("uuid={}, customId={}", uuid, customId);
         uuid = getUuid(uuid, customId);
-        PepAccessResponse response = startAccess(uuid);
-        return response.toElement();
-    }
-
-    @Override
-    public Node endAccess(String uuid, String customId) throws Exception {
-        log.info("uuid={}, customId={}", uuid, customId);
-        uuid = getUuid(uuid, customId);
-        return endAccess(uuid);
-    }
-
-    @Override
-    public Node heartbeat(String pepUrl, List<String> sessionsList) throws Exception {
-        log.debug("called, with url: " + pepUrl);
-        return heartbeat(new URL(pepUrl), sessionsList);
-    }
-
-    private Document access(PepAccessRequest accessRequest, PDP p) {
-        Document accessResponse = null;
-        try {
-            Element xacmlRequest = accessRequest.toElement();
-            AbstractRequestCtx request = RequestCtxFactory.getFactory().getRequestCtx(xacmlRequest);
-            ResponseCtx response = p.evaluate(request);
-            String responseString = response.encode();
-            accessResponse = DomUtils.read(responseString);
-        } catch (Exception ex) {
-            log.error(ex.getMessage());
-        }
-        return accessResponse;
-    }
-
-    protected PepSession tryAccess(PepAccessRequest accessRequest, URL pepUrl, String customId) throws Exception {
-        // First enrich the request by calling the PIPs
-        for (PIPInterface p : pip) {
-            p.onBeforeTryAccess(accessRequest);
-        }
-        // Now send the enriched request to the PDP
-        Document responseDocument = access(accessRequest, pdp[PdpEnum.PRE]);
-        PepSession pepSession = new PepSession(responseDocument);
-        if (pepSession.getDecision() == PepAccessResponse.DecisionEnum.Permit) {
-            UconSession uconSession = dal.startSession(accessRequest, pepUrl, customId);
-            updatePepSession(pepSession, uconSession);
-        } else {
-            pepSession.setStatus(PepSession.Status.REJECTED);
-        }
-        for (PIPInterface p : pip) {
-            p.onAfterTryAccess(accessRequest, pepSession);
-        }
-        return pepSession;
-    }
-
-    protected Node assignCustomId(String uuid, String customId) throws Exception {
-        if (customId == null || customId.length() == 0) {
-            throw new RuntimeException("invalid customId: " + uuid);
-        }
-        UconSession uconSession = dal.getSession(uuid);
-        uconSession.setCustomId(customId);
-        dal.save(uconSession);
-        PepSession pepSession = new PepSession(PepAccessResponse.DecisionEnum.Permit, "new customId assigned");
-        updatePepSession(pepSession, uconSession);
-        return pepSession.toElement();
-    }
-
-    protected PepSession startAccess(String uuid) throws Exception {
-        // Now send the enriched request to the PDP
         UconSession uconSession = dal.getSession(uuid);
         if (uconSession == null) {
             throw new RuntimeException("no session with uuid: " + uuid);
@@ -277,8 +239,53 @@ public class UCon extends Server implements UConInterface, XmlRpcInterface {
         for (PIPInterface p : pip) {
             p.onAfterStartAccess(pepAccessRequest, pepSession);
         }
-        return pepSession;
+        return pepSession.toXacml3Element();
     }
+
+    @Override
+    public Node endAccess(String uuid, String customId) throws Exception {
+        log.info("uuid={}, customId={}", uuid, customId);
+        uuid = getUuid(uuid, customId);
+        UconSession session = dal.getSession(uuid);
+        PepSession response = new PepSession(PepAccessResponse.DecisionEnum.NotApplicable, "session ended");
+        if (session != null) {
+            updatePepSession(response, session);
+            PepAccessRequest request = rebuildPepAccessRequest(session);
+            for (PIPInterface p : pip) {
+                p.onBeforeEndAccess(request, response);
+            }
+            response.setStatus(PepSession.Status.DELETED);
+            dal.endSession(session);
+            for (PIPInterface p : pip) {
+                p.onAfterEndAccess(request, response);
+            }
+        } else {
+            log.error("unknown session with uuid: {}", uuid);
+            throw new RuntimeException("unknown session with uuid: " + uuid);
+        }
+        return response.toXacml3Element();
+    }
+
+    @Override
+    public Node heartbeat(String pepUrl, List<String> sessionsList) throws Exception {
+        log.debug("called, with url: " + pepUrl);
+        return heartbeat(new URL(pepUrl), sessionsList);
+    }
+
+    private Document access(PepAccessRequest accessRequest, PDP p) {
+        Document accessResponse = null;
+        try {
+            Element xacmlRequest = accessRequest.toElement();
+            AbstractRequestCtx request = RequestCtxFactory.getFactory().getRequestCtx(xacmlRequest);
+            ResponseCtx response = p.evaluate(request);
+            String responseString = response.encode();
+            accessResponse = DomUtils.read(responseString);
+        } catch (Exception ex) {
+            log.error(ex.getMessage());
+        }
+        return accessResponse;
+    }
+
 
     private Document revokeAccess(URL pepUrl, PepSession pepSession) throws Exception {
         // revoke session on db
@@ -300,7 +307,7 @@ public class UCon extends Server implements UConInterface, XmlRpcInterface {
         log.warn("invoking PEP at " + pepUrl + " to revoke " + pepSession);
         Client client = new Client(pepUrl);
         // remote call. TODO: should consider error handling
-        Object[] params = new Object[]{pepSession.toElement()};
+        Object[] params = new Object[]{pepSession.toXacml3Element()};
         Document doc = (Document) client.execute("PEP.revokeAccess", params);
         return doc;
     }
@@ -348,7 +355,7 @@ public class UCon extends Server implements UConInterface, XmlRpcInterface {
                 PepSession pepSession = new PepSession(PepAccessResponse.DecisionEnum.Permit, "recoverable session");
                 updatePepSession(pepSession, session);
                 log.warn("found session unknown to client: " + pepSession);
-                Node n = doc.adoptNode(pepSession.toElement());
+                Node n = doc.adoptNode(pepSession.toXacml3Element());
                 // including enriched request information
                 n.appendChild(doc.adoptNode(pepAccessRequest.toElement()));
                 responses.appendChild(n);
@@ -363,7 +370,7 @@ public class UCon extends Server implements UConInterface, XmlRpcInterface {
             pepSession.setUuid(uuid);
             pepSession.setStatus(PepSession.Status.UNKNOWN);
             pepSession.setUconUrl(myUrl);
-            Node n = doc.adoptNode(pepSession.toElement());
+            Node n = doc.adoptNode(pepSession.toXacml3Element());
             responses.appendChild(n);
         }
         return doc;
@@ -418,27 +425,6 @@ public class UCon extends Server implements UConInterface, XmlRpcInterface {
         notifyChanges(attributes);
     }
 
-    protected Node endAccess(String uuid) throws Exception {
-        UconSession session = dal.getSession(uuid);
-        PepSession response = new PepSession(PepAccessResponse.DecisionEnum.NotApplicable, "session ended");
-        if (session != null) {
-            updatePepSession(response, session);
-            PepAccessRequest request = rebuildPepAccessRequest(session);
-            for (PIPInterface p : pip) {
-                p.onBeforeEndAccess(request, response);
-            }
-            response.setStatus(PepSession.Status.DELETED);
-            dal.endSession(session);
-            for (PIPInterface p : pip) {
-                p.onAfterEndAccess(request, response);
-            }
-        } else {
-            log.error("unknown session with uuid: {}", uuid);
-            throw new RuntimeException("unknown session with uuid: " + uuid);
-        }
-        return response.toElement();
-    }
-
     public String getUuid(String uuid, String customId) {
         if (uuid != null) {
             return uuid;
@@ -456,7 +442,7 @@ public class UCon extends Server implements UConInterface, XmlRpcInterface {
         for (UconSession expiredSession : expiredSessions) {
             try {
                 log.warn("removing stale " + expiredSession);
-                endAccess(expiredSession.getUuid());
+                endAccess(expiredSession.getUuid(), null);
             } catch (Exception ex) {
                 log.error("could not properly end {}: {}", expiredSession, ex.getMessage());
             }
