@@ -5,7 +5,7 @@
 package it.cnr.iit.retrail.server.impl;
 
 import it.cnr.iit.retrail.server.UConInterface;
-import it.cnr.iit.retrail.server.XmlRpcInterface;
+import it.cnr.iit.retrail.server.XmlRpcProtocol;
 import it.cnr.iit.retrail.commons.Client;
 import it.cnr.iit.retrail.commons.DomUtils;
 import it.cnr.iit.retrail.commons.PepAccessRequest;
@@ -51,7 +51,7 @@ import org.wso2.balana.finder.impl.SelectorModule;
 import org.wso2.balana.finder.impl.StreamBasedPolicyFinderModule;
 import org.wso2.balana.finder.impl.URLBasedPolicyFinderModule;
 
-public class UCon extends Server implements UConInterface, XmlRpcInterface {
+public class UCon extends Server implements UConInterface, XmlRpcProtocol {
 
     public int maxMissedHeartbeats = 1;
 
@@ -103,13 +103,13 @@ public class UCon extends Server implements UConInterface, XmlRpcInterface {
         return singleton;
     }
 
-    public static XmlRpcInterface getXmlRpcInstance() {
+    public static XmlRpcProtocol getProtocolInstance() {
         getInstance();
         return singleton;
     }
     
     private UCon(URL pre, URL on, URL post) throws UnknownHostException, XmlRpcException, IOException, URISyntaxException {
-        super(new URL(defaultUrlString), XmlRpcProxy.class);
+        super(new URL(defaultUrlString), XmlRpcProtocolProxy.class);
         log.info("pre policy URL: {}, on policy URL: {}", pre, on);
         pdp[PdpEnum.PRE] = newPDP(pre);
         pdp[PdpEnum.ON] = newPDP(on);
@@ -118,7 +118,7 @@ public class UCon extends Server implements UConInterface, XmlRpcInterface {
     }
 
     private UCon(InputStream pre, InputStream on, InputStream post) throws UnknownHostException, XmlRpcException, IOException, URISyntaxException {
-        super(new URL(defaultUrlString), XmlRpcProxy.class);
+        super(new URL(defaultUrlString), XmlRpcProtocolProxy.class);
         log.info("loading policies by streams");
         pdp[PdpEnum.PRE] = newPDP(pre);
         pdp[PdpEnum.ON] = newPDP(on);
