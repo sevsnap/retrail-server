@@ -5,7 +5,7 @@
 package it.cnr.iit.retrail.server.impl;
 
 import it.cnr.iit.retrail.server.UConInterface;
-import it.cnr.iit.retrail.server.XmlRpcProtocol;
+import it.cnr.iit.retrail.server.UConProtocol;
 import it.cnr.iit.retrail.commons.Client;
 import it.cnr.iit.retrail.commons.DomUtils;
 import it.cnr.iit.retrail.commons.PepAccessRequest;
@@ -51,7 +51,7 @@ import org.wso2.balana.finder.impl.SelectorModule;
 import org.wso2.balana.finder.impl.StreamBasedPolicyFinderModule;
 import org.wso2.balana.finder.impl.URLBasedPolicyFinderModule;
 
-public class UCon extends Server implements UConInterface, XmlRpcProtocol {
+public class UCon extends Server implements UConInterface, UConProtocol {
 
     public int maxMissedHeartbeats = 1;
 
@@ -103,7 +103,7 @@ public class UCon extends Server implements UConInterface, XmlRpcProtocol {
         return singleton;
     }
 
-    public static XmlRpcProtocol getProtocolInstance() {
+    public static UConProtocol getProtocolInstance() {
         getInstance();
         return singleton;
     }

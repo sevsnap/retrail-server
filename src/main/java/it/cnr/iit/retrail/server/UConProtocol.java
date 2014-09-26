@@ -14,7 +14,7 @@ import org.w3c.dom.Node;
  *
  * @author oneadmin
  */
-public interface XmlRpcProtocol {
+public interface UConProtocol {
 
     Node echo(Node node) throws TransformerConfigurationException, TransformerException;
 

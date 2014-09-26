@@ -5,13 +5,13 @@
 
 package it.cnr.iit.retrail.server.impl;
 
-import it.cnr.iit.retrail.server.XmlRpcProtocol;
+import it.cnr.iit.retrail.server.UConProtocol;
 import java.util.List;
 import javax.xml.transform.TransformerConfigurationException;
 import javax.xml.transform.TransformerException;
 import org.w3c.dom.Node;
 
-public class XmlRpcProtocolProxy implements XmlRpcProtocol {
+public class XmlRpcProtocolProxy implements UConProtocol {
 
     @Override
     public final Node tryAccess(Node accessRequest, String pepUrl, String customId) throws Exception {
