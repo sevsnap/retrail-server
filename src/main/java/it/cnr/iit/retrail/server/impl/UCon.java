@@ -109,7 +109,7 @@ public class UCon extends Server implements UConInterface, UConProtocol {
     }
     
     private UCon(URL pre, URL on, URL post) throws UnknownHostException, XmlRpcException, IOException, URISyntaxException {
-        super(new URL(defaultUrlString), XmlRpcProtocolProxy.class);
+        super(new URL(defaultUrlString), UConProtocolProxy.class);
         log.info("pre policy URL: {}, on policy URL: {}", pre, on);
         pdp[PdpEnum.PRE] = newPDP(pre);
         pdp[PdpEnum.ON] = newPDP(on);
@@ -118,7 +118,7 @@ public class UCon extends Server implements UConInterface, UConProtocol {
     }
 
     private UCon(InputStream pre, InputStream on, InputStream post) throws UnknownHostException, XmlRpcException, IOException, URISyntaxException {
-        super(new URL(defaultUrlString), XmlRpcProtocolProxy.class);
+        super(new URL(defaultUrlString), UConProtocolProxy.class);
         log.info("loading policies by streams");
         pdp[PdpEnum.PRE] = newPDP(pre);
         pdp[PdpEnum.ON] = newPDP(on);

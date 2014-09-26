@@ -11,7 +11,7 @@ import javax.xml.transform.TransformerConfigurationException;
 import javax.xml.transform.TransformerException;
 import org.w3c.dom.Node;
 
-public class XmlRpcProtocolProxy implements UConProtocol {
+public class UConProtocolProxy implements UConProtocol {
 
     @Override
     public final Node tryAccess(Node accessRequest, String pepUrl, String customId) throws Exception {
