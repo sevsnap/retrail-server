@@ -2,7 +2,6 @@
  * CNR - IIT
  * Coded by: 2014 Enrico "KMcC;) Carniani
  */
-
 package it.cnr.iit.retrail.server.impl;
 
 import it.cnr.iit.retrail.server.UConInterface;
@@ -53,10 +52,116 @@ import org.wso2.balana.finder.impl.StreamBasedPolicyFinderModule;
 import org.wso2.balana.finder.impl.URLBasedPolicyFinderModule;
 
 public class UCon extends Server implements UConInterface, XmlRpcInterface {
+
     public int maxMissedHeartbeats = 1;
-    
+
     private static final String defaultUrlString = "http://localhost:8080";
     private static UCon singleton;
+
+    private static class PdpEnum {
+
+        static final int PRE = 0;
+        static final int ON = 1;
+        static final int POST = 2;
+    }
+
+    private final PDP pdp[] = new PDP[3];
+    public List<PIPInterface> pip = new ArrayList<>();
+    public Map<String, PIPInterface> pipNameToInstanceMap = new HashMap<>();
+    private final DAL dal;
+
+    /**
+     *
+     * @return
+     */
+    public static UConInterface getInstance() {
+        if (singleton == null) {
+            try {
+                log.warn("loading builtin policies (permit anything)");
+                singleton = new UCon(
+                        UCon.class.getResourceAsStream("/META-INF/default-policies/pre.xml"),
+                        UCon.class.getResourceAsStream("/META-INF/default-policies/on.xml"),
+                        UCon.class.getResourceAsStream("/META-INF/default-policies/post.xml")
+                );
+            } catch (XmlRpcException | IOException | URISyntaxException e) {
+                log.error(e.getMessage());
+            }
+        }
+        return singleton;
+    }
+
+    public static UConInterface getInstance(URL pre, URL on, URL post) {
+        if (singleton == null) {
+            try {
+                singleton = new UCon(pre, on, post);
+            } catch (XmlRpcException | IOException | URISyntaxException e) {
+                log.error(e.getMessage());
+            }
+        } else {
+            throw new RuntimeException("UCon already initialized!");
+        }
+        return singleton;
+    }
+
+    public static XmlRpcInterface getXmlRpcInstance() {
+        getInstance();
+        return singleton;
+    }
+    
+    private UCon(URL pre, URL on, URL post) throws UnknownHostException, XmlRpcException, IOException, URISyntaxException {
+        super(new URL(defaultUrlString), XmlRpcProxy.class);
+        log.info("pre policy URL: {}, on policy URL: {}", pre, on);
+        pdp[PdpEnum.PRE] = newPDP(pre);
+        pdp[PdpEnum.ON] = newPDP(on);
+        pdp[PdpEnum.POST] = newPDP(post);
+        dal = DAL.getInstance();
+    }
+
+    private UCon(InputStream pre, InputStream on, InputStream post) throws UnknownHostException, XmlRpcException, IOException, URISyntaxException {
+        super(new URL(defaultUrlString), XmlRpcProxy.class);
+        log.info("loading policies by streams");
+        pdp[PdpEnum.PRE] = newPDP(pre);
+        pdp[PdpEnum.ON] = newPDP(on);
+        pdp[PdpEnum.POST] = newPDP(post);
+        dal = DAL.getInstance();
+    }
+
+    private PDP newPDP(URL location) {
+        PolicyFinder policyFinder = new PolicyFinder();
+        Set<PolicyFinderModule> policyFinderModules = new HashSet<>();
+        Set<URL> locationSet = new HashSet<>();
+        locationSet.add(location); //set the correct policy location
+        URLBasedPolicyFinderModule URLBasedPolicyFinderModule = new URLBasedPolicyFinderModule(locationSet);
+        policyFinderModules.add(URLBasedPolicyFinderModule);
+        policyFinder.setModules(policyFinderModules);
+
+        AttributeFinder attributeFinder = new AttributeFinder();
+        List<AttributeFinderModule> attributeFinderModules = new ArrayList<>();
+        SelectorModule selectorModule = new SelectorModule();
+        CurrentEnvModule currentEnvModule = new CurrentEnvModule();
+        attributeFinderModules.add(selectorModule);
+        attributeFinderModules.add(currentEnvModule);
+        attributeFinder.setModules(attributeFinderModules);
+        PDPConfig pdpConfig = new PDPConfig(attributeFinder, policyFinder, null, false);
+        return new PDP(pdpConfig);
+    }
+
+    private PDP newPDP(InputStream stream) {
+        PolicyFinder policyFinder = new PolicyFinder();
+        Set<PolicyFinderModule> policyFinderModules = new HashSet<>();
+        StreamBasedPolicyFinderModule streamBasedPolicyFinderModule = new StreamBasedPolicyFinderModule(stream);
+        policyFinderModules.add(streamBasedPolicyFinderModule);
+        policyFinder.setModules(policyFinderModules);
+        AttributeFinder attributeFinder = new AttributeFinder();
+        List<AttributeFinderModule> attributeFinderModules = new ArrayList<>();
+        SelectorModule selectorModule = new SelectorModule();
+        CurrentEnvModule currentEnvModule = new CurrentEnvModule();
+        attributeFinderModules.add(selectorModule);
+        attributeFinderModules.add(currentEnvModule);
+        attributeFinder.setModules(attributeFinderModules);
+        PDPConfig pdpConfig = new PDPConfig(attributeFinder, policyFinder, null, false);
+        return new PDP(pdpConfig);
+    }
 
     @Override
     public Node echo(Node node) throws TransformerConfigurationException, TransformerException {
@@ -99,108 +204,6 @@ public class UCon extends Server implements UConInterface, XmlRpcInterface {
         return heartbeat(new URL(pepUrl), sessionsList);
     }
 
-    private static class PdpEnum {
-
-        static final int PRE = 0;
-        static final int ON = 1;
-        static final int POST = 2;
-    }
-
-    private final PDP pdp[] = new PDP[3];
-    public List<PIPInterface> pip = new ArrayList<>();
-    public Map<String, PIPInterface> pipNameToInstanceMap = new HashMap<>();
-    private final DAL dal;
-
-    /**
-     *
-     * @return
-     */
-    public static UConInterface getInstance() {
-        if (singleton == null) {
-            try {
-                log.warn("loading builtin policies (permit anything)");
-                singleton = new UCon(
-                        UCon.class.getResourceAsStream("/META-INF/default-policies/pre.xml"),
-                        UCon.class.getResourceAsStream("/META-INF/default-policies/on.xml"),
-                        UCon.class.getResourceAsStream("/META-INF/default-policies/post.xml")
-                );
-            } catch (XmlRpcException | IOException | URISyntaxException e) {
-                log.error(e.getMessage());
-            }
-        }
-        return singleton;
-    }
-
-    public static XmlRpcInterface getXmlRpcInstance() {
-        getInstance();
-        return singleton;
-    }
-    public static UConInterface getInstance(URL pre, URL on, URL post) {
-        if (singleton == null) {
-            try {
-                singleton = new UCon(pre, on, post);
-            } catch (XmlRpcException | IOException | URISyntaxException e) {
-                log.error(e.getMessage());
-            }
-        } else throw new RuntimeException("UCon already initialized!");
-        return singleton;
-    }
-
-    private UCon(URL pre, URL on, URL post) throws UnknownHostException, XmlRpcException, IOException, URISyntaxException {
-        super(new URL(defaultUrlString), XmlRpcProxy.class);
-        log.info("pre policy URL: {}, on policy URL: {}", pre, on);
-        pdp[PdpEnum.PRE] = newPDP(pre);
-        pdp[PdpEnum.ON] = newPDP(on);
-        pdp[PdpEnum.POST] = newPDP(post);
-        dal = DAL.getInstance();
-    }
-    
-    private UCon(InputStream pre, InputStream on, InputStream post) throws UnknownHostException, XmlRpcException, IOException, URISyntaxException {
-        super(new URL(defaultUrlString), XmlRpcProxy.class);
-        log.info("loading policies by streams");
-        pdp[PdpEnum.PRE] = newPDP(pre);
-        pdp[PdpEnum.ON] = newPDP(on);
-        pdp[PdpEnum.POST] = newPDP(post);
-        dal = DAL.getInstance();
-    }
-
-    private PDP newPDP(URL location) {
-        PolicyFinder policyFinder = new PolicyFinder();
-        Set<PolicyFinderModule> policyFinderModules = new HashSet<>();
-        Set<URL> locationSet = new HashSet<>();
-        locationSet.add(location); //set the correct policy location
-        URLBasedPolicyFinderModule URLBasedPolicyFinderModule = new URLBasedPolicyFinderModule(locationSet);
-        policyFinderModules.add(URLBasedPolicyFinderModule);
-        policyFinder.setModules(policyFinderModules);
-
-        AttributeFinder attributeFinder = new AttributeFinder();
-        List<AttributeFinderModule> attributeFinderModules = new ArrayList<>();
-        SelectorModule selectorModule = new SelectorModule();
-        CurrentEnvModule currentEnvModule = new CurrentEnvModule();
-        attributeFinderModules.add(selectorModule);
-        attributeFinderModules.add(currentEnvModule);
-        attributeFinder.setModules(attributeFinderModules);
-        PDPConfig pdpConfig = new PDPConfig(attributeFinder, policyFinder, null, false);
-        return new PDP(pdpConfig);
-    }
-    
-    private PDP newPDP(InputStream stream) {
-        PolicyFinder policyFinder = new PolicyFinder();
-        Set<PolicyFinderModule> policyFinderModules = new HashSet<>();
-        StreamBasedPolicyFinderModule streamBasedPolicyFinderModule = new StreamBasedPolicyFinderModule(stream);
-        policyFinderModules.add(streamBasedPolicyFinderModule);
-        policyFinder.setModules(policyFinderModules);
-        AttributeFinder attributeFinder = new AttributeFinder();
-        List<AttributeFinderModule> attributeFinderModules = new ArrayList<>();
-        SelectorModule selectorModule = new SelectorModule();
-        CurrentEnvModule currentEnvModule = new CurrentEnvModule();
-        attributeFinderModules.add(selectorModule);
-        attributeFinderModules.add(currentEnvModule);
-        attributeFinder.setModules(attributeFinderModules);
-        PDPConfig pdpConfig = new PDPConfig(attributeFinder, policyFinder, null, false);
-        return new PDP(pdpConfig);
-    }
-    
     private Document access(PepAccessRequest accessRequest, PDP p) {
         Document accessResponse = null;
         try {
@@ -226,15 +229,16 @@ public class UCon extends Server implements UConInterface, XmlRpcInterface {
         if (pepSession.getDecision() == PepAccessResponse.DecisionEnum.Permit) {
             UconSession uconSession = dal.startSession(accessRequest, pepUrl, customId);
             updatePepSession(pepSession, uconSession);
-        }  else 
+        } else {
             pepSession.setStatus(PepSession.Status.REJECTED);
+        }
         for (PIPInterface p : pip) {
             p.onAfterTryAccess(accessRequest, pepSession);
         }
         return pepSession;
     }
 
-    public Node assignCustomId(String uuid, String customId) throws Exception {
+    protected Node assignCustomId(String uuid, String customId) throws Exception {
         if (customId == null || customId.length() == 0) {
             throw new RuntimeException("invalid customId: " + uuid);
         }
@@ -285,12 +289,12 @@ public class UCon extends Server implements UConInterface, XmlRpcInterface {
         PepAccessRequest pepAccessRequest = rebuildPepAccessRequest(uconSession);
         refreshPepAccessRequest(pepAccessRequest, pepSession);
         for (PIPInterface p : pip) {
-            p.onBeforeRevokeAccess(pepAccessRequest, pepSession);                
+            p.onBeforeRevokeAccess(pepAccessRequest, pepSession);
         }
         uconSession = dal.revokeSession(uconSession);
         updatePepSession(pepSession, uconSession);
         for (PIPInterface p : pip) {
-            p.onAfterRevokeAccess(pepAccessRequest, pepSession);                
+            p.onAfterRevokeAccess(pepAccessRequest, pepSession);
         }
         // create client
         log.warn("invoking PEP at " + pepUrl + " to revoke " + pepSession);
@@ -317,7 +321,7 @@ public class UCon extends Server implements UConInterface, XmlRpcInterface {
     private void refreshPepAccessRequest(PepAccessRequest accessRequest, PepSession session) {
         // TODO: should call only pips for changed attributes
         log.debug("refreshing request attributes");
-        
+
         for (PIPInterface p : pip) {
             p.refresh(accessRequest, session);
         }
@@ -328,7 +332,7 @@ public class UCon extends Server implements UConInterface, XmlRpcInterface {
         pepSession.setUconUrl(myUrl);
     }
 
-    public Document heartbeat(URL pepUrl, List<String> sessionsList) throws Exception {
+    protected Document heartbeat(URL pepUrl, List<String> sessionsList) throws Exception {
         Collection<UconSession> sessions = dal.listSessions(pepUrl);
         Document doc = DomUtils.newDocument();
         Element responses = doc.createElement("Responses");
@@ -414,7 +418,7 @@ public class UCon extends Server implements UConInterface, XmlRpcInterface {
         notifyChanges(attributes);
     }
 
-    public Node endAccess(String uuid) throws Exception {
+    protected Node endAccess(String uuid) throws Exception {
         UconSession session = dal.getSession(uuid);
         PepSession response = new PepSession(PepAccessResponse.DecisionEnum.NotApplicable, "session ended");
         if (session != null) {
@@ -430,9 +434,9 @@ public class UCon extends Server implements UConInterface, XmlRpcInterface {
             }
         } else {
             log.error("unknown session with uuid: {}", uuid);
-            throw new RuntimeException("unknown session with uuid: "+uuid);
+            throw new RuntimeException("unknown session with uuid: " + uuid);
         }
-       return response.toElement();
+        return response.toElement();
     }
 
     public String getUuid(String uuid, String customId) {
@@ -446,7 +450,7 @@ public class UCon extends Server implements UConInterface, XmlRpcInterface {
     protected void watchdog() {
         // List all sessions that were not heartbeaten since at least maxMissedHeartbeats+1 periods
         Date now = new Date();
-        Date lastSeenBefore = new Date(now.getTime() - 1000 * (maxMissedHeartbeats+1) * watchdogPeriod);
+        Date lastSeenBefore = new Date(now.getTime() - 1000 * (maxMissedHeartbeats + 1) * watchdogPeriod);
         Collection<UconSession> expiredSessions = dal.listSessions(lastSeenBefore);
         // Remove them
         for (UconSession expiredSession : expiredSessions) {
