@@ -6,7 +6,9 @@
 package it.cnr.iit.retrail.server.pip;
 
 import it.cnr.iit.retrail.commons.PepAccessRequest;
+import it.cnr.iit.retrail.commons.PepRequestAttribute;
 import it.cnr.iit.retrail.commons.PepSession;
+import java.util.Collection;
 
 /**
  *
@@ -14,28 +16,177 @@ import it.cnr.iit.retrail.commons.PepSession;
  */
 public interface PIPInterface {
 
+    /**
+     * getUUID()
+     * 
+     * returns the universal unique identifier for this PIP instance.
+     * The default implementation generates the identifier randomly.
+     * This behavior may be overridden.
+     * 
+     * @return
+     */
     String getUUID();
 
+    /**
+     * init()
+     * 
+     * is called by the UCon to allow the PIP for its own initialization.
+     * This is called each time the PIP is inserted in a chain.
+     * The default implementation does nothing.
+     */
     void init();
 
+    /**
+     * onBeforeTryAccess()
+     * 
+     * is the event handler called by the UCon just before executing a tryAccess
+     * for the given request. This chance may be used to add or alter some
+     * attributes of the request. The default implementation does nothing.
+     * New attributes are automatically registered as owned by this PIP and
+     * may be retrieved back by the listAttributes() method.
+     * 
+     * @param request the request to be processed by the UCon.
+     */
     void onBeforeTryAccess(PepAccessRequest request);
 
+    /**
+     * onAfterTryAccess()
+     * 
+     * is the event handler called by the UCon just after executing a tryAccess
+     * for the given request. The default implementation does nothing.
+     * New attributes must be added by invoking the newAttributes() method in
+     * order to register the new attribute as owned by this PIP and retrieve it
+     * back by the listAttributes() method.
+     * 
+     * @param request the request just processed.
+     * @param session the answer from UCon. In particular, it holds the decision
+     * made by the PDP and the consequent state of the session (i.e., ONGOING). 
+     */
     void onAfterTryAccess(PepAccessRequest request, PepSession session);
 
+    /**
+     * onBeforeStartAccess()
+     * 
+     * is the event handler called by the UCon just before executing a 
+     * startAccess for the given request and session. The default implementation
+     * does nothing.
+     * 
+     * @param request the request that is going to be processed.
+     * @param session the current session.
+     */
     void onBeforeStartAccess(PepAccessRequest request, PepSession session);
 
+    /**
+     * onAfterStartAccess()
+     * 
+     * is the event handler called by the UCon just after having executed a
+     * startAccess for the given request and session. The default implementation
+     * does nothing.
+     * 
+     * @param request the request just processed.
+     * @param session the current session holding the decision made by the PDP
+     * and the consequent status.
+     */
     void onAfterStartAccess(PepAccessRequest request, PepSession session);
 
+    /**
+     * onBeforeRevokeAccess()
+     * 
+     * is the event handler called by the UCon just before revoking the
+     * access rights to the corresponding PEP. The default implementation
+     * does nothing.
+     * 
+     * @param request the request that is going to be revoked.
+     * @param session the current session.
+     */
     void onBeforeRevokeAccess(PepAccessRequest request, PepSession session);
 
+    /**
+     * onAfterRevokeAccess()
+     * 
+     * is the event handler called by the UCon just after having revoked the
+     * access rights to the corresponding PEP. The default implementation does
+     * nothing.
+     * 
+     * @param request the request whose rights have just been revoked.
+     * @param session the current (revoked) session.
+     */
     void onAfterRevokeAccess(PepAccessRequest request, PepSession session);
 
+    /**
+     * onBeforeEndAccess()
+     * 
+     * is the event handler called by the UCon just before ending a session.
+     * The default implementation does nothing.
+     * 
+     * @param request the request to be ended.
+     * @param session the current session.
+     */
     void onBeforeEndAccess(PepAccessRequest request, PepSession session);
 
+    /**
+     * onAfterEndAccess() 
+     * 
+     * is the event handler invoked by the UCon just after having ended a
+     * session. The default implementation does nothing.
+     * 
+     * @param request the request just ended.
+     * @param session the current (deleted) session.
+     */
     void onAfterEndAccess(PepAccessRequest request, PepSession session);
+    
+    /**
+     * newAttribute() 
+     * 
+     * creates a new PEP request attribute managed by this PIP. The PIP itself
+     * will be able to recover the created attribute later by using the 
+     * listAttributes() API.
+     * 
+     * @param id the id of the subject.
+     * @param type the type description of data this attribute is holding.
+     * @param value the value held by this attribute.
+     * @param issuer the issuer of the attribute.
+     * @param category the category (subject, resource, or action).
+     * @return the new PEP request attribute.
+     */
+    PepRequestAttribute newAttribute(String id, String type, String value, String issuer, String category);
+    
+    /**
+     * listAttributes()
+     * 
+     * gets back a collection of PEP request attributes managed by this PIP,
+     * that is the ones created via the newAttribute() method.
+     * 
+     * @return the collection of attributes created by this PIP via 
+     * newAttribute().
+     */
+    Collection<PepRequestAttribute> listAttributes();
+
+    /**
+     * refresh()
+     * 
+     * is called by the UCon each time a request is going to be re-evaluated
+     * through some policy. This allows the PIP to implement a simpler 
+     * synchronous technique in place of an asynchronous one (i.e. without using
+     * notifyChanges()) for attributes update.
+     * Please note this means that the refreshed/added attributes MUST NOT be 
+     * notified, since this semantics is implicit.
+     * The default implementation does nothing.
+     * 
+     * @param accessRequest the request whose attributes are to be refreshed.
+     * @param session the session related to the request.
+     */
 
     void refresh(PepAccessRequest accessRequest, PepSession session);
 
+    /**
+     * term()
+     * 
+     * is invoked by the UCon to allow PIP for custom termination.
+     * It's called anytime it is removed from the UCon chain, or when the UCon
+     * itself is terminated. The default implementation does nothing.
+     */
+    
     void term();
     
 }

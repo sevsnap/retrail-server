@@ -31,7 +31,8 @@ public abstract class PIP implements PIPInterface {
         log.info("initializing {}", this);
     }
     
-    protected PepRequestAttribute newAttribute(String id, String type, String value, String issuer, String category) {
+    @Override
+    public PepRequestAttribute newAttribute(String id, String type, String value, String issuer, String category) {
         return new PepRequestAttribute(id, type, value, issuer, category, uuid);
     }
     
@@ -40,7 +41,8 @@ public abstract class PIP implements PIPInterface {
         return new PepRequestAttribute(a.getId(), a.getType(), a.getValue(), a.getIssuer(), a.getCategory(), a.getFactory());
     }
     
-    protected Collection<PepRequestAttribute> listAttributes() {
+    @Override
+    public Collection<PepRequestAttribute> listAttributes() {
         Collection<PepRequestAttribute> pepAttributes = new ArrayList<>();
         for(Attribute a: dal.listAttributesByFactory(uuid))
             pepAttributes.add(new PepRequestAttribute(a.getId(), a.getType(), a.getValue(), a.getIssuer(), a.getCategory(), a.getFactory()));
