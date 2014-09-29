@@ -11,19 +11,82 @@ import java.util.Collection;
 
 /**
  *
- * @author oneadmin
+ * @author Enrico Carniani
  */
 public interface UConInterface {
 
+    /**
+     * init()
+     * 
+     * starts the UCon service. May be called once, any other method call
+     * is allowed at any time except for term().
+     * 
+     * @throws Exception if anything goes wrong.
+     */
     void init() throws Exception;
     
+    /**
+     * addPIP()
+     * 
+     * adds a PIP to the PIP chain. The UCon may have 0 or more PIPs in order
+     * to add or alter attributes for each request (see the PIPInterface 
+     * documentation for further information).
+     * @param p the PIP to be added to the chain.
+     */
     void addPIP(PIPInterface p);
 
+    /**
+     * removePIP()
+     * 
+     * removes a PIP from the PIP chain.
+     * The UCon may have 0 or more PIP in order to add or alter attributes for
+     * each request (see the PIPInterface documentation for further 
+     * information).
+     * 
+     * @param p the PIP to be removed from the chain.
+     * @return the removed PIP instance.
+     */
     PIPInterface removePIP(PIPInterface p);
     
+    /**
+     * notifyChanges()
+     * 
+     * informs the UCon that some changes have been applied to the given 
+     * attribute.
+     * This typically makes the UCon re-evaluate all requests affected by the
+     * attribute changes because some policies may revoke access to the 
+     * respective ongoing sessions, that are in turn being notified to the
+     * PEP holding the rights via the revokeAccess() method.
+     * 
+     * @param changedAttribute the changed attribute to be notified.
+     * @throws Exception if anything goes wrong.
+     */
     void notifyChanges(PepRequestAttribute changedAttribute) throws Exception;
 
+    /**
+     * notifyChanges()
+     * 
+     * informs the UCon that some changes have been applied to the given 
+     * attributes.
+     * This typically makes the UCon re-evaluate all requests affected by the
+     * changed attributes because some policies may revoke access to the 
+     * respective ongoing sessions, that are in turn being notified to the
+     * PEP holding the rights via the revokeAccess() method.
+     * 
+     * @param changedAttributes the changed attributes collection to be notified.
+     * @throws Exception if anything goes wrong.
+     */
     void notifyChanges(Collection<PepRequestAttribute> changedAttributes) throws Exception;
 
-    void term() throws Exception;
+    /**
+     * term()
+     * 
+     * is called by UCon to allow for PIP's own cleanup whenever it is removed
+     * or the service is terminated. 
+     * It terminates all PIP modules by removing them; may be overloaded.
+     * 
+     * @throws InterruptedException if the main program has, for instance, asked
+     * for thread interruption.
+     */
+    void term() throws InterruptedException;
 }

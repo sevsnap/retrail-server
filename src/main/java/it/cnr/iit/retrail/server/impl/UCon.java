@@ -480,5 +480,12 @@ public class UCon extends Server implements UConInterface, UConProtocol {
         }
         return p;
     }
+    
+    @Override
+    public void term() throws InterruptedException {
+        while(pip.size() > 0)
+            removePIP(pip.get(0));
+        super.term();
+    }
 
 }
