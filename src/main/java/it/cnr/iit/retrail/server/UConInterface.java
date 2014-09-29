@@ -81,9 +81,8 @@ public interface UConInterface {
     /**
      * term()
      * 
-     * is called by UCon to allow for PIP's own cleanup whenever it is removed
-     * or the service is terminated. 
-     * It terminates all PIP modules by removing them; may be overloaded.
+     * shuts down the UCon service.
+     * It also terminates all PIP modules by removing them; may be overloaded.
      * 
      * @throws InterruptedException if the main program has, for instance, asked
      * for thread interruption.
