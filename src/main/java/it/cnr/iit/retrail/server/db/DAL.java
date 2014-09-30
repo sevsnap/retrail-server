@@ -81,6 +81,16 @@ public class DAL {
         Collection<UconSession> sessions = q.getResultList();
         return sessions;
     }
+    
+    public Collection<UconSession> listSessions(PepSession.Status status) {
+        EntityManager em = getEntityManager();
+        TypedQuery<UconSession> q = em.createQuery(
+                "select s from UconSession s where s.status = :status",
+                UconSession.class)
+                .setParameter("status", status);
+        Collection<UconSession> sessions = q.getResultList();
+        return sessions;
+    }
 
     public Collection<UconSession> listSessions(Date lastSeenBefore) {
         EntityManager em = getEntityManager();

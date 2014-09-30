@@ -30,6 +30,7 @@ import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
+import javax.xml.parsers.ParserConfigurationException;
 import javax.xml.transform.TransformerConfigurationException;
 import javax.xml.transform.TransformerException;
 import org.apache.commons.beanutils.BeanUtils;
@@ -69,6 +70,7 @@ public class UCon extends Server implements UConInterface, UConProtocol {
     public List<PIPInterface> pip = new ArrayList<>();
     public Map<String, PIPInterface> pipNameToInstanceMap = new HashMap<>();
     private final DAL dal;
+    private boolean inited = false;
 
     /**
      *
@@ -77,7 +79,6 @@ public class UCon extends Server implements UConInterface, UConProtocol {
     public static UConInterface getInstance() {
         if (singleton == null) {
             try {
-                log.warn("loading builtin policies (permit anything)");
                 singleton = new UCon(
                         UCon.class.getResourceAsStream("/META-INF/default-policies/pre.xml"),
                         UCon.class.getResourceAsStream("/META-INF/default-policies/on.xml"),
@@ -90,36 +91,14 @@ public class UCon extends Server implements UConInterface, UConProtocol {
         return singleton;
     }
 
-    public static UConInterface getInstance(URL pre, URL on, URL post) {
-        if (singleton == null) {
-            try {
-                singleton = new UCon(pre, on, post);
-            } catch (XmlRpcException | IOException | URISyntaxException e) {
-                log.error(e.getMessage());
-            }
-        } else {
-            throw new RuntimeException("UCon already initialized!");
-        }
-        return singleton;
-    }
-
     public static UConProtocol getProtocolInstance() {
         getInstance();
         return singleton;
     }
-    
-    private UCon(URL pre, URL on, URL post) throws UnknownHostException, XmlRpcException, IOException, URISyntaxException {
-        super(new URL(defaultUrlString), UConProtocolProxy.class);
-        log.info("pre policy URL: {}, on policy URL: {}", pre, on);
-        pdp[PdpEnum.PRE] = newPDP(pre);
-        pdp[PdpEnum.ON] = newPDP(on);
-        pdp[PdpEnum.POST] = newPDP(post);
-        dal = DAL.getInstance();
-    }
 
     private UCon(InputStream pre, InputStream on, InputStream post) throws UnknownHostException, XmlRpcException, IOException, URISyntaxException {
         super(new URL(defaultUrlString), UConProtocolProxy.class);
-        log.info("loading policies by streams");
+        log.warn("loading builtin policies (permit anything)");
         pdp[PdpEnum.PRE] = newPDP(pre);
         pdp[PdpEnum.ON] = newPDP(on);
         pdp[PdpEnum.POST] = newPDP(post);
@@ -164,6 +143,44 @@ public class UCon extends Server implements UConInterface, UConProtocol {
     }
 
     @Override
+    public void setPreauthPolicy(InputStream pre) {
+        log.warn("changing preauthorization policy");
+        pdp[PdpEnum.PRE] = newPDP(pre);
+    }
+    
+    @Override
+    public void setOngoingPolicy(InputStream pre) {
+        log.warn("changing ongoing policy");
+        pdp[PdpEnum.ON] = newPDP(pre);
+        if(inited) {
+            Collection<UconSession> sessions = dal.listSessions(PepSession.Status.ONGOING);
+            if(sessions.size() > 0) {
+               log.warn("UCon already running, reevaluating {} currently opened sessions", sessions.size());
+                reevaluateSessions(sessions);
+            }
+        }
+    }
+    
+    @Override
+    public void setPreauthPolicy(URL pre) {
+        log.warn("changing preauthorization policy to {}", pre);
+        pdp[PdpEnum.PRE] = newPDP(pre);
+    }
+    
+    @Override
+    public void setOngoingPolicy(URL on) {
+        log.warn("changing ongoing policy to {}", on);
+        pdp[PdpEnum.ON] = newPDP(on);
+        if(inited) {
+            Collection<UconSession> sessions = dal.listSessions(PepSession.Status.ONGOING);
+            if(sessions.size() > 0) {
+               log.warn("UCon already running, reevaluating {} currently opened sessions", sessions.size());
+                reevaluateSessions(sessions);
+            }
+        }
+    }
+    
+    @Override
     public Node echo(Node node) throws TransformerConfigurationException, TransformerException {
         return node;
     }
@@ -173,7 +190,7 @@ public class UCon extends Server implements UConInterface, UConProtocol {
         log.info("pepUrl={}, customId={}", pepUrlString, customId);
         PepAccessRequest request = new PepAccessRequest((Document) accessRequest);
         URL pepUrl = new URL(pepUrlString);
- 
+
         // First enrich the request by calling the PIPs
         for (PIPInterface p : pip) {
             p.onBeforeTryAccess(request);
@@ -187,7 +204,7 @@ public class UCon extends Server implements UConInterface, UConProtocol {
         } else {
             pepSession.setStatus(PepSession.Status.REJECTED);
         }
-        
+
         for (PIPInterface p : pip) {
             p.onAfterTryAccess(request, pepSession);
         }
@@ -285,7 +302,6 @@ public class UCon extends Server implements UConInterface, UConProtocol {
         }
         return accessResponse;
     }
-
 
     private Document revokeAccess(URL pepUrl, PepSession pepSession) throws Exception {
         // revoke session on db
@@ -480,12 +496,26 @@ public class UCon extends Server implements UConInterface, UConProtocol {
         }
         return p;
     }
-    
+
+    @Override
+    public void init() throws Exception {
+        super.init();
+        Collection<UconSession> sessions = dal.listSessions(PepSession.Status.ONGOING);
+        if(sessions.size() > 0) {
+           log.warn("reevaluating {} previously opened sessions", sessions.size());
+           reevaluateSessions(sessions);
+        }
+        inited = true;
+    }
+
     @Override
     public void term() throws InterruptedException {
-        while(pip.size() > 0)
+        while (pip.size() > 0) {
             removePIP(pip.get(0));
+        }
+        log.warn("completing shutdown procedure for the UCon service");
         super.term();
+        log.warn("UCon shutdown");
     }
 
 }

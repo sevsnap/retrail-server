@@ -7,6 +7,8 @@ package it.cnr.iit.retrail.server;
 
 import it.cnr.iit.retrail.commons.PepRequestAttribute;
 import it.cnr.iit.retrail.server.pip.PIPInterface;
+import java.io.InputStream;
+import java.net.URL;
 import java.util.Collection;
 
 /**
@@ -18,8 +20,10 @@ public interface UConInterface {
     /**
      * init()
      * 
-     * starts the UCon service. May be called once, any other method call
-     * is allowed at any time except for term().
+     * starts the UCon service. Any open session is reevaluated during this
+     * bootstrap phase.
+     * Must be called once, any other method call is allowed at any time except
+     * for term().
      * 
      * @throws Exception if anything goes wrong.
      */
@@ -88,4 +92,52 @@ public interface UConInterface {
      * for thread interruption.
      */
     void term() throws InterruptedException;
+    
+    /**
+     * setOngoingPolicy()
+     * 
+     * changes the current ongoing policy by reading the new one from the
+     * stream. The input format must be xacml3.
+     * If the UCon service has already been started by init(), the current 
+     * ongoing sessions are re-evaluated.
+     * 
+     * @param s the input stream containing the new policy to be set, in
+     * xacml3 format.
+     */
+    void setOngoingPolicy(InputStream s);
+
+    /**
+     * setOngoingPolicy()
+     * 
+     * changes the current ongoing policy by reading the new one from the
+     * URL. The input format must be xacml3.
+     * If the UCon service has already been started by init(), the current 
+     * ongoing sessions are re-evaluated.
+     * 
+     * @param url the url containing the new policy to be set, in
+     * xacml3 format.
+     */
+    void setOngoingPolicy(URL url);
+
+    /**
+     * setPreauthPolicy()
+     * 
+     * changes the current preauth policy by reading the new one from the
+     * stream. The input format must be xacml3.
+     * 
+     * @param s the input stream containing the new policy to be set, in
+     * xacml3 format.
+     */
+    void setPreauthPolicy(InputStream s);
+
+    /**
+     *     * setPreauthPolicy()
+     * 
+     * changes the current preauth policy by reading the new one from the
+     * URL. The input format must be xacml3.
+     * 
+     * @param url the url containing the new policy to be set, in
+     * xacml3 format.
+     */
+    void setPreauthPolicy(URL url);
 }
