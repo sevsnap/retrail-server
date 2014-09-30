@@ -175,7 +175,7 @@ public class UCon extends Server implements UConInterface, UConProtocol {
             Collection<UconSession> sessions = dal.listSessions(PepSession.Status.ONGOING);
             if(sessions.size() > 0) {
                log.warn("UCon already running, reevaluating {} currently opened sessions", sessions.size());
-                reevaluateSessions(sessions);
+               reevaluateSessions(sessions);
             }
         }
     }

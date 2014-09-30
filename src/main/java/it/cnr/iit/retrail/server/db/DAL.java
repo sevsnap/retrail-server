@@ -148,6 +148,20 @@ public class DAL {
         return attributes;
     }
 
+    private Attribute updateAttribute(EntityManager em, PepRequestAttribute pepAttribute, UconSession uconSession) {
+        Attribute attribute;
+        TypedQuery<Attribute> q = em.createQuery(
+                "select a from Attribute a where a.id = :id and a.category = :category and :session member of a.sessions",
+                Attribute.class)
+                .setParameter("id", pepAttribute.id)
+                .setParameter("category", pepAttribute.category)
+                .setParameter("session", uconSession);
+        attribute = q.getSingleResult();
+        attribute.copy(pepAttribute);
+        attribute = em.merge(attribute);
+        return attribute;
+    }
+    
     private Attribute updateAttribute(EntityManager em, PepRequestAttribute pepAttribute) {
         Attribute attribute;
         TypedQuery<Attribute> q = em.createQuery(
@@ -189,7 +203,10 @@ public class DAL {
         Attribute attribute;
         for (PepRequestAttribute pepAttribute : pepAttributes) {
             try {
-                attribute = updateAttribute(em, pepAttribute);
+                if(pepAttribute.shared)
+                    attribute = updateAttribute(em, pepAttribute);
+                else
+                    attribute = updateAttribute(em, pepAttribute, uconSession);
                 // If this attribute is already in the session, remove it first for safety.
                 uconSession.removeAttribute(attribute);
             } catch (NoResultException e) {
