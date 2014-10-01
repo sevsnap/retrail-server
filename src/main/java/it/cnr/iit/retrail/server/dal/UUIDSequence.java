@@ -3,7 +3,7 @@
  * Coded by: 2014 Enrico "KMcC;) Carniani
  */
 
-package it.cnr.iit.retrail.server.db;
+package it.cnr.iit.retrail.server.dal;
 
 import java.util.UUID;
 import java.util.Vector;

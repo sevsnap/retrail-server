@@ -3,8 +3,8 @@
   <!-- change here if you want name of unit different -->
   <persistence-unit name="retrail" transaction-type="RESOURCE_LOCAL">
     <!-- change here if your class/Entity package different -->
-    <class>it.cnr.iit.retrail.server.db.UconSession</class>
-    <class>it.cnr.iit.retrail.server.db.Attribute</class>
+    <class>it.cnr.iit.retrail.server.dal.UconSession</class>
+    <class>it.cnr.iit.retrail.server.dal.Attribute</class>
     <shared-cache-mode>DISABLE_SELECTIVE</shared-cache-mode>
     <properties>
       <!-- change here if your jdbc driver different -->
@@ -16,7 +16,7 @@
       <!-- EclipseLink should create the database schema automatically -->
       <property name="eclipselink.ddl-generation" value="create-tables"/>
       <property name="eclipselink.ddl-generation.output-mode" value="database"/>
-      <property name="eclipselink.session.customizer" value="it.cnr.iit.retrail.server.db.UUIDSequence"/>
+      <property name="eclipselink.session.customizer" value="it.cnr.iit.retrail.server.dal.UUIDSequence"/>
     </properties>
   </persistence-unit>
 </persistence>

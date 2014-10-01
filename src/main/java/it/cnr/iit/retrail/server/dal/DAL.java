@@ -3,7 +3,7 @@
  * Coded by: 2014 Enrico "KMcC;) Carniani
  */
 
-package it.cnr.iit.retrail.server.db;
+package it.cnr.iit.retrail.server.dal;
 
 import it.cnr.iit.retrail.commons.PepRequestAttribute;
 import it.cnr.iit.retrail.commons.PepSession;
@@ -203,10 +203,10 @@ public class DAL {
         Attribute attribute;
         for (PepRequestAttribute pepAttribute : pepAttributes) {
             try {
-                if(pepAttribute.shared)
+                //if(pepAttribute.shared)
                     attribute = updateAttribute(em, pepAttribute);
-                else
-                    attribute = updateAttribute(em, pepAttribute, uconSession);
+                //else
+                //    attribute = updateAttribute(em, pepAttribute, uconSession);
                 // If this attribute is already in the session, remove it first for safety.
                 uconSession.removeAttribute(attribute);
             } catch (NoResultException e) {
