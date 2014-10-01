@@ -263,24 +263,32 @@ public class UCon extends Server implements UConInterface, UConProtocol {
     public Node endAccess(String uuid, String customId) throws Exception {
         log.info("uuid={}, customId={}", uuid, customId);
         uuid = getUuid(uuid, customId);
-        UconSession session = dal.getSession(uuid);
-        PepSession response = new PepSession(PepAccessResponse.DecisionEnum.NotApplicable, "session ended");
-        if (session != null) {
-            updatePepSession(response, session);
-            PepAccessRequest request = rebuildPepAccessRequest(session);
-            for (PIPInterface p : pip) {
-                p.onBeforeEndAccess(request, response);
-            }
-            response.setStatus(PepSession.Status.DELETED);
-            dal.endSession(session);
-            for (PIPInterface p : pip) {
-                p.onAfterEndAccess(request, response);
-            }
-        } else {
-            log.error("unknown session with uuid: {}", uuid);
-            throw new RuntimeException("unknown session with uuid: " + uuid);
+        UconSession uconSession = dal.getSession(uuid);
+        if (uconSession == null) {
+            throw new RuntimeException("no session with uuid: " + uuid);
         }
-        return response.toXacml3Element();
+        PepAccessRequest pepAccessRequest = rebuildPepAccessRequest(uconSession);
+        // rebuild pepSession for PIP's onBeforeStartAccess argument
+        PepSession pepSession = new PepSession(PepAccessResponse.DecisionEnum.Permit, null);
+        updatePepSession(pepSession, uconSession);
+        refreshPepAccessRequest(pepAccessRequest, pepSession);
+        for (PIPInterface p : pip) {
+            p.onBeforeEndAccess(pepAccessRequest, pepSession);
+        }
+        if(pepSession.getStatus() != PepSession.Status.REVOKED) {
+            Document responseDocument = access(pepAccessRequest, pdp[PdpEnum.POST]);
+            pepSession = new PepSession(responseDocument);
+        } else 
+            pepSession.setDecision(PepAccessResponse.DecisionEnum.Permit);
+        if (pepSession.getDecision() == PepAccessResponse.DecisionEnum.Permit) {
+            uconSession.setStatus(PepSession.Status.DELETED);
+            dal.endSession(uconSession);
+        }
+        updatePepSession(pepSession, uconSession);
+        for (PIPInterface p : pip) {
+            p.onAfterEndAccess(pepAccessRequest, pepSession);
+        }
+        return pepSession.toXacml3Element();
     }
 
     @Override

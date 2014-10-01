@@ -7,6 +7,7 @@ package it.cnr.iit.retrail.server.dal;
 
 import it.cnr.iit.retrail.commons.PepRequestAttribute;
 import java.io.Serializable;
+import java.util.ArrayList;
 import java.util.Collection;
 import java.util.Date;
 import java.util.HashSet;
@@ -56,7 +57,7 @@ public class Attribute implements Serializable {
     
     private String factory;
 
-    public static Attribute newInstance(PepRequestAttribute pepAttribute) {
+    public static Attribute newInstance(PepRequestAttribute pepAttribute, Attribute parent) {
         Attribute attribute = new Attribute();
         attribute.id = pepAttribute.id;
         attribute.type = pepAttribute.type;
@@ -65,16 +66,23 @@ public class Attribute implements Serializable {
         attribute.category = pepAttribute.category;
         attribute.expires = pepAttribute.expires;
         attribute.factory = pepAttribute.factory;
+        attribute.children = new ArrayList<>();
+        attribute.setParent(parent);
         return attribute;
     }
     
-    public void copy(PepRequestAttribute pepAttribute) {
+    private Attribute() {
+        super();
+    }
+    
+    public void copy(PepRequestAttribute pepAttribute, Attribute parent) {
         type = pepAttribute.type;
         value = pepAttribute.value;
         issuer = pepAttribute.issuer;
         category = pepAttribute.category;
         expires = pepAttribute.expires;        
-        factory = pepAttribute.factory;        
+        factory = pepAttribute.factory;
+        setParent(parent);
     }
     
     public Collection<UconSession> getSessions() {
