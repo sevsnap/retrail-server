@@ -165,10 +165,11 @@ public interface PIPInterface {
      * @param type the type description of data this attribute is holding.
      * @param value the value held by this attribute.
      * @param issuer the issuer of the attribute.
-     * @param category the category (subject, resource, or action).
+     * @param parent the parent attribute. The category in inherited from this
+     * attribute instance.
      * @return the new PEP request attribute.
      */
-    PepRequestAttribute newPrivateAttribute(String id, String type, String value, String issuer, String category);
+    PepRequestAttribute newPrivateAttribute(String id, String type, String value, String issuer, PepRequestAttribute parent);
 
     /**
      * listAttributes()

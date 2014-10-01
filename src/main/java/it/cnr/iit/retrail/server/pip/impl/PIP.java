@@ -33,15 +33,13 @@ public abstract class PIP implements PIPInterface {
     
     @Override
     public PepRequestAttribute newSharedAttribute(String id, String type, String value, String issuer, String category) {
-        PepRequestAttribute a = new PepRequestAttribute(id, type, value, issuer, category, uuid);
-        a.shared = true;
-        return a;
+        return new PepRequestAttribute(id, type, value, issuer, category, uuid);
     }
     
     @Override
-    public PepRequestAttribute newPrivateAttribute(String id, String type, String value, String issuer, String category) {
-        PepRequestAttribute a = new PepRequestAttribute(id, type, value, issuer, category, uuid);
-        a.shared = false;
+    public PepRequestAttribute newPrivateAttribute(String id, String type, String value, String issuer, PepRequestAttribute parent) {
+        PepRequestAttribute a = new PepRequestAttribute(id, type, value, issuer, parent.category, uuid);
+        a.parent = parent;
         return a;
     }
     

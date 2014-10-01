@@ -64,6 +64,7 @@ public class DAL {
     }
 
     private DAL() {
+        log.info("creating Data Access Layer");
         this.entityManager = new ThreadLocal() {
             @Override
             protected synchronized Object initialValue() {
@@ -203,7 +204,7 @@ public class DAL {
         Attribute attribute;
         for (PepRequestAttribute pepAttribute : pepAttributes) {
             try {
-                //if(pepAttribute.shared)
+                //if(pepAttribute.parent)
                     attribute = updateAttribute(em, pepAttribute);
                 //else
                 //    attribute = updateAttribute(em, pepAttribute, uconSession);

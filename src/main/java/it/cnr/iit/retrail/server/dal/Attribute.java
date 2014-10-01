@@ -15,6 +15,8 @@ import javax.persistence.GeneratedValue;
 import javax.persistence.GenerationType;
 import javax.persistence.Id;
 import javax.persistence.ManyToMany;
+import javax.persistence.ManyToOne;
+import javax.persistence.OneToMany;
 import javax.persistence.Temporal;
 import org.eclipse.persistence.annotations.Index;
 
@@ -35,6 +37,12 @@ public class Attribute implements Serializable {
     private Long rowId;
     @ManyToMany(mappedBy="attributes")
     private Collection<UconSession> sessions;
+
+    @ManyToOne
+    private Attribute parent;
+
+    @OneToMany(mappedBy="parent")
+    private Collection<Attribute> children;
 
     @Index
     private String id;
@@ -133,6 +141,23 @@ public class Attribute implements Serializable {
 
     public void setFactory(String factory) {
         this.factory = factory;
+    }
+    
+    public Attribute getParent() {
+        return parent;
+    }
+    
+    public void setParent(Attribute parent) {
+        if(this.parent != null)
+            this.parent.children.remove(this.parent);
+        if(parent != null) {
+            this.parent = parent;
+            parent.children.add(parent);
+        }
+    }
+
+    public Collection<Attribute> getChildren() {
+        return children;
     }
     
     //this is optional, just for print out into console
