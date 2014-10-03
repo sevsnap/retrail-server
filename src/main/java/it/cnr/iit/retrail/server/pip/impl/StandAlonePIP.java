@@ -16,7 +16,6 @@ import java.util.Collection;
  */
 public abstract class StandAlonePIP extends PIP implements Runnable {
     private Thread thread;
-    final private UConInterface ucon = UCon.getInstance();
     
     @Override
     public void init() {
@@ -28,17 +27,17 @@ public abstract class StandAlonePIP extends PIP implements Runnable {
     }
 
     protected void notifyChanges(Collection<PepRequestAttribute> changedAttributes) throws Exception {
-        ucon.notifyChanges(changedAttributes);
+        UCon.getInstance().notifyChanges(changedAttributes);
     }
     
     protected void notifyChanges(PepRequestAttribute changedAttribute) throws Exception {
-        ucon.notifyChanges(changedAttribute);
+        UCon.getInstance().notifyChanges(changedAttribute);
     }
     
     @Override
     public void term() {
+        thread.interrupt();
         try {
-            thread.interrupt();
             thread.join();
         } catch (InterruptedException ex) {
             log.error(ex.toString());

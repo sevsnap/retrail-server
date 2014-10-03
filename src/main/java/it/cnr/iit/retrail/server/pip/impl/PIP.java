@@ -43,28 +43,50 @@ public abstract class PIP implements PIPInterface {
         return a;
     }
 
-    protected PepRequestAttribute getAttribute(String id, String category) {
-        Attribute a = dal.getAttribute(id, category, uuid);
-        Attribute p = a.getParent();
+    private PepRequestAttribute pepFromDalAttribute(Attribute a) {
         PepRequestAttribute pepA = new PepRequestAttribute(a.getId(), a.getType(), a.getValue(), a.getIssuer(), a.getCategory(), a.getFactory());
+        Attribute p = a.getParent();
         if (p != null) {
             PepRequestAttribute parentA = new PepRequestAttribute(p.getId(), p.getType(), p.getValue(), p.getIssuer(), p.getCategory(), p.getFactory());
             pepA.parent = parentA;
         }
+        log.info("*** PARENT = {} {}", p, pepA.parent);
         return pepA;
+    }
+    /*
+    protected Collection<PepRequestAttribute> listSharedAttributes() {
+        Collection<PepRequestAttribute> pepAttributes = new ArrayList<>();
+        for (Attribute a : dal.listSharedAttributes(uuid)) {
+            PepRequestAttribute pepA = pepFromDalAttribute(a);
+            pepAttributes.add(pepA);
+        }
+        return pepAttributes;
+    }
+    
+    protected Collection<PepRequestAttribute> listPrivateAttributes(PepRequestAttribute parent) {
+        Collection<PepRequestAttribute> pepAttributes = new ArrayList<>();
+        for (Attribute a : dal.listPrivateAttributes(uuid, parent.id, parent.category)) {
+            PepRequestAttribute pepA = pepFromDalAttribute(a);
+            pepAttributes.add(pepA);
+        }
+        return pepAttributes;
+    }
+*/
+    @Override
+    public Collection<PepRequestAttribute> listUnmanagedAttributes() {
+        Collection<PepRequestAttribute> pepAttributes = new ArrayList<>();
+        for (Attribute a : dal.listUnmanagedAttributes(uuid)) {
+            PepRequestAttribute pepA = pepFromDalAttribute(a);
+            pepAttributes.add(pepA);
+        }
+        return pepAttributes;
     }
 
     @Override
-    public Collection<PepRequestAttribute> listAttributes() {
+    public Collection<PepRequestAttribute> listManagedAttributes() {
         Collection<PepRequestAttribute> pepAttributes = new ArrayList<>();
-        for (Attribute a : dal.listAttributesByFactory(uuid)) {
-            PepRequestAttribute pepA = new PepRequestAttribute(a.getId(), a.getType(), a.getValue(), a.getIssuer(), a.getCategory(), a.getFactory());
-            Attribute p = a.getParent();
-            if (p != null) {
-                PepRequestAttribute parentA = new PepRequestAttribute(p.getId(), p.getType(), p.getValue(), p.getIssuer(), p.getCategory(), p.getFactory());
-                pepA.parent = parentA;
-            }
-            log.info("*** PARENT = {} {}", p, pepA.parent);
+        for (Attribute a : dal.listManagedAttributes(uuid)) {
+            PepRequestAttribute pepA = pepFromDalAttribute(a);
             pepAttributes.add(pepA);
         }
         return pepAttributes;
