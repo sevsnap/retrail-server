@@ -5,7 +5,8 @@
 
 package it.cnr.iit.retrail.server.dal;
 
-import it.cnr.iit.retrail.commons.PepRequestAttribute;
+import it.cnr.iit.retrail.commons.impl.PepAttribute;
+import it.cnr.iit.retrail.commons.PepAttributeInterface;
 import java.io.Serializable;
 import java.util.ArrayList;
 import java.util.Collection;
@@ -28,7 +29,7 @@ import org.eclipse.persistence.annotations.Index;
  */
 
 @Entity
-public class Attribute implements Serializable {
+public class Attribute implements PepAttributeInterface {
 
 	//For SQLite use GenerationType.AUTO to generate id
     //for derby, H2, MySQL etc use GenerationType.IDENTITY
@@ -57,15 +58,15 @@ public class Attribute implements Serializable {
     
     private String factory;
 
-    public static Attribute newInstance(PepRequestAttribute pepAttribute, Attribute parent) {
+    public static Attribute newInstance(PepAttributeInterface pepAttribute, Attribute parent) {
         Attribute attribute = new Attribute();
-        attribute.id = pepAttribute.id;
-        attribute.type = pepAttribute.type;
-        attribute.value = pepAttribute.value;
-        attribute.issuer = pepAttribute.issuer;
-        attribute.category = pepAttribute.category;
-        attribute.expires = pepAttribute.expires;
-        attribute.factory = pepAttribute.factory;
+        attribute.id = pepAttribute.getId();
+        attribute.type = pepAttribute.getType();
+        attribute.value = pepAttribute.getValue();
+        attribute.issuer = pepAttribute.getIssuer();
+        attribute.category = pepAttribute.getCategory();
+        attribute.expires = pepAttribute.getExpires();
+        attribute.factory = pepAttribute.getFactory();
         attribute.children = new ArrayList<>();
         attribute.setParent(parent);
         return attribute;
@@ -75,13 +76,13 @@ public class Attribute implements Serializable {
         super();
     }
     
-    public void copy(PepRequestAttribute pepAttribute, Attribute parent) {
-        type = pepAttribute.type;
-        value = pepAttribute.value;
-        issuer = pepAttribute.issuer;
-        category = pepAttribute.category;
-        expires = pepAttribute.expires;        
-        factory = pepAttribute.factory;
+    public void copy(PepAttributeInterface pepAttribute, Attribute parent) {
+        type = pepAttribute.getType();
+        value = pepAttribute.getValue();
+        issuer = pepAttribute.getIssuer();
+        category = pepAttribute.getCategory();
+        expires = pepAttribute.getExpires();        
+        factory = pepAttribute.getFactory();
         setParent(parent);
     }
     
@@ -91,6 +92,7 @@ public class Attribute implements Serializable {
         return sessions;
     }
 
+    @Override
     public String getId() {
         return id;
     }
@@ -99,6 +101,7 @@ public class Attribute implements Serializable {
         this.id = id;
     }
 
+    @Override
     public String getType() {
         return type;
     }
@@ -107,14 +110,17 @@ public class Attribute implements Serializable {
         this.type = type;
     }
 
+    @Override
     public String getValue() {
         return value;
     }
 
+    @Override
     public void setValue(String value) {
         this.value = value;
     }
 
+    @Override
     public String getIssuer() {
         return issuer;
     }
@@ -123,6 +129,7 @@ public class Attribute implements Serializable {
         this.issuer = issuer;
     }
 
+    @Override
     public String getCategory() {
         return category;
     }
@@ -135,14 +142,17 @@ public class Attribute implements Serializable {
         return rowId;
     }
 
+    @Override
     public Date getExpires() {
         return expires;
     }
 
+    @Override
     public void setExpires(Date expires) {
         this.expires = expires;
     }
 
+    @Override
     public String getFactory() {
         return factory;
     }
@@ -151,16 +161,18 @@ public class Attribute implements Serializable {
         this.factory = factory;
     }
     
-    public Attribute getParent() {
+    @Override
+    public PepAttributeInterface getParent() {
         return parent;
     }
     
-    public void setParent(Attribute parent) {
+    @Override
+    public void setParent(PepAttributeInterface parent) {
         if(this.parent != null)
             this.parent.children.remove(this.parent);
         if(parent != null) {
-            this.parent = parent;
-            parent.children.add(parent);
+            this.parent = (Attribute)parent;
+            ((Attribute)parent).getChildren().add((Attribute)parent);
         }
     }
 

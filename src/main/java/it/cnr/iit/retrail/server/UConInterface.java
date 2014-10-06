@@ -5,7 +5,8 @@
 
 package it.cnr.iit.retrail.server;
 
-import it.cnr.iit.retrail.commons.PepRequestAttribute;
+import it.cnr.iit.retrail.commons.PepAttributeInterface;
+import it.cnr.iit.retrail.commons.impl.PepAttribute;
 import it.cnr.iit.retrail.server.pip.PIPInterface;
 import java.io.InputStream;
 import java.net.URL;
@@ -65,7 +66,7 @@ public interface UConInterface {
      * @param changedAttribute the changed attribute to be notified.
      * @throws Exception if anything goes wrong.
      */
-    void notifyChanges(PepRequestAttribute changedAttribute) throws Exception;
+    void notifyChanges(PepAttributeInterface changedAttribute) throws Exception;
 
     /**
      * notifyChanges()
@@ -80,7 +81,7 @@ public interface UConInterface {
      * @param changedAttributes the changed attributes collection to be notified.
      * @throws Exception if anything goes wrong.
      */
-    void notifyChanges(Collection<PepRequestAttribute> changedAttributes) throws Exception;
+    void notifyChanges(Collection<PepAttributeInterface> changedAttributes) throws Exception;
 
     /**
      * term()

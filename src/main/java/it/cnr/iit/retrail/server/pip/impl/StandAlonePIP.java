@@ -5,7 +5,8 @@
 
 package it.cnr.iit.retrail.server.pip.impl;
 
-import it.cnr.iit.retrail.commons.PepRequestAttribute;
+import it.cnr.iit.retrail.commons.PepAttributeInterface;
+import it.cnr.iit.retrail.commons.impl.PepAttribute;
 import it.cnr.iit.retrail.server.UConInterface;
 import it.cnr.iit.retrail.server.impl.UCon;
 import java.util.Collection;
@@ -26,11 +27,11 @@ public abstract class StandAlonePIP extends PIP implements Runnable {
         thread.start();
     }
 
-    protected void notifyChanges(Collection<PepRequestAttribute> changedAttributes) throws Exception {
+    protected void notifyChanges(Collection<PepAttributeInterface> changedAttributes) throws Exception {
         UCon.getInstance().notifyChanges(changedAttributes);
     }
     
-    protected void notifyChanges(PepRequestAttribute changedAttribute) throws Exception {
+    protected void notifyChanges(PepAttributeInterface changedAttribute) throws Exception {
         UCon.getInstance().notifyChanges(changedAttribute);
     }
     

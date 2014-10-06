@@ -4,9 +4,12 @@
  */
 package it.cnr.iit.retrail.server.pip.impl;
 
-import it.cnr.iit.retrail.commons.PepAccessRequest;
-import it.cnr.iit.retrail.commons.PepRequestAttribute;
-import it.cnr.iit.retrail.commons.PepSession;
+import it.cnr.iit.retrail.commons.PepAttributeInterface;
+import it.cnr.iit.retrail.commons.PepRequestInterface;
+import it.cnr.iit.retrail.commons.PepSessionInterface;
+import it.cnr.iit.retrail.commons.impl.PepRequest;
+import it.cnr.iit.retrail.commons.impl.PepAttribute;
+import it.cnr.iit.retrail.commons.impl.PepSession;
 import it.cnr.iit.retrail.server.dal.Attribute;
 import it.cnr.iit.retrail.server.dal.DAL;
 import it.cnr.iit.retrail.server.pip.PIPInterface;
@@ -32,116 +35,116 @@ public abstract class PIP implements PIPInterface {
     }
 
     @Override
-    public PepRequestAttribute newSharedAttribute(String id, String type, String value, String issuer, String category) {
-        return new PepRequestAttribute(id, type, value, issuer, category, uuid);
+    public PepAttribute newSharedAttribute(String id, String type, String value, String issuer, String category) {
+        return new PepAttribute(id, type, value, issuer, category, uuid);
     }
 
     @Override
-    public PepRequestAttribute newPrivateAttribute(String id, String type, String value, String issuer, PepRequestAttribute parent) {
-        PepRequestAttribute a = new PepRequestAttribute(id, type, value, issuer, parent.category, uuid);
-        a.parent = parent;
+    public PepAttributeInterface newPrivateAttribute(String id, String type, String value, String issuer, PepAttributeInterface parent) {
+        PepAttribute a = new PepAttribute(id, type, value, issuer, parent.getCategory(), uuid);
+        a.setParent(parent);
         return a;
     }
 
-    private PepRequestAttribute pepFromDalAttribute(Attribute a) {
-        PepRequestAttribute pepA = new PepRequestAttribute(a.getId(), a.getType(), a.getValue(), a.getIssuer(), a.getCategory(), a.getFactory());
-        Attribute p = a.getParent();
+    private PepAttribute pepFromDalAttribute(Attribute a) {
+        PepAttribute pepA = new PepAttribute(a.getId(), a.getType(), a.getValue(), a.getIssuer(), a.getCategory(), a.getFactory());
+        Attribute p = (Attribute) a.getParent();
         if (p != null) {
-            PepRequestAttribute parentA = new PepRequestAttribute(p.getId(), p.getType(), p.getValue(), p.getIssuer(), p.getCategory(), p.getFactory());
-            pepA.parent = parentA;
+            PepAttribute parentA = new PepAttribute(p.getId(), p.getType(), p.getValue(), p.getIssuer(), p.getCategory(), p.getFactory());
+            pepA.setParent(parentA);
         }
-        log.info("*** PARENT = {} {}", p, pepA.parent);
+        log.info("*** PARENT = {} {}", p, pepA.getParent());
         return pepA;
     }
     /*
     protected Collection<PepRequestAttribute> listSharedAttributes() {
         Collection<PepRequestAttribute> pepAttributes = new ArrayList<>();
         for (Attribute a : dal.listSharedAttributes(uuid)) {
-            PepRequestAttribute pepA = pepFromDalAttribute(a);
+            PepAttribute pepA = pepFromDalAttribute(a);
             pepAttributes.add(pepA);
         }
         return pepAttributes;
     }
     
-    protected Collection<PepRequestAttribute> listPrivateAttributes(PepRequestAttribute parent) {
+    protected Collection<PepRequestAttribute> listPrivateAttributes(PepAttribute parent) {
         Collection<PepRequestAttribute> pepAttributes = new ArrayList<>();
         for (Attribute a : dal.listPrivateAttributes(uuid, parent.id, parent.category)) {
-            PepRequestAttribute pepA = pepFromDalAttribute(a);
+            PepAttribute pepA = pepFromDalAttribute(a);
             pepAttributes.add(pepA);
         }
         return pepAttributes;
     }
 */
     @Override
-    public Collection<PepRequestAttribute> listUnmanagedAttributes() {
-        Collection<PepRequestAttribute> pepAttributes = new ArrayList<>();
+    public Collection<PepAttributeInterface> listUnmanagedAttributes() {
+        Collection<PepAttributeInterface> pepAttributes = new ArrayList<>();
         for (Attribute a : dal.listUnmanagedAttributes(uuid)) {
-            PepRequestAttribute pepA = pepFromDalAttribute(a);
+            PepAttributeInterface pepA = pepFromDalAttribute(a);
             pepAttributes.add(pepA);
         }
         return pepAttributes;
     }
 
     @Override
-    public Collection<PepRequestAttribute> listManagedAttributes() {
-        Collection<PepRequestAttribute> pepAttributes = new ArrayList<>();
+    public Collection<PepAttributeInterface> listManagedAttributes() {
+        Collection<PepAttributeInterface> pepAttributes = new ArrayList<>();
         for (Attribute a : dal.listManagedAttributes(uuid)) {
-            PepRequestAttribute pepA = pepFromDalAttribute(a);
+            PepAttribute pepA = pepFromDalAttribute(a);
             pepAttributes.add(pepA);
         }
         return pepAttributes;
     }
 
     @Override
-    public void onBeforeTryAccess(PepAccessRequest request) {
+    public void onBeforeTryAccess(PepRequestInterface request) {
         log.debug("dummy PIP processor called, ignoring");
     }
 
     @Override
-    public void onAfterTryAccess(PepAccessRequest request, PepSession session) {
+    public void onAfterTryAccess(PepRequestInterface request, PepSessionInterface session) {
         log.debug("dummy PIP processor called, ignoring");
     }
 
     @Override
-    public void onBeforeStartAccess(PepAccessRequest request, PepSession session) {
+    public void onBeforeStartAccess(PepRequestInterface request, PepSessionInterface session) {
         log.debug("dummy PIP processor called, ignoring");
     }
 
     @Override
-    public void onAfterStartAccess(PepAccessRequest request, PepSession session) {
+    public void onAfterStartAccess(PepRequestInterface request, PepSessionInterface session) {
         log.debug("dummy PIP processor called, ignoring");
     }
 
-    protected void refresh(PepRequestAttribute pepAttribute, PepSession session) {
-        log.debug("dummy PIP processor called, ignoring");
-    }
-
-    @Override
-    public void onBeforeRevokeAccess(PepAccessRequest request, PepSession session) {
+    protected void refresh(PepAttributeInterface pepAttribute, PepSessionInterface session) {
         log.debug("dummy PIP processor called, ignoring");
     }
 
     @Override
-    public void onAfterRevokeAccess(PepAccessRequest request, PepSession session) {
+    public void onBeforeRevokeAccess(PepRequestInterface request, PepSessionInterface session) {
         log.debug("dummy PIP processor called, ignoring");
     }
 
     @Override
-    public void onBeforeEndAccess(PepAccessRequest request, PepSession session) {
+    public void onAfterRevokeAccess(PepRequestInterface request, PepSessionInterface session) {
         log.debug("dummy PIP processor called, ignoring");
     }
 
     @Override
-    public void onAfterEndAccess(PepAccessRequest request, PepSession session) {
+    public void onBeforeEndAccess(PepRequestInterface request, PepSessionInterface session) {
         log.debug("dummy PIP processor called, ignoring");
     }
 
     @Override
-    public void refresh(PepAccessRequest accessRequest, PepSession session) {
+    public void onAfterEndAccess(PepRequestInterface request, PepSessionInterface session) {
+        log.debug("dummy PIP processor called, ignoring");
+    }
+
+    @Override
+    public void refresh(PepRequestInterface accessRequest, PepSessionInterface session) {
         log.debug("{} refreshing {}", uuid, accessRequest);
         Date now = new Date();
-        for (PepRequestAttribute a : accessRequest) {
-            if (uuid.equals(a.factory) && a.expires != null && a.expires.before(now)) {
+        for (PepAttributeInterface a : accessRequest) {
+            if (uuid.equals(a.getFactory()) && a.getExpires() != null && a.getExpires().before(now)) {
                 refresh(a, session);
             }
         }

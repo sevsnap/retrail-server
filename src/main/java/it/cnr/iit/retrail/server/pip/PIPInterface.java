@@ -4,9 +4,9 @@
  */
 package it.cnr.iit.retrail.server.pip;
 
-import it.cnr.iit.retrail.commons.PepAccessRequest;
-import it.cnr.iit.retrail.commons.PepRequestAttribute;
-import it.cnr.iit.retrail.commons.PepSession;
+import it.cnr.iit.retrail.commons.PepRequestInterface;
+import it.cnr.iit.retrail.commons.PepAttributeInterface;
+import it.cnr.iit.retrail.commons.PepSessionInterface;
 import java.util.Collection;
 
 /**
@@ -48,7 +48,7 @@ public interface PIPInterface {
      *
      * @param request the request to be processed by the UCon.
      */
-    void onBeforeTryAccess(PepAccessRequest request);
+    void onBeforeTryAccess(PepRequestInterface request);
 
     /**
      * onAfterTryAccess()
@@ -63,7 +63,7 @@ public interface PIPInterface {
      * @param session the answer from UCon. In particular, it holds the decision
      * made by the PDP and the consequent state of the session (i.e., ONGOING).
      */
-    void onAfterTryAccess(PepAccessRequest request, PepSession session);
+    void onAfterTryAccess(PepRequestInterface request, PepSessionInterface session);
 
     /**
      * onBeforeStartAccess()
@@ -75,7 +75,7 @@ public interface PIPInterface {
      * @param request the request that is going to be processed.
      * @param session the current session.
      */
-    void onBeforeStartAccess(PepAccessRequest request, PepSession session);
+    void onBeforeStartAccess(PepRequestInterface request, PepSessionInterface session);
 
     /**
      * onAfterStartAccess()
@@ -88,7 +88,7 @@ public interface PIPInterface {
      * @param session the current session holding the decision made by the PDP
      * and the consequent status.
      */
-    void onAfterStartAccess(PepAccessRequest request, PepSession session);
+    void onAfterStartAccess(PepRequestInterface request, PepSessionInterface session);
 
     /**
      * onBeforeRevokeAccess()
@@ -99,7 +99,7 @@ public interface PIPInterface {
      * @param request the request that is going to be revoked.
      * @param session the current session.
      */
-    void onBeforeRevokeAccess(PepAccessRequest request, PepSession session);
+    void onBeforeRevokeAccess(PepRequestInterface request, PepSessionInterface session);
 
     /**
      * onAfterRevokeAccess()
@@ -111,7 +111,7 @@ public interface PIPInterface {
      * @param request the request whose rights have just been revoked.
      * @param session the current (revoked) session.
      */
-    void onAfterRevokeAccess(PepAccessRequest request, PepSession session);
+    void onAfterRevokeAccess(PepRequestInterface request, PepSessionInterface session);
 
     /**
      * onBeforeEndAccess()
@@ -122,7 +122,7 @@ public interface PIPInterface {
      * @param request the request to be ended.
      * @param session the current session.
      */
-    void onBeforeEndAccess(PepAccessRequest request, PepSession session);
+    void onBeforeEndAccess(PepRequestInterface request, PepSessionInterface session);
 
     /**
      * onAfterEndAccess()
@@ -133,7 +133,7 @@ public interface PIPInterface {
      * @param request the request just ended.
      * @param session the current (deleted) session.
      */
-    void onAfterEndAccess(PepAccessRequest request, PepSession session);
+    void onAfterEndAccess(PepRequestInterface request, PepSessionInterface session);
 
     /**
      * newSharedAttribute() creates a new shared PEP attribute.
@@ -154,7 +154,7 @@ public interface PIPInterface {
      * @param category the category (subject, resource, or action).
      * @return the new PEP request attribute.
      */
-    PepRequestAttribute newSharedAttribute(String id, String type, String value, String issuer, String category);
+    PepAttributeInterface newSharedAttribute(String id, String type, String value, String issuer, String category);
 
     /**
      * newPrivateAttribute() creates a new private PEP attribute managed by
@@ -178,7 +178,7 @@ public interface PIPInterface {
      * attribute instance.
      * @return the new PEP request attribute.
      */
-    PepRequestAttribute newPrivateAttribute(String id, String type, String value, String issuer, PepRequestAttribute parent);
+    PepAttributeInterface newPrivateAttribute(String id, String type, String value, String issuer, PepAttributeInterface parent);
 
     /**
      * listManagedAttributes()
@@ -190,7 +190,7 @@ public interface PIPInterface {
      * @return the collection of attributes created by this PIP via
      * newSharedAttribute() or newPrivateAttribute().
      */
-    Collection<PepRequestAttribute> listManagedAttributes();
+    Collection<PepAttributeInterface> listManagedAttributes();
 
     /**
      * listUnmanagedAttributes()
@@ -202,7 +202,7 @@ public interface PIPInterface {
      * newSharedAttribute() or newPrivateAttribute() that are managed by
      * the UCon and not the PIP.
      */
-    Collection<PepRequestAttribute> listUnmanagedAttributes();
+    Collection<PepAttributeInterface> listUnmanagedAttributes();
 
     /**
      * refresh()
@@ -217,7 +217,7 @@ public interface PIPInterface {
      * @param accessRequest the request whose attributes are to be refreshed.
      * @param session the session related to the request.
      */
-    void refresh(PepAccessRequest accessRequest, PepSession session);
+    void refresh(PepRequestInterface accessRequest, PepSessionInterface session);
 
     /**
      * term()
