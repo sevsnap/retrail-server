@@ -7,7 +7,9 @@ package it.cnr.iit.retrail.server.dal;
 
 import it.cnr.iit.retrail.commons.PepSessionInterface;
 import it.cnr.iit.retrail.commons.Status;
+import it.cnr.iit.retrail.commons.impl.PepSession;
 import java.io.Serializable;
+import java.net.MalformedURLException;
 import java.net.URL;
 import java.util.Collection;
 import java.util.Date;
@@ -18,8 +20,10 @@ import javax.persistence.Id;
 import javax.persistence.ManyToMany;
 import javax.persistence.Temporal;
 import javax.persistence.Transient;
+import org.apache.commons.beanutils.BeanUtils;
 
 import org.eclipse.persistence.annotations.Index;
+import org.w3c.dom.Document;
 
 
 /**
@@ -54,6 +58,13 @@ public class UconSession implements PepSessionInterface {
     @Transient
     private URL uconUrl;
     
+    static public UconSession newInstance(Document e) throws Exception {
+        PepSession p = new PepSession(e);
+        UconSession s = new UconSession();
+        BeanUtils.copyProperties(s, p);
+        return s;
+    }
+
     public Collection<Attribute> getAttributes() {
         return attributes;
     }

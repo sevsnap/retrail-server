@@ -17,6 +17,7 @@ import it.cnr.iit.retrail.commons.Server;
 import it.cnr.iit.retrail.commons.Status;
 import it.cnr.iit.retrail.server.dal.Attribute;
 import it.cnr.iit.retrail.server.dal.DAL;
+import it.cnr.iit.retrail.server.dal.UconRequest;
 import it.cnr.iit.retrail.server.dal.UconSession;
 import it.cnr.iit.retrail.server.pip.PIPInterface;
 import java.io.IOException;
@@ -190,25 +191,25 @@ public class UCon extends Server implements UConInterface, UConProtocol {
     @Override
     public Node tryAccess(Node accessRequest, String pepUrlString, String customId) throws Exception {
         log.info("pepUrl={}, customId={}", pepUrlString, customId);
-        PepRequest request = new PepRequest((Document) accessRequest);
         URL pepUrl = new URL(pepUrlString);
-
+        UconRequest uconRequest = new UconRequest((Document) accessRequest);
+        
         // First enrich the request by calling the PIPs
         for (PIPInterface p : pip) {
-            p.onBeforeTryAccess(request);
+            p.onBeforeTryAccess(uconRequest);
         }
         // Now send the enriched request to the PDP
-        Document responseDocument = access(request, pdp[PdpEnum.PRE]);
+        Document responseDocument = access(uconRequest, pdp[PdpEnum.PRE]);
         PepSession pepSession = new PepSession(responseDocument);
         if (pepSession.getDecision() == PepResponse.DecisionEnum.Permit) {
             pepSession.setStatus(Status.TRY);
         } else
             pepSession.setStatus(Status.REJECTED);
         for (PIPInterface p : pip) {
-            p.onAfterTryAccess(request, pepSession);
+            p.onAfterTryAccess(uconRequest, pepSession);
         }
         if (pepSession.getDecision() == PepResponse.DecisionEnum.Permit) {
-           UconSession session = dal.startSession(request, pepUrl, customId);
+           UconSession session = dal.startSession(uconRequest, pepUrl, customId);
            // UUID and customId may be attributed by the dal, so update session.
            updatePepSession(pepSession, session);
            assert(pepSession.getUuid() != null);

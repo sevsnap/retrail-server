@@ -281,7 +281,7 @@ public class DAL {
         return involvedSessions;
     }
 
-    public UconSession startSession(Collection<PepAttributeInterface> pepAttributes, URL pepUrl, String customId) {
+    public UconSession startSession(UconRequest uconRequest, URL pepUrl, String customId) {
         UconSession uconSession = null;
         // Store request's attributes to the database
         EntityManager em = getEntityManager();
@@ -301,7 +301,7 @@ public class DAL {
             LinkedList<PepAttributeInterface> rootsFirst = new LinkedList<>();
             Map<PepAttributeInterface, Attribute> map = new HashMap<>();
             // put parents in front in order to create them first
-            for (PepAttributeInterface pepAttribute : pepAttributes) {
+            for (PepAttributeInterface pepAttribute : uconRequest) {
                 if (pepAttribute.getParent() == null) {
                     rootsFirst.addFirst(pepAttribute);
                 } else {
