@@ -29,7 +29,7 @@ import org.eclipse.persistence.annotations.Index;
  */
 
 @Entity
-public class Attribute implements PepAttributeInterface {
+public class UconAttribute implements PepAttributeInterface {
 
 	//For SQLite use GenerationType.AUTO to generate id
     //for derby, H2, MySQL etc use GenerationType.IDENTITY
@@ -41,10 +41,10 @@ public class Attribute implements PepAttributeInterface {
     private Collection<UconSession> sessions;
 
     @ManyToOne
-    private Attribute parent;
+    private UconAttribute parent;
 
     @OneToMany(mappedBy="parent")
-    private Collection<Attribute> children;
+    private Collection<UconAttribute> children;
 
     @Index
     private String id;
@@ -58,8 +58,8 @@ public class Attribute implements PepAttributeInterface {
     
     private String factory;
 
-    public static Attribute newInstance(PepAttributeInterface a, Attribute parent) {
-        Attribute attribute = new Attribute();
+    public static UconAttribute newInstance(PepAttributeInterface a, UconAttribute parent) {
+        UconAttribute attribute = new UconAttribute();
         attribute.id = a.getId();
         attribute.type = a.getType();
         attribute.value = a.getValue();
@@ -72,11 +72,11 @@ public class Attribute implements PepAttributeInterface {
         return attribute;
     }
 
-    private Attribute() {
+    private UconAttribute() {
         super();
     }
     
-    public void copy(PepAttributeInterface pepAttribute, Attribute parent) {
+    public void copy(PepAttributeInterface pepAttribute, UconAttribute parent) {
         type = pepAttribute.getType();
         value = pepAttribute.getValue();
         issuer = pepAttribute.getIssuer();
@@ -171,12 +171,12 @@ public class Attribute implements PepAttributeInterface {
         if(this.parent != null)
             this.parent.children.remove(this.parent);
         if(parent != null) {
-            this.parent = (Attribute)parent;
-            ((Attribute)parent).getChildren().add((Attribute)parent);
+            this.parent = (UconAttribute)parent;
+            ((UconAttribute)parent).getChildren().add((UconAttribute)parent);
         }
     }
 
-    public Collection<Attribute> getChildren() {
+    public Collection<UconAttribute> getChildren() {
         return children;
     }
     

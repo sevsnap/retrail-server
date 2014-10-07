@@ -18,7 +18,7 @@ import org.w3c.dom.Element;
 public class UconRequest extends PepRequest {
     protected static PepAttributeInterface newAttribute(Element e) {
         PepAttribute a = new PepAttribute(e);
-        return Attribute.newInstance(a, null);
+        return UconAttribute.newInstance(a, null);
     }
     
     public UconRequest(Document doc) {

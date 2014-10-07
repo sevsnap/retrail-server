@@ -50,7 +50,7 @@ public class UconSession extends PepSession {
     private Date lastSeen = new Date();
 
     @ManyToMany
-    private Collection<Attribute> attributes;
+    private Collection<UconAttribute> attributes;
 
     @Transient
     private URL uconUrl;
@@ -70,18 +70,18 @@ public class UconSession extends PepSession {
         super(doc);
     }
 
-    public Collection<Attribute> getAttributes() {
+    public Collection<UconAttribute> getAttributes() {
         return attributes;
     }
 
-    public void addAttribute(Attribute attribute) {
+    public void addAttribute(UconAttribute attribute) {
         if(attributes == null)
             attributes = new HashSet<>();
         attributes.add(attribute);
         attribute.getSessions().add(this);
     }
 
-    public void removeAttribute(Attribute attribute) {
+    public void removeAttribute(UconAttribute attribute) {
         if(attributes != null) {
             attributes.remove(attribute);
             attribute.getSessions().remove(this);

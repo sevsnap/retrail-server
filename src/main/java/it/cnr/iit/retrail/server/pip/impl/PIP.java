@@ -10,7 +10,7 @@ import it.cnr.iit.retrail.commons.PepSessionInterface;
 import it.cnr.iit.retrail.commons.impl.PepRequest;
 import it.cnr.iit.retrail.commons.impl.PepAttribute;
 import it.cnr.iit.retrail.commons.impl.PepSession;
-import it.cnr.iit.retrail.server.dal.Attribute;
+import it.cnr.iit.retrail.server.dal.UconAttribute;
 import it.cnr.iit.retrail.server.dal.DAL;
 import it.cnr.iit.retrail.server.pip.PIPInterface;
 import java.util.ArrayList;
@@ -46,9 +46,9 @@ public abstract class PIP implements PIPInterface {
         return a;
     }
 
-    private PepAttribute pepFromDalAttribute(Attribute a) {
+    private PepAttribute pepFromDalAttribute(UconAttribute a) {
         PepAttribute pepA = new PepAttribute(a.getId(), a.getType(), a.getValue(), a.getIssuer(), a.getCategory(), a.getFactory());
-        Attribute p = (Attribute) a.getParent();
+        UconAttribute p = (UconAttribute) a.getParent();
         if (p != null) {
             PepAttribute parentA = new PepAttribute(p.getId(), p.getType(), p.getValue(), p.getIssuer(), p.getCategory(), p.getFactory());
             pepA.setParent(parentA);
@@ -59,7 +59,7 @@ public abstract class PIP implements PIPInterface {
     /*
     protected Collection<PepRequestAttribute> listSharedAttributes() {
         Collection<PepRequestAttribute> pepAttributes = new ArrayList<>();
-        for (Attribute a : dal.listSharedAttributes(uuid)) {
+        for (UconAttribute a : dal.listSharedAttributes(uuid)) {
             PepAttribute pepA = pepFromDalAttribute(a);
             pepAttributes.add(pepA);
         }
@@ -68,7 +68,7 @@ public abstract class PIP implements PIPInterface {
     
     protected Collection<PepRequestAttribute> listPrivateAttributes(PepAttribute parent) {
         Collection<PepRequestAttribute> pepAttributes = new ArrayList<>();
-        for (Attribute a : dal.listPrivateAttributes(uuid, parent.id, parent.category)) {
+        for (UconAttribute a : dal.listPrivateAttributes(uuid, parent.id, parent.category)) {
             PepAttribute pepA = pepFromDalAttribute(a);
             pepAttributes.add(pepA);
         }
@@ -78,7 +78,7 @@ public abstract class PIP implements PIPInterface {
     @Override
     public Collection<PepAttributeInterface> listUnmanagedAttributes() {
         Collection<PepAttributeInterface> pepAttributes = new ArrayList<>();
-        for (Attribute a : dal.listUnmanagedAttributes(uuid)) {
+        for (UconAttribute a : dal.listUnmanagedAttributes(uuid)) {
             PepAttributeInterface pepA = pepFromDalAttribute(a);
             pepAttributes.add(pepA);
         }
@@ -88,7 +88,7 @@ public abstract class PIP implements PIPInterface {
     @Override
     public Collection<PepAttributeInterface> listManagedAttributes() {
         Collection<PepAttributeInterface> pepAttributes = new ArrayList<>();
-        for (Attribute a : dal.listManagedAttributes(uuid)) {
+        for (UconAttribute a : dal.listManagedAttributes(uuid)) {
             PepAttribute pepA = pepFromDalAttribute(a);
             pepAttributes.add(pepA);
         }

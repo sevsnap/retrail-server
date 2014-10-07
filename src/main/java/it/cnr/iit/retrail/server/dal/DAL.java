@@ -58,18 +58,18 @@ public class DAL {
         Collection<UconSession> q = listSessions();
         for (UconSession s : q) {
             log.info("\t" + s);
-            for (Attribute a : s.getAttributes()) {
+            for (UconAttribute a : s.getAttributes()) {
                 log.info("\t\t" + a);
             }
         }
         //System.out.println("DAL: all attributes:");
-        //for (Attribute a: listAttributesByFactoryUUID())
+        //for (UconAttribute a: listAttributesByFactoryUUID())
         //        System.out.println("\t" + a);
     }
 
-    public void debugDumpAttributes(Collection<Attribute> al) {
-        for (Attribute a : al) {
-            log.info("\t{} (parent: {})", a, ((Attribute)a.getParent()).getRowId());
+    public void debugDumpAttributes(Collection<UconAttribute> al) {
+        for (UconAttribute a : al) {
+            log.info("\t{} (parent: {})", a, ((UconAttribute)a.getParent()).getRowId());
             for (UconSession s : a.getSessions()) {
                 log.info("\t\t{}", s);
             }
@@ -138,58 +138,57 @@ public class DAL {
         return involvedSessions;
     }
 
-    public Collection<Attribute> listAttributes(URL pepUrl) {
+    public Collection<UconAttribute> listAttributes(URL pepUrl) {
         EntityManager em = getEntityManager();
-        TypedQuery<Attribute> q = em.createQuery(
+        TypedQuery<UconAttribute> q = em.createQuery(
                 "select distinct a from Attribute a, UconSession s where s.pepUrl = :pepUrl and s member of a.sessions",
-                Attribute.class)
+                UconAttribute.class)
                 .setParameter("pepUrl", pepUrl.toString());
-        Collection<Attribute> attributes = q.getResultList();
+        Collection<UconAttribute> attributes = q.getResultList();
         return attributes;
     }
 
-    public Collection<Attribute> listAttributes() {
+    public Collection<UconAttribute> listAttributes() {
         EntityManager em = getEntityManager();
-        TypedQuery<Attribute> q = em.createQuery(
+        TypedQuery<UconAttribute> q = em.createQuery(
                 "select a from Attribute a",
-                Attribute.class);
-        Collection<Attribute> attributes = q.getResultList();
+                UconAttribute.class);
+        Collection<UconAttribute> attributes = q.getResultList();
         return attributes;
     }
 
-    public Collection<Attribute> listManagedAttributes(String factory) {
+    public Collection<UconAttribute> listManagedAttributes(String factory) {
         log.debug("begin");
         EntityManager em = getEntityManager();
-        TypedQuery<Attribute> q = em.createQuery(
+        TypedQuery<UconAttribute> q = em.createQuery(
                 "select a from Attribute a where a.factory = :factory and a.expires is null",
-                Attribute.class)
+                UconAttribute.class)
                 .setParameter("factory", factory);
-        Collection<Attribute> attributes = q.getResultList();
+        Collection<UconAttribute> attributes = q.getResultList();
         //debugDump();
         log.debug("end");
         return attributes;
     }
 
-    public Collection<Attribute> listUnmanagedAttributes(String factory) {
+    public Collection<UconAttribute> listUnmanagedAttributes(String factory) {
         log.debug("begin");
         EntityManager em = getEntityManager();
-        TypedQuery<Attribute> q = em.createQuery(
+        TypedQuery<UconAttribute> q = em.createQuery(
                 "select a from Attribute a where a.factory = :factory and a.expires is not null",
-                Attribute.class)
+                UconAttribute.class)
                 .setParameter("factory", factory);
-        Collection<Attribute> attributes = q.getResultList();
+        Collection<UconAttribute> attributes = q.getResultList();
         //debugDump();
         log.debug("end");
         return attributes;
     }
 
-    private Attribute findParent(EntityManager em, UconSession session, PepAttributeInterface pepAttribute) {
+    private UconAttribute findParent(EntityManager em, UconSession session, PepAttributeInterface pepAttribute) {
 
-        Attribute parent = null;
+        UconAttribute parent = null;
         if (pepAttribute.getParent() != null) {
-            TypedQuery<Attribute> q = em.createQuery(
-                    "select a from Attribute a where a.id = :id and a.category = :category and a.value = :value and :session member of a.sessions",
-                    Attribute.class)
+            TypedQuery<UconAttribute> q = em.createQuery("select a from Attribute a where a.id = :id and a.category = :category and a.value = :value and :session member of a.sessions",
+                    UconAttribute.class)
                     .setParameter("session", session)
                     .setParameter("id", pepAttribute.getParent().getId())
                     .setParameter("category", pepAttribute.getParent().getCategory())
@@ -199,11 +198,10 @@ public class DAL {
         return parent;
     }
 
-    private Attribute updateAttribute(EntityManager em, PepAttributeInterface pepAttribute) {
-        Attribute attribute;
-        TypedQuery<Attribute> q = em.createQuery(
-                "select a from Attribute a where a.id = :id and a.category = :category",// and :session member of a.sessions",
-                Attribute.class)
+    private UconAttribute updateAttribute(EntityManager em, PepAttributeInterface pepAttribute) {
+        UconAttribute attribute;
+        TypedQuery<UconAttribute> q = em.createQuery("select a from Attribute a where a.id = :id and a.category = :category",// and :session member of a.sessions",
+                UconAttribute.class)
                 .setParameter("id", pepAttribute.getId())
                 .setParameter("category", pepAttribute.getCategory());
         attribute = q.getSingleResult();
@@ -212,13 +210,12 @@ public class DAL {
         return attribute;
     }
 
-    private Attribute updateAttribute(EntityManager em, PepAttributeInterface pepAttribute, Attribute parent) {
+    private UconAttribute updateAttribute(EntityManager em, PepAttributeInterface pepAttribute, UconAttribute parent) {
         assert (parent != null);
-        Attribute attribute;
-        TypedQuery<Attribute> q;
-        q = em.createQuery(
-                "select a from Attribute a where a.id = :id and a.category = :category and a.parent = :parent",
-                Attribute.class)
+        UconAttribute attribute;
+        TypedQuery<UconAttribute> q;
+        q = em.createQuery("select a from Attribute a where a.id = :id and a.category = :category and a.parent = :parent",
+                UconAttribute.class)
                 .setParameter("id", pepAttribute.getId())
                 .setParameter("category", pepAttribute.getCategory())
                 .setParameter("parent", parent);
@@ -235,8 +232,8 @@ public class DAL {
         em.getTransaction().begin();
         try {
             for (PepAttributeInterface pepAttribute : pepAttributes) {
-                Attribute parent = null;//FIXME findParent(em, pepAttribute);
-                Attribute attribute = updateAttribute(em, pepAttribute, parent);
+                UconAttribute parent = null;//FIXME findParent(em, pepAttribute);
+                UconAttribute attribute = updateAttribute(em, pepAttribute, parent);
                 for (UconSession uconSession : attribute.getSessions()) {
                     if (uconSession.getStatus() == Status.ONGOING) {
                         involvedSessions.add(uconSession);
@@ -255,7 +252,7 @@ public class DAL {
     private Collection<UconSession> updateSession(EntityManager em, UconSession uconSession, Collection<PepAttributeInterface> pepAttributes) {
         Collection<UconSession> involvedSessions = new HashSet<>();
         LinkedList<PepAttributeInterface> rootsFirst = new LinkedList<>();
-        Attribute attribute;
+        UconAttribute attribute;
         // put parents in front in order to create them first
         for (PepAttributeInterface pepAttribute : pepAttributes) {
             if (pepAttribute.getParent() == null) {
@@ -266,13 +263,13 @@ public class DAL {
         }
         // Then, process all
         for (PepAttributeInterface pepAttribute : rootsFirst) {
-            Attribute parent = findParent(em, uconSession, pepAttribute);
+            UconAttribute parent = findParent(em, uconSession, pepAttribute);
             try {
                 attribute = updateAttribute(em, pepAttribute);
                 // If this attribute is already in the session, remove it first for safety.
                 uconSession.removeAttribute(attribute);
             } catch (NoResultException e) {
-                attribute = Attribute.newInstance(pepAttribute, parent);
+                attribute = UconAttribute.newInstance(pepAttribute, parent);
                 em.persist(attribute);
             }
             uconSession.addAttribute(attribute);
@@ -299,7 +296,7 @@ public class DAL {
                 uconSession = em.merge(uconSession);
             }
             LinkedList<PepAttributeInterface> rootsFirst = new LinkedList<>();
-            Map<PepAttributeInterface, Attribute> map = new HashMap<>();
+            Map<PepAttributeInterface, UconAttribute> map = new HashMap<>();
             // put parents in front in order to create them first
             for (PepAttributeInterface pepAttribute : uconRequest) {
                 if (pepAttribute.getParent() == null) {
@@ -310,8 +307,8 @@ public class DAL {
             }
             // Then, process all
             for (PepAttributeInterface pepAttribute : rootsFirst) {
-                Attribute parent = map.getOrDefault(pepAttribute.getParent(), null);
-                Attribute attribute = Attribute.newInstance(pepAttribute, parent);
+                UconAttribute parent = map.getOrDefault(pepAttribute.getParent(), null);
+                UconAttribute attribute = UconAttribute.newInstance(pepAttribute, parent);
                 em.persist(attribute);
                 uconSession.addAttribute(attribute);
                 map.put(pepAttribute, attribute);
@@ -368,7 +365,7 @@ public class DAL {
     private void removeAttributes(EntityManager em, UconSession uconSession) {
         log.debug("removing all attributes for " + uconSession);
         while (uconSession.getAttributes().size() > 0) {
-            Attribute a = uconSession.getAttributes().iterator().next();
+            UconAttribute a = uconSession.getAttributes().iterator().next();
             a.setParent(null);
             uconSession.removeAttribute(a);
             if (a.getSessions().isEmpty()) {

@@ -14,7 +14,7 @@ import it.cnr.iit.retrail.commons.impl.PepResponse;
 import it.cnr.iit.retrail.commons.impl.PepSession;
 import it.cnr.iit.retrail.commons.Server;
 import it.cnr.iit.retrail.commons.Status;
-import it.cnr.iit.retrail.server.dal.Attribute;
+import it.cnr.iit.retrail.server.dal.UconAttribute;
 import it.cnr.iit.retrail.server.dal.DAL;
 import it.cnr.iit.retrail.server.dal.UconRequest;
 import it.cnr.iit.retrail.server.dal.UconSession;
@@ -345,7 +345,7 @@ public class UCon extends Server implements UConInterface, UConProtocol {
     private UconRequest rebuildUconRequest(UconSession uconSession) {
         log.debug("" + uconSession);
         UconRequest accessRequest = new UconRequest();
-        for (Attribute a : uconSession.getAttributes()) {
+        for (UconAttribute a : uconSession.getAttributes()) {
             accessRequest.add(a);
         }
         return accessRequest;
