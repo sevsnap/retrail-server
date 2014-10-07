@@ -195,7 +195,7 @@ public interface PIPInterface {
     /**
      * listUnmanagedAttributes()
      *
-     * gets back a collection of PEP request attributes managed by the UCon,
+     * gets back a collection of PEP request attributes managed by the UCon
      * itself. These attributes are handled by refreshing them when needed.
      *
      * @return the collection of attributes created by this PIP via

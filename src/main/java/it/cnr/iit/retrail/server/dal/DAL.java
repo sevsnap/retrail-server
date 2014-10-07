@@ -5,8 +5,6 @@
 package it.cnr.iit.retrail.server.dal;
 
 import it.cnr.iit.retrail.commons.PepAttributeInterface;
-import it.cnr.iit.retrail.commons.impl.PepAttribute;
-import it.cnr.iit.retrail.commons.impl.PepSession;
 import it.cnr.iit.retrail.commons.Status;
 import java.net.URL;
 import java.util.Collection;
@@ -130,7 +128,7 @@ public class DAL {
     public Collection<UconSession> listOutdatedSessions() {
         EntityManager em = getEntityManager();
         TypedQuery<UconSession> q = em.createQuery(
-                "select distinct s from UconSession s, Attribute a where s.status = :status and s member of a.sessions and a.expires < :now",
+                "select distinct s from UconSession s, UconAttribute a where s.status = :status and s member of a.sessions and a.expires < :now",
                 UconSession.class)
                 .setParameter("status", Status.ONGOING)
                 .setParameter("now", new Date());
@@ -141,7 +139,7 @@ public class DAL {
     public Collection<UconAttribute> listAttributes(URL pepUrl) {
         EntityManager em = getEntityManager();
         TypedQuery<UconAttribute> q = em.createQuery(
-                "select distinct a from Attribute a, UconSession s where s.pepUrl = :pepUrl and s member of a.sessions",
+                "select distinct a from UconAttribute a, UconSession s where s.pepUrl = :pepUrl and s member of a.sessions",
                 UconAttribute.class)
                 .setParameter("pepUrl", pepUrl.toString());
         Collection<UconAttribute> attributes = q.getResultList();
@@ -151,33 +149,33 @@ public class DAL {
     public Collection<UconAttribute> listAttributes() {
         EntityManager em = getEntityManager();
         TypedQuery<UconAttribute> q = em.createQuery(
-                "select a from Attribute a",
+                "select a from UconAttribute a",
                 UconAttribute.class);
         Collection<UconAttribute> attributes = q.getResultList();
         return attributes;
     }
 
-    public Collection<UconAttribute> listManagedAttributes(String factory) {
+    public Collection<PepAttributeInterface> listManagedAttributes(String factory) {
         log.debug("begin");
         EntityManager em = getEntityManager();
-        TypedQuery<UconAttribute> q = em.createQuery(
-                "select a from Attribute a where a.factory = :factory and a.expires is null",
-                UconAttribute.class)
+        TypedQuery<PepAttributeInterface> q = em.createQuery(
+                "select a from UconAttribute a where a.factory = :factory and a.expires is null",
+                PepAttributeInterface.class)
                 .setParameter("factory", factory);
-        Collection<UconAttribute> attributes = q.getResultList();
+        Collection<PepAttributeInterface> attributes = q.getResultList();
         //debugDump();
         log.debug("end");
         return attributes;
     }
 
-    public Collection<UconAttribute> listUnmanagedAttributes(String factory) {
+    public Collection<PepAttributeInterface> listUnmanagedAttributes(String factory) {
         log.debug("begin");
         EntityManager em = getEntityManager();
-        TypedQuery<UconAttribute> q = em.createQuery(
-                "select a from Attribute a where a.factory = :factory and a.expires is not null",
-                UconAttribute.class)
+        TypedQuery<PepAttributeInterface> q = em.createQuery(
+                "select a from UconAttribute a where a.factory = :factory and a.expires is not null",
+                PepAttributeInterface.class)
                 .setParameter("factory", factory);
-        Collection<UconAttribute> attributes = q.getResultList();
+        Collection<PepAttributeInterface> attributes = q.getResultList();
         //debugDump();
         log.debug("end");
         return attributes;
@@ -187,7 +185,7 @@ public class DAL {
 
         UconAttribute parent = null;
         if (pepAttribute.getParent() != null) {
-            TypedQuery<UconAttribute> q = em.createQuery("select a from Attribute a where a.id = :id and a.category = :category and a.value = :value and :session member of a.sessions",
+            TypedQuery<UconAttribute> q = em.createQuery("select a from UconAttribute a where a.id = :id and a.category = :category and a.value = :value and :session member of a.sessions",
                     UconAttribute.class)
                     .setParameter("session", session)
                     .setParameter("id", pepAttribute.getParent().getId())
@@ -200,7 +198,7 @@ public class DAL {
 
     private UconAttribute updateAttribute(EntityManager em, PepAttributeInterface pepAttribute) {
         UconAttribute attribute;
-        TypedQuery<UconAttribute> q = em.createQuery("select a from Attribute a where a.id = :id and a.category = :category",// and :session member of a.sessions",
+        TypedQuery<UconAttribute> q = em.createQuery("select a from UconAttribute a where a.id = :id and a.category = :category",// and :session member of a.sessions",
                 UconAttribute.class)
                 .setParameter("id", pepAttribute.getId())
                 .setParameter("category", pepAttribute.getCategory());
@@ -214,7 +212,7 @@ public class DAL {
         assert (parent != null);
         UconAttribute attribute;
         TypedQuery<UconAttribute> q;
-        q = em.createQuery("select a from Attribute a where a.id = :id and a.category = :category and a.parent = :parent",
+        q = em.createQuery("select a from UconAttribute a where a.id = :id and a.category = :category and a.parent = :parent",
                 UconAttribute.class)
                 .setParameter("id", pepAttribute.getId())
                 .setParameter("category", pepAttribute.getCategory())
@@ -334,6 +332,24 @@ public class DAL {
 
         try {
             updateSession(em, uconSession, pepAttributes);
+            em.getTransaction().commit();
+        } catch (Exception e) {
+            em.getTransaction().rollback();
+            throw e;
+        }
+        log.debug("end " + uconSession);
+    }
+
+    public void saveSession(UconSession uconSession, UconRequest uconRequest) {
+        // Store request's attributes to the database
+        log.debug("begin " + uconSession);
+        EntityManager em = getEntityManager();
+        //start transaction with method begin()
+        em.getTransaction().begin();
+        uconSession = em.merge(uconSession);
+
+        try {
+            updateSession(em, uconSession, uconRequest);
             em.getTransaction().commit();
         } catch (Exception e) {
             em.getTransaction().rollback();

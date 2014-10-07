@@ -262,7 +262,7 @@ public class UCon extends Server implements UConInterface, UConProtocol {
         for (PIPInterface p : pip) {
             p.onAfterStartAccess(uconRequest, uconSession);
         }
-        dal.updateSession(uconSession, uconRequest);
+        dal.saveSession(uconSession, uconRequest);
         assert(uconSession.getUuid() != null);
         assert(uconSession.getUconUrl() != null);
         return uconSession.toXacml3Element();
@@ -333,6 +333,7 @@ public class UCon extends Server implements UConInterface, UConProtocol {
         for (PIPInterface p : pip) {
             p.onAfterRevokeAccess(uconRequest, uconSession);
         }
+        // FIXME : should save
         // create client
         log.warn("invoking PEP at " + pepUrl + " to revoke " + pepSession);
         Client client = new Client(pepUrl);
@@ -416,7 +417,7 @@ public class UCon extends Server implements UConInterface, UConProtocol {
                     revokeAccess(pepUrl, involvedSession);
                 } else {
                     log.info("updating {}", involvedSession);
-                    dal.updateSession(involvedSession, uconRequest);
+                    dal.saveSession(involvedSession, uconRequest);
                 }
             } catch (Exception ex) {
                 log.error(ex.getMessage());

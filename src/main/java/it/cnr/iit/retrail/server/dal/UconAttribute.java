@@ -5,9 +5,7 @@
 
 package it.cnr.iit.retrail.server.dal;
 
-import it.cnr.iit.retrail.commons.impl.PepAttribute;
 import it.cnr.iit.retrail.commons.PepAttributeInterface;
-import java.io.Serializable;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.Date;
@@ -72,7 +70,7 @@ public class UconAttribute implements PepAttributeInterface {
         return attribute;
     }
 
-    private UconAttribute() {
+    protected UconAttribute() {
         super();
     }
     
@@ -183,7 +181,7 @@ public class UconAttribute implements PepAttributeInterface {
     //this is optional, just for print out into console
     @Override
     public String toString() {
-        return "Attribute [rowId="+rowId+", sessions="+sessions.size()+", id=" + id + ", type=" + type + ", value=" + value + ", issuer=" + issuer + ", category=" + category + "; factory="+factory+"]";
+        return getClass().getSimpleName()+" [rowId="+rowId+", sessions="+getSessions().size()+", id=" + id + ", type=" + type + ", value=" + value + ", issuer=" + issuer + ", category=" + category + "; factory="+factory+"]";
     }
 
 }

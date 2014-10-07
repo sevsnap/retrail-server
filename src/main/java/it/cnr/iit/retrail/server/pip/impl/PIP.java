@@ -35,64 +35,25 @@ public abstract class PIP implements PIPInterface {
     }
 
     @Override
-    public PepAttribute newSharedAttribute(String id, String type, String value, String issuer, String category) {
-        return new PepAttribute(id, type, value, issuer, category, uuid);
+    public PepAttributeInterface newSharedAttribute(String id, String type, String value, String issuer, String category) {
+        PepAttribute a = new PepAttribute(id, type, value, issuer, category, uuid);
+        return UconAttribute.newInstance(a, null);
     }
 
     @Override
     public PepAttributeInterface newPrivateAttribute(String id, String type, String value, String issuer, PepAttributeInterface parent) {
         PepAttribute a = new PepAttribute(id, type, value, issuer, parent.getCategory(), uuid);
-        a.setParent(parent);
-        return a;
-    }
-
-    private PepAttribute pepFromDalAttribute(UconAttribute a) {
-        PepAttribute pepA = new PepAttribute(a.getId(), a.getType(), a.getValue(), a.getIssuer(), a.getCategory(), a.getFactory());
-        UconAttribute p = (UconAttribute) a.getParent();
-        if (p != null) {
-            PepAttribute parentA = new PepAttribute(p.getId(), p.getType(), p.getValue(), p.getIssuer(), p.getCategory(), p.getFactory());
-            pepA.setParent(parentA);
-        }
-        log.info("*** PARENT = {} {}", p, pepA.getParent());
-        return pepA;
-    }
-    /*
-    protected Collection<PepRequestAttribute> listSharedAttributes() {
-        Collection<PepRequestAttribute> pepAttributes = new ArrayList<>();
-        for (UconAttribute a : dal.listSharedAttributes(uuid)) {
-            PepAttribute pepA = pepFromDalAttribute(a);
-            pepAttributes.add(pepA);
-        }
-        return pepAttributes;
+        return UconAttribute.newInstance(a, (UconAttribute) parent);
     }
     
-    protected Collection<PepRequestAttribute> listPrivateAttributes(PepAttribute parent) {
-        Collection<PepRequestAttribute> pepAttributes = new ArrayList<>();
-        for (UconAttribute a : dal.listPrivateAttributes(uuid, parent.id, parent.category)) {
-            PepAttribute pepA = pepFromDalAttribute(a);
-            pepAttributes.add(pepA);
-        }
-        return pepAttributes;
-    }
-*/
     @Override
     public Collection<PepAttributeInterface> listUnmanagedAttributes() {
-        Collection<PepAttributeInterface> pepAttributes = new ArrayList<>();
-        for (UconAttribute a : dal.listUnmanagedAttributes(uuid)) {
-            PepAttributeInterface pepA = pepFromDalAttribute(a);
-            pepAttributes.add(pepA);
-        }
-        return pepAttributes;
+        return dal.listUnmanagedAttributes(uuid);
     }
 
     @Override
     public Collection<PepAttributeInterface> listManagedAttributes() {
-        Collection<PepAttributeInterface> pepAttributes = new ArrayList<>();
-        for (UconAttribute a : dal.listManagedAttributes(uuid)) {
-            PepAttribute pepA = pepFromDalAttribute(a);
-            pepAttributes.add(pepA);
-        }
-        return pepAttributes;
+        return dal.listManagedAttributes(uuid);
     }
 
     @Override
