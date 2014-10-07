@@ -11,7 +11,6 @@ import it.cnr.iit.retrail.commons.DomUtils;
 import it.cnr.iit.retrail.commons.PepAttributeInterface;
 import it.cnr.iit.retrail.commons.impl.PepRequest;
 import it.cnr.iit.retrail.commons.impl.PepResponse;
-import it.cnr.iit.retrail.commons.impl.PepAttribute;
 import it.cnr.iit.retrail.commons.impl.PepSession;
 import it.cnr.iit.retrail.commons.Server;
 import it.cnr.iit.retrail.commons.Status;
@@ -33,10 +32,8 @@ import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
-import javax.xml.parsers.ParserConfigurationException;
 import javax.xml.transform.TransformerConfigurationException;
 import javax.xml.transform.TransformerException;
-import org.apache.commons.beanutils.BeanUtils;
 import org.apache.xmlrpc.XmlRpcException;
 import org.w3c.dom.Document;
 import org.w3c.dom.Element;
@@ -199,23 +196,24 @@ public class UCon extends Server implements UConInterface, UConProtocol {
             p.onBeforeTryAccess(uconRequest);
         }
         // Now send the enriched request to the PDP
+        // UUID is attributed by the dal, as well as customId if not given.
         Document responseDocument = access(uconRequest, pdp[PdpEnum.PRE]);
-        PepSession pepSession = new PepSession(responseDocument);
-        if (pepSession.getDecision() == PepResponse.DecisionEnum.Permit) {
-            pepSession.setStatus(Status.TRY);
-        } else
-            pepSession.setStatus(Status.REJECTED);
+        UconSession uconSession = new UconSession(responseDocument);
+        uconSession.setCustomId(customId);
+        uconSession.setUconUrl(myUrl);
+        uconSession.setStatus(uconSession.getDecision() == PepResponse.DecisionEnum.Permit? Status.TRY : Status.REJECTED);
         for (PIPInterface p : pip) {
-            p.onAfterTryAccess(uconRequest, pepSession);
+            p.onAfterTryAccess(uconRequest, uconSession);
         }
-        if (pepSession.getDecision() == PepResponse.DecisionEnum.Permit) {
-           UconSession session = dal.startSession(uconRequest, pepUrl, customId);
-           // UUID and customId may be attributed by the dal, so update session.
-           updatePepSession(pepSession, session);
-           assert(pepSession.getUuid() != null);
-           assert(pepSession.getUconUrl() != null);
+        if (uconSession.getDecision() == PepResponse.DecisionEnum.Permit) {
+           uconSession = dal.startSession(uconSession, uconRequest);
+           assert(uconSession.getUuid() != null && uconSession.getUuid().length() > 0);
+           assert(uconSession.getUconUrl() != null);
+           assert(uconSession.getCustomId() != null  && uconSession.getCustomId().length() > 0);
+           assert(uconSession.getStatus() == Status.TRY);
         }
-        return pepSession.toXacml3Element();
+        log.error("**** TOXACML: {}", DomUtils.toString(uconSession.toXacml3Element()));
+        return uconSession.toXacml3Element();
     }
 
     @Override
@@ -225,79 +223,79 @@ public class UCon extends Server implements UConInterface, UConProtocol {
         if (newCustomId == null || newCustomId.length() == 0) {
             throw new RuntimeException("invalid customId: " + uuid);
         }
-        UconSession uconSession = dal.getSession(uuid);
+        UconSession uconSession = dal.getSession(uuid, myUrl);
         uconSession.setCustomId(newCustomId);
+        // save, but don't recover new saved object (transients are reset)
         dal.save(uconSession);
-        PepSession pepSession = new PepSession(PepResponse.DecisionEnum.Permit, "new customId assigned");
-        updatePepSession(pepSession, uconSession);
-        return pepSession.toXacml3Element();
+        uconSession.setMessage("new customId assigned");
+        log.error("**** XXXAAA TOXACML: {}", DomUtils.toString(uconSession.toXacml3Element()));
+        return uconSession.toXacml3Element();
     }
 
     @Override
     public Node startAccess(String uuid, String customId) throws Exception {
         log.info("uuid={}, customId={}", uuid, customId);
         uuid = getUuid(uuid, customId);
-        UconSession uconSession = dal.getSession(uuid);
+        UconSession uconSession = dal.getSession(uuid, myUrl);
         if (uconSession == null) {
             throw new RuntimeException("no session with uuid: " + uuid);
         }
         if (uconSession.getStatus() != Status.TRY) {
             throw new RuntimeException(uconSession + " must be in TRY state to perform this operation");
         }
-        PepRequest pepAccessRequest = rebuildPepAccessRequest(uconSession);
-        // rebuild pepSession for PIP's onBeforeStartAccess argument
-        PepSession pepSession = new PepSession(PepResponse.DecisionEnum.Permit, null);
-        updatePepSession(pepSession, uconSession);
-        refreshPepAccessRequest(pepAccessRequest, pepSession);
+        assert(uconSession.getUuid() != null && uconSession.getUuid().length() > 0);
+        uconSession.setUconUrl(myUrl);
+        assert(uconSession.getUconUrl() != null);
+        assert(uconSession.getCustomId() != null  && uconSession.getCustomId().length() > 0);
+        
+        // rebuild pepAccessRequest for PIP's onBeforeStartAccess argument
+        UconRequest uconRequest = rebuildUconRequest(uconSession);
+        refreshUconRequest(uconRequest, uconSession);
         for (PIPInterface p : pip) {
-            p.onBeforeStartAccess(pepAccessRequest, pepSession);
+            p.onBeforeStartAccess(uconRequest, uconSession);
         }
-        Document responseDocument = access(pepAccessRequest, pdp[PdpEnum.ON]);
-        pepSession = new PepSession(responseDocument);
-        if (pepSession.getDecision() == PepResponse.DecisionEnum.Permit) {
-            pepSession.setStatus(Status.ONGOING);
+        Document responseDocument = access(uconRequest, pdp[PdpEnum.ON]);
+        PepResponse r = new PepResponse(responseDocument);
+        if (r.getDecision() == PepResponse.DecisionEnum.Permit) {
+            uconSession.setStatus(Status.ONGOING);
         }
         for (PIPInterface p : pip) {
-            p.onAfterStartAccess(pepAccessRequest, pepSession);
+            p.onAfterStartAccess(uconRequest, uconSession);
         }
-        uconSession.setStatus(pepSession.getStatus());
-        dal.updateSession(uconSession, pepAccessRequest);
-        updatePepSession(pepSession, uconSession);
-        assert(pepSession.getUuid() != null);
-        assert(pepSession.getUconUrl() != null);
-        return pepSession.toXacml3Element();
+        dal.updateSession(uconSession, uconRequest);
+        assert(uconSession.getUuid() != null);
+        assert(uconSession.getUconUrl() != null);
+        return uconSession.toXacml3Element();
     }
 
     @Override
     public Node endAccess(String uuid, String customId) throws Exception {
         log.info("uuid={}, customId={}", uuid, customId);
         uuid = getUuid(uuid, customId);
-        UconSession uconSession = dal.getSession(uuid);
+        UconSession uconSession = dal.getSession(uuid, myUrl);
         if (uconSession == null) {
             throw new RuntimeException("no session with uuid: " + uuid);
         }
-        PepRequest pepAccessRequest = rebuildPepAccessRequest(uconSession);
-        // rebuild pepSession for PIP's onBeforeStartAccess argument
-        PepSession pepSession = new PepSession(PepResponse.DecisionEnum.Permit, null);
-        updatePepSession(pepSession, uconSession);
-        refreshPepAccessRequest(pepAccessRequest, pepSession);
+        UconRequest uconRequest = rebuildUconRequest(uconSession);
+        refreshUconRequest(uconRequest, uconSession);
         for (PIPInterface p : pip) {
-            p.onBeforeEndAccess(pepAccessRequest, pepSession);
+            p.onBeforeEndAccess(uconRequest, uconSession);
         }
-        if(pepSession.getStatus() != Status.REVOKED) {
-            Document responseDocument = access(pepAccessRequest, pdp[PdpEnum.POST]);
-            pepSession = new PepSession(responseDocument);
+        if(uconSession.getStatus() != Status.REVOKED) {
+            Document responseDocument = access(uconRequest, pdp[PdpEnum.POST]);
+            PepResponse r = new PepResponse(responseDocument);
+            uconSession.setDecision(r.getDecision());
+            uconSession.setMessage(r.getMessage());
         } else 
-            pepSession.setDecision(PepResponse.DecisionEnum.Permit);
-        if (pepSession.getDecision() == PepResponse.DecisionEnum.Permit) {
+            uconSession.setDecision(PepResponse.DecisionEnum.Permit);
+        if (uconSession.getDecision() == PepResponse.DecisionEnum.Permit) {
             uconSession.setStatus(Status.DELETED);
             dal.endSession(uconSession);
         }
-        updatePepSession(pepSession, uconSession);
         for (PIPInterface p : pip) {
-            p.onAfterEndAccess(pepAccessRequest, pepSession);
+            p.onAfterEndAccess(uconRequest, uconSession);
         }
-        return pepSession.toXacml3Element();
+        return uconSession.toXacml3Element();
     }
 
     @Override
@@ -322,19 +320,18 @@ public class UCon extends Server implements UConInterface, UConProtocol {
 
     private Document revokeAccess(URL pepUrl, PepSession pepSession) throws Exception {
         // revoke session on db
-        UconSession uconSession = dal.getSession(pepSession.getUuid());
+        UconSession uconSession = dal.getSession(pepSession.getUuid(), myUrl);
         if (uconSession == null) {
             throw new RuntimeException("cannot find session with uuid=" + pepSession.getUuid());
         }
-        PepRequest pepAccessRequest = rebuildPepAccessRequest(uconSession);
-        refreshPepAccessRequest(pepAccessRequest, pepSession);
+        UconRequest uconRequest = rebuildUconRequest(uconSession);
+        refreshUconRequest(uconRequest, uconSession);
         for (PIPInterface p : pip) {
-            p.onBeforeRevokeAccess(pepAccessRequest, pepSession);
+            p.onBeforeRevokeAccess(uconRequest, uconSession);
         }
         uconSession = dal.revokeSession(uconSession);
-        updatePepSession(pepSession, uconSession);
         for (PIPInterface p : pip) {
-            p.onAfterRevokeAccess(pepAccessRequest, pepSession);
+            p.onAfterRevokeAccess(uconRequest, uconSession);
         }
         // create client
         log.warn("invoking PEP at " + pepUrl + " to revoke " + pepSession);
@@ -345,31 +342,22 @@ public class UCon extends Server implements UConInterface, UConProtocol {
         return doc;
     }
 
-    private PepRequest rebuildPepAccessRequest(UconSession uconSession) {
-        // Rebuild the PEP request with valid attributes only.
-        // Puts expired ones in the expiredAttributes collection.
+    private UconRequest rebuildUconRequest(UconSession uconSession) {
         log.debug("" + uconSession);
-        Date now = new Date();
-        PepRequest accessRequest = new PepRequest();
+        UconRequest accessRequest = new UconRequest();
         for (Attribute a : uconSession.getAttributes()) {
-            PepAttribute pepAttribute = new PepAttribute(a.getId(), a.getType(), a.getValue(), a.getIssuer(), a.getCategory(), a.getFactory());
-            accessRequest.add(pepAttribute);
+            accessRequest.add(a);
         }
         return accessRequest;
     }
 
-    private void refreshPepAccessRequest(PepRequest accessRequest, PepSession session) {
+    private void refreshUconRequest(UconRequest accessRequest, UconSession session) {
         // TODO: should call only pips for changed attributes
         log.debug("refreshing request attributes");
 
         for (PIPInterface p : pip) {
             p.refresh(accessRequest, session);
         }
-    }
-
-    private void updatePepSession(PepSession pepSession, UconSession uconSession) throws Exception {
-        BeanUtils.copyProperties(pepSession, uconSession);
-        pepSession.setUconUrl(myUrl);
     }
 
     protected Document heartbeat(URL pepUrl, List<String> sessionsList) throws Exception {
@@ -379,29 +367,27 @@ public class UCon extends Server implements UConInterface, UConProtocol {
         doc.appendChild(responses);
         Date now = new Date();
         // Permit sessions unknown to the client.
-        for (UconSession session : sessions) {
-            boolean isNotKnownByClient = !sessionsList.remove(session.getUuid());
+        for (UconSession uconSession : sessions) {
+            boolean isNotKnownByClient = !sessionsList.remove(uconSession.getUuid());
             if (isNotKnownByClient) {
-                PepRequest pepAccessRequest = rebuildPepAccessRequest(session);
-                // Reevaluate request for safety
-                //PepSession pepSession = evaluateRequest(pepAccessRequest);
-                PepSession pepSession = new PepSession(PepResponse.DecisionEnum.Permit, "recoverable session");
-                updatePepSession(pepSession, session);
-                log.warn("found session unknown to client: " + pepSession);
-                Node n = doc.adoptNode(pepSession.toXacml3Element());
-                // including enriched request information
-                n.appendChild(doc.adoptNode(pepAccessRequest.toElement()));
+                UconRequest uconRequest = rebuildUconRequest(uconSession);
+                PepResponse r = new PepSession(PepResponse.DecisionEnum.Permit, "recoverable session");
+                log.warn("found session unknown to client: " + uconSession);
+                Node n = doc.adoptNode(uconSession.toXacml3Element());
+                // include enriched request information
+                n.appendChild(doc.adoptNode(uconRequest.toElement()));
                 responses.appendChild(n);
             }
             // "Touch" session
-            session.setLastSeen(now);
-            dal.save(session);
+            uconSession.setLastSeen(now);
+            dal.save(uconSession);
         }
         // Revoke sessions known by the client, but unknown to the server.
         for (String uuid : sessionsList) {
             PepSession pepSession = new PepSession(PepResponse.DecisionEnum.NotApplicable, "Unexistent session");
             pepSession.setUuid(uuid);
             pepSession.setStatus(Status.UNKNOWN);
+            log.error("*********** HEARTBEAT REVOKING: {}", myUrl);
             pepSession.setUconUrl(myUrl);
             Node n = doc.adoptNode(pepSession.toXacml3Element());
             responses.appendChild(n);
@@ -411,30 +397,26 @@ public class UCon extends Server implements UConInterface, UConProtocol {
 
     private void reevaluateSessions(Collection<UconSession> involvedSessions) {
         for (UconSession involvedSession : involvedSessions) {
-            PepSession pepSession = null;
             try {
                 log.debug("involved session: {}", involvedSession);
                 // Rebuild PEP request without expired attributes 
-                PepRequest pepAccessRequest = rebuildPepAccessRequest(involvedSession);
+                UconRequest uconRequest = rebuildUconRequest(involvedSession);
                 // refresh the request the ren-evaluate.
-                pepSession = new PepSession(PepResponse.DecisionEnum.Permit, null);
-                updatePepSession(pepSession, involvedSession);
-                refreshPepAccessRequest(pepAccessRequest, pepSession);
+                refreshUconRequest(uconRequest, involvedSession);
                 // Now make PDP evaluate the request
                 log.debug("evaluating request");
-                Document responseDocument = access(pepAccessRequest, pdp[PdpEnum.ON]);
-                pepSession = new PepSession(responseDocument);
-                updatePepSession(pepSession, involvedSession);
-                log.debug("evaluated request: " + pepSession);
-                boolean mustRevoke = pepSession.getDecision() != PepResponse.DecisionEnum.Permit;
+                Document responseDocument = access(uconRequest, pdp[PdpEnum.ON]);
+                PepResponse r = new PepResponse(responseDocument);
+                log.debug("evaluated request: " + r);
+                boolean mustRevoke = r.getDecision() != PepResponse.DecisionEnum.Permit;
                 // Explicitly revoke access if anything went wrong
                 if (mustRevoke) {
-                    log.warn("revoking {}", pepSession);
+                    log.warn("revoking {}", involvedSession);
                     URL pepUrl = new URL(involvedSession.getPepUrl());
-                    revokeAccess(pepUrl, pepSession);
+                    revokeAccess(pepUrl, involvedSession);
                 } else {
-                    log.info("updating {}", pepSession);
-                    dal.updateSession(involvedSession, pepAccessRequest);
+                    log.info("updating {}", involvedSession);
+                    dal.updateSession(involvedSession, uconRequest);
                 }
             } catch (Exception ex) {
                 log.error(ex.getMessage());

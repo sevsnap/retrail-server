@@ -7,6 +7,7 @@ package it.cnr.iit.retrail.server.dal;
 import it.cnr.iit.retrail.commons.PepAttributeInterface;
 import it.cnr.iit.retrail.commons.impl.PepAttribute;
 import it.cnr.iit.retrail.commons.impl.PepRequest;
+import java.util.HashMap;
 import org.w3c.dom.Document;
 import org.w3c.dom.Element;
 
@@ -23,4 +24,9 @@ public class UconRequest extends PepRequest {
     public UconRequest(Document doc) {
         super(doc);
     }
+    
+    public UconRequest() {
+        super();
+    }
+
 }

@@ -58,20 +58,20 @@ public class Attribute implements PepAttributeInterface {
     
     private String factory;
 
-    public static Attribute newInstance(PepAttributeInterface pepAttribute, Attribute parent) {
+    public static Attribute newInstance(PepAttributeInterface a, Attribute parent) {
         Attribute attribute = new Attribute();
-        attribute.id = pepAttribute.getId();
-        attribute.type = pepAttribute.getType();
-        attribute.value = pepAttribute.getValue();
-        attribute.issuer = pepAttribute.getIssuer();
-        attribute.category = pepAttribute.getCategory();
-        attribute.expires = pepAttribute.getExpires();
-        attribute.factory = pepAttribute.getFactory();
+        attribute.id = a.getId();
+        attribute.type = a.getType();
+        attribute.value = a.getValue();
+        attribute.issuer = a.getIssuer();
+        attribute.category = a.getCategory();
+        attribute.factory = a.getFactory();
+        attribute.setExpires(a.getExpires());
         attribute.children = new ArrayList<>();
         attribute.setParent(parent);
         return attribute;
     }
-    
+
     private Attribute() {
         super();
     }

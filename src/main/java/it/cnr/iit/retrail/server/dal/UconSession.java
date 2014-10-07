@@ -5,11 +5,8 @@
 
 package it.cnr.iit.retrail.server.dal;
 
-import it.cnr.iit.retrail.commons.PepSessionInterface;
 import it.cnr.iit.retrail.commons.Status;
 import it.cnr.iit.retrail.commons.impl.PepSession;
-import java.io.Serializable;
-import java.net.MalformedURLException;
 import java.net.URL;
 import java.util.Collection;
 import java.util.Date;
@@ -31,7 +28,7 @@ import org.w3c.dom.Document;
  * @author oneadmin
  */
 @Entity
-public class UconSession implements PepSessionInterface {
+public class UconSession extends PepSession {
 
     //For SQLite use GenerationType.AUTO to generate rowId
     //for derby, H2, MySQL etc use GenerationType.IDENTITY
@@ -57,12 +54,20 @@ public class UconSession implements PepSessionInterface {
 
     @Transient
     private URL uconUrl;
+
+    public UconSession() throws Exception {
+        super();
+    }
     
     static public UconSession newInstance(Document e) throws Exception {
         PepSession p = new PepSession(e);
         UconSession s = new UconSession();
         BeanUtils.copyProperties(s, p);
         return s;
+    }
+
+    public UconSession(Document doc) throws Exception {
+        super(doc);
     }
 
     public Collection<Attribute> getAttributes() {

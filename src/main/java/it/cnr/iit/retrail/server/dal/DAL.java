@@ -281,20 +281,20 @@ public class DAL {
         return involvedSessions;
     }
 
-    public UconSession startSession(UconRequest uconRequest, URL pepUrl, String customId) {
-        UconSession uconSession = null;
+    public UconSession startSession(UconSession uconSession, UconRequest uconRequest) throws Exception {
         // Store request's attributes to the database
         EntityManager em = getEntityManager();
         //start transaction with method begin()
         em.getTransaction().begin();
         try {
-            uconSession = new UconSession();
-            uconSession.setPepUrl(pepUrl.toString());
-            uconSession.setCustomId(customId);
-            uconSession = em.merge(uconSession);
+            //uconSession = em.merge(uconSession);
+            log.error("***** PERSISTING");
             em.persist(uconSession);
+            log.error("***** MERGING");
             uconSession = em.merge(uconSession);
-            if (customId == null || customId.length() == 0) {
+                        log.error("***** SETTING");
+
+            if (uconSession.getCustomId() == null || uconSession.getCustomId().length() == 0) {
                 uconSession.setCustomId(uconSession.getUuid());
                 uconSession = em.merge(uconSession);
             }
@@ -317,6 +317,8 @@ public class DAL {
                 map.put(pepAttribute, attribute);
             }
             em.getTransaction().commit();
+            log.error("***** COMMITTED");
+
         } catch (Exception e) {
             em.getTransaction().rollback();
             throw e;
@@ -341,13 +343,15 @@ public class DAL {
             throw e;
         }
         log.debug("end " + uconSession);
-
     }
 
-    public UconSession getSession(String uuid) {
+    public UconSession getSession(String uuid, URL uconUrl) {
         // TODO use custom generated value
         EntityManager em = getEntityManager();
-        return em.find(UconSession.class, uuid);
+        UconSession uconSession = em.find(UconSession.class, uuid);
+        if(uconSession != null)
+            uconSession.setUconUrl(uconUrl);
+        return uconSession;
     }
 
     @Deprecated
@@ -417,7 +421,7 @@ public class DAL {
         return uconSession;
     }
 
-    public Object save(Object o) {
+    public void save(Object o) {
         EntityManager em = getEntityManager();
         em.getTransaction().begin();
         try {
@@ -428,6 +432,6 @@ public class DAL {
             em.getTransaction().rollback();
             throw e;
         }
-        return o;
+        // Don't return merged object, because transients are reset.
     }
 }
