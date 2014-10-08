@@ -36,8 +36,18 @@ public abstract class PIP implements PIPInterface {
 
     @Override
     public PepAttributeInterface newSharedAttribute(String id, String type, String value, String issuer, String category) {
-        PepAttribute a = new PepAttribute(id, type, value, issuer, category, uuid);
-        return UconAttribute.newInstance(a, null);
+        UconAttribute u = dal.getAttribute(category, id);
+        if(u == null) {
+            PepAttribute a = new PepAttribute(id, type, value, issuer, category, uuid);
+            u = UconAttribute.newInstance(a, null);
+            // save and get the id for this object, so it can be shared.
+            u = (UconAttribute) dal.save(u);
+            log.error("XXXDDD created new {}", u);
+        } else
+            log.error("XXXDDD got old {}", u);
+        assert(u.getFactory() != null);
+        assert(u.getRowId() != null);
+        return u;
     }
 
     @Override
@@ -118,6 +128,7 @@ public abstract class PIP implements PIPInterface {
 
     @Override
     public void term() {
+        dal.removeAttributesByFactory(getUUID());
         log.info("{} terminated", this);
     }
 

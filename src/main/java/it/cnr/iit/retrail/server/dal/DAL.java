@@ -67,7 +67,7 @@ public class DAL {
 
     public void debugDumpAttributes(Collection<UconAttribute> al) {
         for (UconAttribute a : al) {
-            log.info("\t{} (parent: {})", a, ((UconAttribute)a.getParent()).getRowId());
+            log.info("\t{} (parent: {})", a, ((UconAttribute) a.getParent()).getRowId());
             for (UconSession s : a.getSessions()) {
                 log.info("\t\t{}", s);
             }
@@ -181,33 +181,6 @@ public class DAL {
         return attributes;
     }
 
-    private UconAttribute findParent(EntityManager em, UconSession session, PepAttributeInterface pepAttribute) {
-
-        UconAttribute parent = null;
-        if (pepAttribute.getParent() != null) {
-            TypedQuery<UconAttribute> q = em.createQuery("select a from UconAttribute a where a.id = :id and a.category = :category and a.value = :value and :session member of a.sessions",
-                    UconAttribute.class)
-                    .setParameter("session", session)
-                    .setParameter("id", pepAttribute.getParent().getId())
-                    .setParameter("category", pepAttribute.getParent().getCategory())
-                    .setParameter("value", pepAttribute.getParent().getValue());
-            parent = q.getSingleResult();
-        }
-        return parent;
-    }
-
-    private UconAttribute updateAttribute(EntityManager em, PepAttributeInterface pepAttribute) {
-        UconAttribute attribute;
-        TypedQuery<UconAttribute> q = em.createQuery("select a from UconAttribute a where a.id = :id and a.category = :category",// and :session member of a.sessions",
-                UconAttribute.class)
-                .setParameter("id", pepAttribute.getId())
-                .setParameter("category", pepAttribute.getCategory());
-        attribute = q.getSingleResult();
-        attribute.copy(pepAttribute, null); // FIXME
-        attribute = em.merge(attribute);
-        return attribute;
-    }
-
     private UconAttribute updateAttribute(EntityManager em, PepAttributeInterface pepAttribute, UconAttribute parent) {
         assert (parent != null);
         UconAttribute attribute;
@@ -247,35 +220,6 @@ public class DAL {
         return involvedSessions;
     }
 
-    private Collection<UconSession> updateSession(EntityManager em, UconSession uconSession, Collection<PepAttributeInterface> pepAttributes) {
-        Collection<UconSession> involvedSessions = new HashSet<>();
-        LinkedList<PepAttributeInterface> rootsFirst = new LinkedList<>();
-        UconAttribute attribute;
-        // put parents in front in order to create them first
-        for (PepAttributeInterface pepAttribute : pepAttributes) {
-            if (pepAttribute.getParent() == null) {
-                rootsFirst.addFirst(pepAttribute);
-            } else {
-                rootsFirst.addLast(pepAttribute);
-            }
-        }
-        // Then, process all
-        for (PepAttributeInterface pepAttribute : rootsFirst) {
-            UconAttribute parent = findParent(em, uconSession, pepAttribute);
-            try {
-                attribute = updateAttribute(em, pepAttribute);
-                // If this attribute is already in the session, remove it first for safety.
-                uconSession.removeAttribute(attribute);
-            } catch (NoResultException e) {
-                attribute = UconAttribute.newInstance(pepAttribute, parent);
-                em.persist(attribute);
-            }
-            uconSession.addAttribute(attribute);
-            involvedSessions.addAll(attribute.getSessions());
-        }
-        return involvedSessions;
-    }
-
     public UconSession startSession(UconSession uconSession, UconRequest uconRequest) throws Exception {
         // Store request's attributes to the database
         EntityManager em = getEntityManager();
@@ -287,29 +231,10 @@ public class DAL {
             em.persist(uconSession);
             log.error("***** MERGING");
             uconSession = em.merge(uconSession);
-                        log.error("***** SETTING");
-
+            log.error("***** SETTING");
             if (uconSession.getCustomId() == null || uconSession.getCustomId().length() == 0) {
                 uconSession.setCustomId(uconSession.getUuid());
                 uconSession = em.merge(uconSession);
-            }
-            LinkedList<PepAttributeInterface> rootsFirst = new LinkedList<>();
-            Map<PepAttributeInterface, UconAttribute> map = new HashMap<>();
-            // put parents in front in order to create them first
-            for (PepAttributeInterface pepAttribute : uconRequest) {
-                if (pepAttribute.getParent() == null) {
-                    rootsFirst.addFirst(pepAttribute);
-                } else {
-                    rootsFirst.addLast(pepAttribute);
-                }
-            }
-            // Then, process all
-            for (PepAttributeInterface pepAttribute : rootsFirst) {
-                UconAttribute parent = map.getOrDefault(pepAttribute.getParent(), null);
-                UconAttribute attribute = UconAttribute.newInstance(pepAttribute, parent);
-                em.persist(attribute);
-                uconSession.addAttribute(attribute);
-                map.put(pepAttribute, attribute);
             }
             em.getTransaction().commit();
             log.error("***** COMMITTED");
@@ -318,52 +243,56 @@ public class DAL {
             em.getTransaction().rollback();
             throw e;
         }
+        return saveSession(uconSession, uconRequest);
+    }
+
+    public UconSession saveSession(UconSession uconSession, UconRequest uconRequest) {
+        // Store request's attributes to the database
+        log.debug("begin " + uconSession);
+        EntityManager em = getEntityManager();
+        //start transaction with method begin()
+        em.getTransaction().begin();
+        uconSession = em.merge(uconSession);
+        try {
+            LinkedList<UconAttribute> rootsFirst = new LinkedList<>();
+            // put parents in front in order to create them first
+            for (PepAttributeInterface pepAttribute : uconRequest) {
+                if (pepAttribute.getParent() == null) {
+                    rootsFirst.addFirst((UconAttribute) pepAttribute);
+                } else {
+                    rootsFirst.addLast((UconAttribute) pepAttribute);
+                }
+            }
+            // Then, process all
+            for (UconAttribute uconAttribute : rootsFirst) {
+                if (uconAttribute.getRowId() == null) {
+                    log.error("XXXDDD persisting new {}", uconAttribute);
+                    em.persist(uconAttribute);
+                } else {
+                    log.error("XXXDDD merging old {}", uconAttribute);
+                    uconAttribute = em.merge(uconAttribute);
+                }
+                if (!uconSession.getAttributes().contains(uconAttribute)) {
+                    uconSession.addAttribute(uconAttribute);
+                }
+            }
+            uconSession = em.merge(uconSession);
+            em.getTransaction().commit();
+        } catch (Exception e) {
+            em.getTransaction().rollback();
+            throw e;
+        }
+        log.debug("end " + uconSession);
         return uconSession;
-    }
-
-    @Deprecated
-    public void updateSession(UconSession uconSession, Collection<PepAttributeInterface> pepAttributes) {
-        // Store request's attributes to the database
-        log.debug("begin " + uconSession);
-        EntityManager em = getEntityManager();
-        //start transaction with method begin()
-        em.getTransaction().begin();
-        uconSession = em.merge(uconSession);
-
-        try {
-            updateSession(em, uconSession, pepAttributes);
-            em.getTransaction().commit();
-        } catch (Exception e) {
-            em.getTransaction().rollback();
-            throw e;
-        }
-        log.debug("end " + uconSession);
-    }
-
-    public void saveSession(UconSession uconSession, UconRequest uconRequest) {
-        // Store request's attributes to the database
-        log.debug("begin " + uconSession);
-        EntityManager em = getEntityManager();
-        //start transaction with method begin()
-        em.getTransaction().begin();
-        uconSession = em.merge(uconSession);
-
-        try {
-            updateSession(em, uconSession, uconRequest);
-            em.getTransaction().commit();
-        } catch (Exception e) {
-            em.getTransaction().rollback();
-            throw e;
-        }
-        log.debug("end " + uconSession);
     }
 
     public UconSession getSession(String uuid, URL uconUrl) {
         // TODO use custom generated value
         EntityManager em = getEntityManager();
         UconSession uconSession = em.find(UconSession.class, uuid);
-        if(uconSession != null)
+        if (uconSession != null) {
             uconSession.setUconUrl(uconUrl);
+        }
         return uconSession;
     }
 
@@ -376,6 +305,23 @@ public class DAL {
                 .setParameter("id", customId);
         UconSession uconSession = q.getSingleResult();
         return uconSession;
+    }
+
+    public UconAttribute getAttribute(String category, String id) {
+        EntityManager em = getEntityManager();
+        UconAttribute uconAttribute;
+        log.error("XXXBBB category {}, id {}", category, id);
+        try {
+            TypedQuery<UconAttribute> q = em.createQuery(
+                    "select a from UconAttribute a where a.category = :category and a.id = :id",
+                    UconAttribute.class)
+                    .setParameter("category", category)
+                    .setParameter("id", id);
+            uconAttribute = q.getSingleResult();
+        } catch (NoResultException e) {
+            uconAttribute = null;
+        }
+        return uconAttribute;
     }
 
     private void removeAttributes(EntityManager em, UconSession uconSession) {
@@ -391,6 +337,22 @@ public class DAL {
         uconSession.getAttributes().clear();
     }
 
+    public void removeAttributesByFactory(String factory) {
+        log.debug("removing all attributes for " + factory);
+        EntityManager em = getEntityManager();
+        em.getTransaction().begin();
+        try {
+            em.createQuery(
+                    "delete from UconAttribute a where a.factory = :factory")
+                    .setParameter("factory", factory)
+                    .executeUpdate();
+            em.getTransaction().commit();
+        } catch (Exception e) {
+            em.getTransaction().rollback();
+            throw e;
+        }
+    }
+    
     public UconSession revokeSession(UconSession uconSession) {
         log.info("revoking " + uconSession);
         EntityManager em = getEntityManager();
@@ -434,7 +396,7 @@ public class DAL {
         return uconSession;
     }
 
-    public void save(Object o) {
+    public Object save(Object o) {
         EntityManager em = getEntityManager();
         em.getTransaction().begin();
         try {
@@ -445,6 +407,7 @@ public class DAL {
             em.getTransaction().rollback();
             throw e;
         }
-        // Don't return merged object, because transients are reset.
+        // warning: returned object returned has transients reset.
+        return o;
     }
 }

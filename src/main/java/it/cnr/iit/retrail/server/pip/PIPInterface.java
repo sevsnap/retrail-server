@@ -227,7 +227,8 @@ public interface PIPInterface {
      * terminated. The implementation must clean up the object and remove
      * any state resiliency from the component. It is really important that
      * this is done to allow an init()-term() cycle without any restriction.
-     * The default implementation does nothing.
+     * The default implementation removes all shared attributes created by
+     * this module and must be invoked by overloading implementation.
      */
     void term();
 

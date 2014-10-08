@@ -7,7 +7,6 @@ package it.cnr.iit.retrail.server.dal;
 import it.cnr.iit.retrail.commons.PepAttributeInterface;
 import it.cnr.iit.retrail.commons.impl.PepAttribute;
 import it.cnr.iit.retrail.commons.impl.PepRequest;
-import java.util.HashMap;
 import org.w3c.dom.Document;
 import org.w3c.dom.Element;
 
@@ -16,11 +15,7 @@ import org.w3c.dom.Element;
  * @author oneadmin
  */
 public class UconRequest extends PepRequest {
-    protected static PepAttributeInterface newAttribute(Element e) {
-        PepAttribute a = new PepAttribute(e);
-        return UconAttribute.newInstance(a, null);
-    }
-    
+ 
     public UconRequest(Document doc) {
         super(doc);
     }
@@ -29,4 +24,24 @@ public class UconRequest extends PepRequest {
         super();
     }
 
+    @Override
+    public boolean add(PepAttributeInterface a) {
+        assert(a instanceof UconAttribute);
+        return super.add(a);
+    }
+    
+    @Override
+    protected PepAttributeInterface newAttribute(Element e) {
+        PepAttribute a = new PepAttribute(e);
+        return UconAttribute.newInstance(a, null);
+    }
+    
+    @Override
+    protected PepAttributeInterface newAttribute(String id, String type, String value, String issuer, String category, String factory) {
+        PepAttribute tmp = new PepAttribute(id, type, value, issuer, category, factory);
+        UconAttribute a = new UconAttribute();
+        a.copy(tmp, null);
+        return a;
+    }
+    
 }

@@ -10,6 +10,7 @@ import java.util.ArrayList;
 import java.util.Collection;
 import java.util.Date;
 import java.util.HashSet;
+import java.util.Objects;
 import javax.persistence.Entity;
 import javax.persistence.GeneratedValue;
 import javax.persistence.GenerationType;
@@ -54,6 +55,7 @@ public class UconAttribute implements PepAttributeInterface {
     @Temporal(javax.persistence.TemporalType.TIMESTAMP)
     private Date expires;
     
+    @Index
     private String factory;
 
     public static UconAttribute newInstance(PepAttributeInterface a, UconAttribute parent) {
@@ -75,6 +77,7 @@ public class UconAttribute implements PepAttributeInterface {
     }
     
     public void copy(PepAttributeInterface pepAttribute, UconAttribute parent) {
+        id = pepAttribute.getId();
         type = pepAttribute.getType();
         value = pepAttribute.getValue();
         issuer = pepAttribute.getIssuer();
@@ -175,6 +178,8 @@ public class UconAttribute implements PepAttributeInterface {
     }
 
     public Collection<UconAttribute> getChildren() {
+        if(children == null)
+            children = new ArrayList<>();
         return children;
     }
     
@@ -182,6 +187,18 @@ public class UconAttribute implements PepAttributeInterface {
     @Override
     public String toString() {
         return getClass().getSimpleName()+" [rowId="+rowId+", sessions="+getSessions().size()+", id=" + id + ", type=" + type + ", value=" + value + ", issuer=" + issuer + ", category=" + category + "; factory="+factory+"]";
+    }
+    
+    @Override
+    public boolean equals(Object o) {
+        return o instanceof UconAttribute && Objects.equals(((UconAttribute)o).rowId, rowId);
+    }
+
+    @Override
+    public int hashCode() {
+        int hash = 7;
+        hash = 53 * hash + Objects.hashCode(this.rowId);
+        return hash;
     }
 
 }

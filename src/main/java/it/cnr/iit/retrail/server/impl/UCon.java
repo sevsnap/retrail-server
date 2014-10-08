@@ -200,7 +200,6 @@ public class UCon extends Server implements UConInterface, UConProtocol {
         Document responseDocument = access(uconRequest, pdp[PdpEnum.PRE]);
         UconSession uconSession = new UconSession(responseDocument);
         uconSession.setCustomId(customId);
-        uconSession.setUconUrl(myUrl);
         uconSession.setStatus(uconSession.getDecision() == PepResponse.DecisionEnum.Permit? Status.TRY : Status.REJECTED);
         for (PIPInterface p : pip) {
             p.onAfterTryAccess(uconRequest, uconSession);
@@ -208,10 +207,11 @@ public class UCon extends Server implements UConInterface, UConProtocol {
         if (uconSession.getDecision() == PepResponse.DecisionEnum.Permit) {
            uconSession = dal.startSession(uconSession, uconRequest);
            assert(uconSession.getUuid() != null && uconSession.getUuid().length() > 0);
-           assert(uconSession.getUconUrl() != null);
            assert(uconSession.getCustomId() != null  && uconSession.getCustomId().length() > 0);
            assert(uconSession.getStatus() == Status.TRY);
         }
+        uconSession.setUconUrl(myUrl);
+        assert(uconSession.getUconUrl() != null);
         log.error("**** TOXACML: {}", DomUtils.toString(uconSession.toXacml3Element()));
         return uconSession.toXacml3Element();
     }
@@ -259,6 +259,7 @@ public class UCon extends Server implements UConInterface, UConProtocol {
         if (r.getDecision() == PepResponse.DecisionEnum.Permit) {
             uconSession.setStatus(Status.ONGOING);
         }
+        dal.saveSession(uconSession, uconRequest);
         for (PIPInterface p : pip) {
             p.onAfterStartAccess(uconRequest, uconSession);
         }
