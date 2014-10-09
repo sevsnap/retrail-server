@@ -34,6 +34,7 @@ import java.util.Map;
 import java.util.Set;
 import javax.xml.transform.TransformerConfigurationException;
 import javax.xml.transform.TransformerException;
+import org.apache.commons.beanutils.BeanUtils;
 import org.apache.xmlrpc.XmlRpcException;
 import org.w3c.dom.Document;
 import org.w3c.dom.Element;
@@ -200,7 +201,9 @@ public class UCon extends Server implements UConInterface, UConProtocol {
         Document responseDocument = access(uconRequest, pdp[PdpEnum.PRE]);
         UconSession uconSession = new UconSession(responseDocument);
         uconSession.setCustomId(customId);
-        uconSession.setStatus(uconSession.getDecision() == PepResponse.DecisionEnum.Permit? Status.TRY : Status.REJECTED);
+        uconSession.setPepUrl(pepUrlString);
+        uconSession.setStatus(uconSession.getDecision() == PepResponse.DecisionEnum.Permit? 
+                Status.TRY : Status.REJECTED);
         for (PIPInterface p : pip) {
             p.onAfterTryAccess(uconRequest, uconSession);
         }
@@ -253,10 +256,9 @@ public class UCon extends Server implements UConInterface, UConProtocol {
             p.onBeforeStartAccess(uconRequest, uconSession);
         }
         Document responseDocument = access(uconRequest, pdp[PdpEnum.ON]);
-        PepResponse r = new PepResponse(responseDocument);
-        if (r.getDecision() == PepResponse.DecisionEnum.Permit) {
-            uconSession.setStatus(Status.ONGOING);
-        }
+        uconSession.setResponse(responseDocument);
+        uconSession.setStatus(uconSession.getDecision() == PepResponse.DecisionEnum.Permit?
+            Status.ONGOING : Status.TRY);
         dal.saveSession(uconSession, uconRequest);
         for (PIPInterface p : pip) {
             p.onAfterStartAccess(uconRequest, uconSession);
@@ -264,6 +266,7 @@ public class UCon extends Server implements UConInterface, UConProtocol {
         dal.saveSession(uconSession, uconRequest);
         assert(uconSession.getUuid() != null);
         assert(uconSession.getUconUrl() != null);
+        log.error("XXCXXC UCONSESSION: {} xacml = {}", uconSession, DomUtils.toString(uconSession.toXacml3Element()));
         return uconSession.toXacml3Element();
     }
 
@@ -282,9 +285,7 @@ public class UCon extends Server implements UConInterface, UConProtocol {
         }
         if(uconSession.getStatus() != Status.REVOKED) {
             Document responseDocument = access(uconRequest, pdp[PdpEnum.POST]);
-            PepResponse r = new PepResponse(responseDocument);
-            uconSession.setDecision(r.getDecision());
-            uconSession.setMessage(r.getMessage());
+            uconSession.setResponse(responseDocument);
         } else 
             uconSession.setDecision(PepResponse.DecisionEnum.Permit);
         if (uconSession.getDecision() == PepResponse.DecisionEnum.Permit) {
@@ -406,9 +407,8 @@ public class UCon extends Server implements UConInterface, UConProtocol {
                 // Now make PDP evaluate the request
                 log.debug("evaluating request");
                 Document responseDocument = access(uconRequest, pdp[PdpEnum.ON]);
-                PepResponse r = new PepResponse(responseDocument);
-                log.debug("evaluated request: " + r);
-                boolean mustRevoke = r.getDecision() != PepResponse.DecisionEnum.Permit;
+                involvedSession.setResponse(responseDocument);
+                boolean mustRevoke = involvedSession.getDecision() != PepResponse.DecisionEnum.Permit;
                 // Explicitly revoke access if anything went wrong
                 if (mustRevoke) {
                     log.warn("revoking {}", involvedSession);
@@ -427,17 +427,20 @@ public class UCon extends Server implements UConInterface, UConProtocol {
     @Override
     public void notifyChanges(Collection<PepAttributeInterface> changedAttributes) throws Exception {
         // Gather all the sessions that involve the changed attributes
-        log.info("{} attributes changed, updating db", changedAttributes.size());
-        Collection<UconSession> involvedSessions = dal.updateAttributes(changedAttributes);
+        log.info("{} attributes changed, updating DAL", changedAttributes.size());
+        Collection<UconSession> involvedSessions = new HashSet<>();
+        for(PepAttributeInterface a: changedAttributes) {
+            Collection<UconSession> sl = dal.updateAttribute((UconAttribute) a);
+            involvedSessions.addAll(sl);
+        }
         reevaluateSessions(involvedSessions);
         log.debug("done (total sessions: {})", dal.listSessions().size());
     }
 
     @Override
     public void notifyChanges(PepAttributeInterface changedAttribute) throws Exception {
-        Collection<PepAttributeInterface> attributes = new ArrayList(1);
-        attributes.add(changedAttribute);
-        notifyChanges(attributes);
+        Collection<UconSession> involvedSessions = dal.updateAttribute((UconAttribute) changedAttribute);
+        reevaluateSessions(involvedSessions);
     }
 
     public String getUuid(String uuid, String customId) {

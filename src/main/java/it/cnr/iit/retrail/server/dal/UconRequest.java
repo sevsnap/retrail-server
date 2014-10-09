@@ -33,14 +33,14 @@ public class UconRequest extends PepRequest {
     @Override
     protected PepAttributeInterface newAttribute(Element e) {
         PepAttribute a = new PepAttribute(e);
-        return UconAttribute.newInstance(a, null);
+        return UconAttribute.newInstance(a);
     }
     
     @Override
     protected PepAttributeInterface newAttribute(String id, String type, String value, String issuer, String category, String factory) {
         PepAttribute tmp = new PepAttribute(id, type, value, issuer, category, factory);
         UconAttribute a = new UconAttribute();
-        a.copy(tmp, null);
+        a.copy(tmp);
         return a;
     }
     

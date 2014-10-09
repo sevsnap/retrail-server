@@ -58,7 +58,7 @@ public class UconAttribute implements PepAttributeInterface {
     @Index
     private String factory;
 
-    public static UconAttribute newInstance(PepAttributeInterface a, UconAttribute parent) {
+    public static UconAttribute newInstance(PepAttributeInterface a) {
         UconAttribute attribute = new UconAttribute();
         attribute.id = a.getId();
         attribute.type = a.getType();
@@ -67,7 +67,6 @@ public class UconAttribute implements PepAttributeInterface {
         attribute.category = a.getCategory();
         attribute.factory = a.getFactory();
         attribute.setExpires(a.getExpires());
-        attribute.setParent(parent);
         return attribute;
     }
 
@@ -75,7 +74,7 @@ public class UconAttribute implements PepAttributeInterface {
         super();
     }
     
-    public void copy(PepAttributeInterface pepAttribute, UconAttribute parent) {
+    public void copy(PepAttributeInterface pepAttribute) {
         id = pepAttribute.getId();
         type = pepAttribute.getType();
         value = pepAttribute.getValue();
@@ -83,7 +82,6 @@ public class UconAttribute implements PepAttributeInterface {
         category = pepAttribute.getCategory();
         expires = pepAttribute.getExpires();        
         factory = pepAttribute.getFactory();
-        setParent(parent);
     }
     
     public Collection<UconSession> getSessions() {

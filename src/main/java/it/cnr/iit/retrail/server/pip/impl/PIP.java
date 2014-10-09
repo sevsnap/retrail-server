@@ -39,7 +39,7 @@ public abstract class PIP implements PIPInterface {
         UconAttribute u = dal.getAttribute(category, id);
         if(u == null) {
             PepAttribute a = new PepAttribute(id, type, value, issuer, category, uuid);
-            u = UconAttribute.newInstance(a, null);
+            u = UconAttribute.newInstance(a);
             // save and get the id for this object, so it can be shared.
             u = (UconAttribute) dal.save(u);
         } else {
@@ -54,8 +54,19 @@ public abstract class PIP implements PIPInterface {
 
     @Override
     public PepAttributeInterface newPrivateAttribute(String id, String type, String value, String issuer, PepAttributeInterface parent) {
+        UconAttribute p = (UconAttribute) parent;
+        for(UconAttribute child: p.getChildren())
+            if(child.getId().equals(id)) {
+                child.setType(type);
+                child.setValue(value);
+                child.setIssuer(issuer);
+                return child;
+        }
         PepAttribute a = new PepAttribute(id, type, value, issuer, parent.getCategory(), uuid);
-        return UconAttribute.newInstance(a, (UconAttribute) parent);
+        UconAttribute u = UconAttribute.newInstance(a);
+        u.setParent(p);
+        log.error("XXXQQQ child not found, creating new: {}", u);
+        return u;
     }
     
     @Override
