@@ -212,7 +212,6 @@ public class UCon extends Server implements UConInterface, UConProtocol {
         }
         uconSession.setUconUrl(myUrl);
         assert(uconSession.getUconUrl() != null);
-        log.error("**** TOXACML: {}", DomUtils.toString(uconSession.toXacml3Element()));
         return uconSession.toXacml3Element();
     }
 
@@ -228,7 +227,6 @@ public class UCon extends Server implements UConInterface, UConProtocol {
         // save, but don't recover new saved object (transients are reset)
         dal.save(uconSession);
         uconSession.setMessage("new customId assigned");
-        log.error("**** XXXAAA TOXACML: {}", DomUtils.toString(uconSession.toXacml3Element()));
         return uconSession.toXacml3Element();
     }
 
@@ -461,7 +459,7 @@ public class UCon extends Server implements UConInterface, UConProtocol {
                 log.warn("removing stale " + expiredSession);
                 endAccess(expiredSession.getUuid(), null);
             } catch (Exception ex) {
-                log.error("could not properly end {}: {}", expiredSession, ex.getMessage());
+                log.error("could not properly end stale {}: {}", expiredSession, ex.getMessage());
             }
         }
         // Gather all the sessions that involve expired attributes
@@ -470,7 +468,7 @@ public class UCon extends Server implements UConInterface, UConProtocol {
         // Re-evaluating possible outdated sessions
         reevaluateSessions(outdatedSessions);
 
-        log.debug("OK (sessions: {})", dal.listSessions().size());
+        log.debug("OK (#sessions: {})", dal.listSessions().size());
     }
 
     @Override

@@ -42,9 +42,11 @@ public abstract class PIP implements PIPInterface {
             u = UconAttribute.newInstance(a, null);
             // save and get the id for this object, so it can be shared.
             u = (UconAttribute) dal.save(u);
-            log.error("XXXDDD created new {}", u);
-        } else
-            log.error("XXXDDD got old {}", u);
+        } else {
+            u.setType(type);
+            u.setValue(value);
+            u.setIssuer(issuer);
+        }
         assert(u.getFactory() != null);
         assert(u.getRowId() != null);
         return u;

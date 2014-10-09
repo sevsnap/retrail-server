@@ -8,9 +8,10 @@ package it.cnr.iit.retrail.server.dal;
 import it.cnr.iit.retrail.commons.Status;
 import it.cnr.iit.retrail.commons.impl.PepSession;
 import java.net.URL;
+import java.util.ArrayList;
 import java.util.Collection;
 import java.util.Date;
-import java.util.HashSet;
+import java.util.Objects;
 import javax.persistence.Entity;
 import javax.persistence.GeneratedValue;
 import javax.persistence.Id;
@@ -50,7 +51,7 @@ public class UconSession extends PepSession {
     private Date lastSeen = new Date();
 
     @ManyToMany
-    private Collection<UconAttribute> attributes;
+    private Collection<UconAttribute> attributes = new ArrayList<>();
 
     @Transient
     private URL uconUrl;
@@ -75,17 +76,13 @@ public class UconSession extends PepSession {
     }
 
     public void addAttribute(UconAttribute attribute) {
-        if(attributes == null)
-            attributes = new HashSet<>();
         attributes.add(attribute);
         attribute.getSessions().add(this);
     }
 
     public void removeAttribute(UconAttribute attribute) {
-        if(attributes != null) {
-            attributes.remove(attribute);
-            attribute.getSessions().remove(this);
-        }
+        attributes.remove(attribute);
+        attribute.getSessions().remove(this);
     }
     
     @Override
@@ -142,6 +139,18 @@ public class UconSession extends PepSession {
     @Override
     public void setUuid(String uuid) {
         this.uuid = uuid;
+    }
+
+    @Override
+    public boolean equals(Object o) {
+        return o instanceof UconSession && Objects.equals(((UconSession)o).uuid, uuid);
+    }
+
+    @Override
+    public int hashCode() {
+        int hash = 7;
+        hash = 53 * hash + Objects.hashCode(this.uuid);
+        return hash;
     }
 
     //this is optional, just for print out into console

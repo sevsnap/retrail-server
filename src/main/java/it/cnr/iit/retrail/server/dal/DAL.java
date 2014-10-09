@@ -8,9 +8,7 @@ import it.cnr.iit.retrail.commons.PepAttributeInterface;
 import it.cnr.iit.retrail.commons.Status;
 import java.net.URL;
 import java.util.Collection;
-import java.util.Map;
 import java.util.Date;
-import java.util.HashMap;
 import java.util.HashSet;
 import java.util.LinkedList;
 import javax.persistence.EntityManager;
@@ -226,19 +224,13 @@ public class DAL {
         //start transaction with method begin()
         em.getTransaction().begin();
         try {
-            //uconSession = em.merge(uconSession);
-            log.error("***** PERSISTING");
             em.persist(uconSession);
-            log.error("***** MERGING");
             uconSession = em.merge(uconSession);
-            log.error("***** SETTING");
             if (uconSession.getCustomId() == null || uconSession.getCustomId().length() == 0) {
                 uconSession.setCustomId(uconSession.getUuid());
                 uconSession = em.merge(uconSession);
             }
             em.getTransaction().commit();
-            log.error("***** COMMITTED");
-
         } catch (Exception e) {
             em.getTransaction().rollback();
             throw e;
@@ -266,19 +258,28 @@ public class DAL {
             // Then, process all
             for (UconAttribute uconAttribute : rootsFirst) {
                 if (uconAttribute.getRowId() == null) {
-                    log.error("XXXDDD persisting new {}", uconAttribute);
                     em.persist(uconAttribute);
+                    em.flush();
+                    if(uconAttribute.getRowId() == 1)
+                        log.error("CREATE ATTRIBUTE: {}", uconAttribute);
                 } else {
-                    log.error("XXXDDD merging old {}", uconAttribute);
+                    int index = uconRequest.indexOf(uconAttribute);
                     uconAttribute = em.merge(uconAttribute);
+                    uconRequest.set(index, uconAttribute);
+                    if(uconAttribute.getRowId() == 1)
+                    log.error("FOUND ATTRIBUTE: {}", uconAttribute);
                 }
-                if (!uconSession.getAttributes().contains(uconAttribute)) {
+                if(!uconSession.getAttributes().contains(uconAttribute)) {
                     uconSession.addAttribute(uconAttribute);
+                    uconSession = em.merge(uconSession);
+                    if(uconAttribute.getRowId() == 1)
+                    log.error("ADD: {} TO: {}", uconAttribute, uconSession);
                 }
             }
             uconSession = em.merge(uconSession);
             em.getTransaction().commit();
         } catch (Exception e) {
+            log.error("*** Unexpected exception: {}", e.getMessage());
             em.getTransaction().rollback();
             throw e;
         }
@@ -310,7 +311,6 @@ public class DAL {
     public UconAttribute getAttribute(String category, String id) {
         EntityManager em = getEntityManager();
         UconAttribute uconAttribute;
-        log.error("XXXBBB category {}, id {}", category, id);
         try {
             TypedQuery<UconAttribute> q = em.createQuery(
                     "select a from UconAttribute a where a.category = :category and a.id = :id",
@@ -331,6 +331,7 @@ public class DAL {
             a.setParent(null);
             uconSession.removeAttribute(a);
             if (a.getSessions().isEmpty()) {
+                
                 em.remove(a);
             }
         }
@@ -342,10 +343,14 @@ public class DAL {
         EntityManager em = getEntityManager();
         em.getTransaction().begin();
         try {
-            em.createQuery(
-                    "delete from UconAttribute a where a.factory = :factory")
-                    .setParameter("factory", factory)
-                    .executeUpdate();
+            TypedQuery<UconAttribute> q = em.createQuery(
+                "select a from UconAttribute a where a.factory = :factory",
+                UconAttribute.class)
+                .setParameter("factory", factory);
+            for(UconAttribute a: q.getResultList()) {
+                for(UconSession s: a.getSessions())
+                    s.removeAttribute(a);
+            }
             em.getTransaction().commit();
         } catch (Exception e) {
             em.getTransaction().rollback();
@@ -381,14 +386,13 @@ public class DAL {
             uconSession = em.merge(uconSession);
             if (uconSession != null) {
                 removeAttributes(em, uconSession);
-                uconSession = em.merge(uconSession);
                 em.remove(uconSession);
             } else {
                 log.error("cannot find {}", uconSession);
             }
             em.getTransaction().commit();
         } catch (Exception e) {
-            log.error("unexpected exception when ending {}: {}", uconSession, e);
+            log.error("unexpected exception when ending {} ({} attributes): {}", uconSession, uconSession.getAttributes().size(), e);
             em.getTransaction().rollback();
             throw e;
         }

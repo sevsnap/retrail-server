@@ -37,13 +37,13 @@ public class UconAttribute implements PepAttributeInterface {
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long rowId;
     @ManyToMany(mappedBy="attributes")
-    private Collection<UconSession> sessions;
+    private Collection<UconSession> sessions = new ArrayList<>();
 
     @ManyToOne
     private UconAttribute parent;
 
     @OneToMany(mappedBy="parent")
-    private Collection<UconAttribute> children;
+    private Collection<UconAttribute> children = new ArrayList<>();
 
     @Index
     private String id;
@@ -67,7 +67,6 @@ public class UconAttribute implements PepAttributeInterface {
         attribute.category = a.getCategory();
         attribute.factory = a.getFactory();
         attribute.setExpires(a.getExpires());
-        attribute.children = new ArrayList<>();
         attribute.setParent(parent);
         return attribute;
     }
@@ -88,8 +87,6 @@ public class UconAttribute implements PepAttributeInterface {
     }
     
     public Collection<UconSession> getSessions() {
-        if(sessions == null)
-            sessions = new HashSet<>();
         return sessions;
     }
 
@@ -174,12 +171,10 @@ public class UconAttribute implements PepAttributeInterface {
         if(parent != null) {
             this.parent = (UconAttribute)parent;
             ((UconAttribute)parent).getChildren().add((UconAttribute)parent);
-        }
+        } else this.parent = null;
     }
 
     public Collection<UconAttribute> getChildren() {
-        if(children == null)
-            children = new ArrayList<>();
         return children;
     }
     
