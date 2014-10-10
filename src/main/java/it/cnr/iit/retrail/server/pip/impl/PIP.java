@@ -37,18 +37,13 @@ public abstract class PIP implements PIPInterface {
     @Override
     public PepAttributeInterface newSharedAttribute(String id, String type, String value, String issuer, String category) {
         UconAttribute u = dal.getSharedAttribute(category, id);
-        //log.error("SEARCH CAT {} ID {} I GOT ATTRIBUTE: {}", category, id, u);
         if(u == null) {
             PepAttribute a = new PepAttribute(id, type, value, issuer, category, uuid);
             u = UconAttribute.newInstance(a);
-            // save and get the id for this object, so it can be shared.
-            //u = (UconAttribute) dal.save(u);
-        //log.error("ITS NEW: {}", u);
         } else {
             u.setType(type);
             u.setValue(value);
             u.setIssuer(issuer);
-            //log.error("ITS BEEN FOUND: {}", u);
         }
         assert(u.getFactory() != null);
         //assert(u.getRowId() != null);
@@ -63,7 +58,6 @@ public abstract class PIP implements PIPInterface {
                 child.setType(type);
                 child.setValue(value);
                 child.setIssuer(issuer);
-                 //log.error("XXXQQQ child FOUND: {}", child);
                 return child;
         }
         PepAttribute a = new PepAttribute(id, type, value, issuer, parent.getCategory(), uuid);
@@ -71,7 +65,6 @@ public abstract class PIP implements PIPInterface {
         u = (UconAttribute) dal.save(u);
         // DON'T SAVE ME!
         u.setParent(p);
-        //log.error("XXXQQQ child not found, creating new: {}", u);
         return u;
     }
     

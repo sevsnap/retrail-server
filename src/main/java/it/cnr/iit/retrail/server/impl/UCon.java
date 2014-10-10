@@ -266,7 +266,6 @@ public class UCon extends Server implements UConInterface, UConProtocol {
         dal.saveSession(uconSession, uconRequest);
         assert(uconSession.getUuid() != null);
         assert(uconSession.getUconUrl() != null);
-        log.error("XXCXXC UCONSESSION: {} xacml = {}", uconSession, DomUtils.toString(uconSession.toXacml3Element()));
         return uconSession.toXacml3Element();
     }
 

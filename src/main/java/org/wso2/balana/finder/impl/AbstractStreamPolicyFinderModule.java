@@ -174,7 +174,7 @@ public abstract class AbstractStreamPolicyFinderModule extends PolicyFinderModul
             }
         } catch (ParserConfigurationException | IOException | SAXException | ParsingException e) {
             // just only logs
-            log.error("Fail to load policy : {}" + e.getMessage());
+            log.error("Failed to load policy : {}" + e.getMessage());
         } finally {
             if(stream != null){
                 try {

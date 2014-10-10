@@ -239,8 +239,6 @@ public class DAL implements DALInterface {
             for (UconAttribute uconAttribute : rootsFirst) {
                 if (uconAttribute.getRowId() == null) {
                     em.persist(uconAttribute);
-                    //em.flush();
-                    //log.error("CREATED ATTRIBUTE {}", uconAttribute);
                 } 
                 int index = 0;
                 while(uconAttribute != uconRequest.get(index)) 
@@ -250,10 +248,7 @@ public class DAL implements DALInterface {
 
                 uconAttribute.getSessions().remove(uconSession);
                 uconSession.addAttribute(uconAttribute);
-                //log.error("SET ATTRIBUTE {} TO {}", uconAttribute, uconSession);
-
             }
-            //log.error("COMMITTING {}", uconSession);
             em.getTransaction().commit();
         } catch (Exception e) {
             log.error("*** Unexpected exception: {}", e.getMessage());
@@ -291,7 +286,6 @@ public class DAL implements DALInterface {
     public UconAttribute getSharedAttribute(String category, String id) {
         EntityManager em = getEntityManager();
         UconAttribute uconAttribute;
-        log.error("***** CATEGORY {} ID {}", category, id);
         try {
             TypedQuery<UconAttribute> q = em.createQuery(
                     "select a from UconAttribute a where a.category = :category and a.id = :id and a.parent is null",
@@ -306,10 +300,10 @@ public class DAL implements DALInterface {
     }
 
     private void removeAttributes(EntityManager em, UconSession uconSession) {
-        log.info("removing all attributes for " + uconSession);
+        log.debug("removing all attributes for " + uconSession);
         while (uconSession.getAttributes().size() > 0) {
             UconAttribute a = uconSession.getAttributes().iterator().next();
-            log.info("removing " + a);
+            log.debug("removing " + a);
             a.setParent(null);
             uconSession.removeAttribute(a);
             if (a.getSessions().isEmpty()) {
