@@ -333,12 +333,13 @@ public class UCon extends Server implements UConInterface, UConProtocol {
         for (PIPInterface p : pip) {
             p.onAfterRevokeAccess(uconRequest, uconSession);
         }
+        uconSession = (UconSession) dal.save(uconSession);
         // FIXME : should save
         // create client
-        log.warn("invoking PEP at " + pepUrl + " to revoke " + pepSession);
+        log.warn("invoking PEP at " + pepUrl + " to revoke " + uconSession);
         Client client = new Client(pepUrl);
         // remote call. TODO: should consider error handling
-        Object[] params = new Object[]{pepSession.toXacml3Element()};
+        Object[] params = new Object[]{uconSession.toXacml3Element()};
         Document doc = (Document) client.execute("PEP.revokeAccess", params);
         return doc;
     }
@@ -430,8 +431,8 @@ public class UCon extends Server implements UConInterface, UConProtocol {
         log.info("{} attributes changed, updating DAL", changedAttributes.size());
         Collection<UconSession> involvedSessions = new HashSet<>();
         for(PepAttributeInterface a: changedAttributes) {
-            Collection<UconSession> sl = dal.updateAttribute((UconAttribute) a);
-            involvedSessions.addAll(sl);
+            UconAttribute u = (UconAttribute) dal.save(a);
+            involvedSessions.addAll(u.getSessions());
         }
         reevaluateSessions(involvedSessions);
         log.debug("done (total sessions: {})", dal.listSessions().size());
@@ -439,8 +440,11 @@ public class UCon extends Server implements UConInterface, UConProtocol {
 
     @Override
     public void notifyChanges(PepAttributeInterface changedAttribute) throws Exception {
-        Collection<UconSession> involvedSessions = dal.updateAttribute((UconAttribute) changedAttribute);
+        log.info("changed {}, updating DAL", changedAttribute);
+        UconAttribute u = (UconAttribute) dal.save(changedAttribute);
+        Collection<UconSession> involvedSessions = u.getSessions();
         reevaluateSessions(involvedSessions);
+        log.debug("done (total sessions: {})", dal.listSessions().size());
     }
 
     public String getUuid(String uuid, String customId) {

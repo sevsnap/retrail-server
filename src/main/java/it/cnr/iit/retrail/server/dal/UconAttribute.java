@@ -11,6 +11,7 @@ import java.util.Collection;
 import java.util.Date;
 import java.util.HashSet;
 import java.util.Objects;
+import javax.persistence.CascadeType;
 import javax.persistence.Entity;
 import javax.persistence.GeneratedValue;
 import javax.persistence.GenerationType;
@@ -37,13 +38,13 @@ public class UconAttribute implements PepAttributeInterface {
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long rowId;
     @ManyToMany(mappedBy="attributes")
-    private Collection<UconSession> sessions = new ArrayList<>();
+    private final Collection<UconSession> sessions = new ArrayList<>();
 
     @ManyToOne
     private UconAttribute parent;
 
-    @OneToMany(mappedBy="parent")
-    private Collection<UconAttribute> children = new ArrayList<>();
+    @OneToMany(mappedBy="parent")//, cascade = {CascadeType.PERSIST,CascadeType.MERGE})
+    private final Collection<UconAttribute> children = new ArrayList<>();
 
     @Index
     private String id;
@@ -157,18 +158,16 @@ public class UconAttribute implements PepAttributeInterface {
         this.factory = factory;
     }
     
-    @Override
-    public PepAttributeInterface getParent() {
+    public UconAttribute getParent() {
         return parent;
     }
     
-    @Override
-    public void setParent(PepAttributeInterface parent) {
+    public void setParent(UconAttribute parent) {
         if(this.parent != null)
-            this.parent.children.remove(this.parent);
+            this.parent.children.remove(this);
         if(parent != null) {
-            this.parent = (UconAttribute)parent;
-            ((UconAttribute)parent).getChildren().add((UconAttribute)parent);
+            this.parent = parent;
+            parent.children.add(this);
         } else this.parent = null;
     }
 
@@ -179,19 +178,21 @@ public class UconAttribute implements PepAttributeInterface {
     //this is optional, just for print out into console
     @Override
     public String toString() {
-        return getClass().getSimpleName()+" [rowId="+rowId+", sessions="+getSessions().size()+", id=" + id + ", type=" + type + ", value=" + value + ", issuer=" + issuer + ", category=" + category + "; factory="+factory+"]";
+        String s = getClass().getSimpleName()+" [rowId="+rowId+", id=" + id + "; value=" + value +", #sessions="+getSessions().size()+", #children="+getChildren().size()+ ", factory="+factory+"]";
+        if(getParent() != null)
+            s += " *** with parent: "+getParent().toString();
+       return s;
     }
     
     @Override
     public boolean equals(Object o) {
-        return o instanceof UconAttribute && Objects.equals(((UconAttribute)o).rowId, rowId);
+        if(!(o instanceof UconAttribute))
+            return false;
+        if(rowId == null || ((UconAttribute)o).rowId == null) {
+            throw new RuntimeException("cannot compare "+this+" to "+o+" since they have no rowId");
+        }
+        return ((UconAttribute)o).rowId.equals(rowId);
     }
-
-    @Override
-    public int hashCode() {
-        int hash = 7;
-        hash = 53 * hash + Objects.hashCode(this.rowId);
-        return hash;
-    }
+    
 
 }

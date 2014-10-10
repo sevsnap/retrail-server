@@ -7,10 +7,15 @@ package it.cnr.iit.retrail.server.dal;
 import it.cnr.iit.retrail.commons.PepAttributeInterface;
 import it.cnr.iit.retrail.commons.Status;
 import java.net.URL;
+import java.util.ArrayList;
 import java.util.Collection;
 import java.util.Date;
+import java.util.HashMap;
 import java.util.HashSet;
+import java.util.Iterator;
 import java.util.LinkedList;
+import java.util.Map;
+import java.util.Objects;
 import javax.persistence.EntityManager;
 import javax.persistence.EntityManagerFactory;
 import javax.persistence.NoResultException;
@@ -189,36 +194,6 @@ public class DAL implements DALInterface {
     }
 
     @Override
-    public Collection<UconSession> updateAttribute(UconAttribute uconAttribute) {
-        EntityManager em = getEntityManager();
-        Collection<UconSession> involvedSessions = new HashSet<>();
-        UconAttribute attribute;
-        TypedQuery<UconAttribute> q;
-        //start transaction with method begin()
-        em.getTransaction().begin();
-        try {
-            q = em.createQuery("select a from UconAttribute a where a.id = :id and a.category = :category",
-                    UconAttribute.class)
-                    .setParameter("id", uconAttribute.getId())
-                    .setParameter("category", uconAttribute.getCategory());
-            attribute = q.getSingleResult();
-            attribute.copy(uconAttribute);
-            attribute = em.merge(attribute);
-            for (UconSession uconSession : attribute.getSessions()) {
-                if (uconSession.getStatus() == Status.ONGOING) {
-                    involvedSessions.add(uconSession);
-                }
-            }
-            em.getTransaction().commit();
-        } catch (Exception e) {
-            log.error("rolling back transaction: {}", e.getMessage());
-            em.getTransaction().rollback();
-            throw e;
-        }
-        return involvedSessions;
-    }
-
-    @Override
     public UconSession startSession(UconSession uconSession, UconRequest uconRequest) throws Exception {
         // Store request's attributes to the database
         EntityManager em = getEntityManager();
@@ -246,42 +221,39 @@ public class DAL implements DALInterface {
         EntityManager em = getEntityManager();
         //start transaction with method begin()
         em.getTransaction().begin();
-        uconSession = em.merge(uconSession);
         try {
+            // put parents to front since we have a CASCADE towards children
             LinkedList<UconAttribute> rootsFirst = new LinkedList<>();
-            // put parents in front in order to create them first
             for (PepAttributeInterface pepAttribute : uconRequest) {
-                if (pepAttribute.getParent() == null) {
+                UconAttribute uconAttribute = (UconAttribute) pepAttribute;
+                if (uconAttribute.getParent() == null) {
                     rootsFirst.addFirst((UconAttribute) pepAttribute);
                 } else {
                     rootsFirst.addLast((UconAttribute) pepAttribute);
                 }
             }
-            // Then, process all
+            // Then, process all attributes (persist, or merge).
+            // Also, keep merged the original uconRequest for consistency.
+            uconSession = em.merge(uconSession);
+            uconSession.getAttributes().clear();
             for (UconAttribute uconAttribute : rootsFirst) {
                 if (uconAttribute.getRowId() == null) {
                     em.persist(uconAttribute);
-                    em.flush();
-                    if (uconAttribute.getRowId() == 1) {
-                        log.error("CREATE ATTRIBUTE: {}", uconAttribute);
-                    }
-                } else {
-                    int index = uconRequest.indexOf(uconAttribute);
-                    uconAttribute = em.merge(uconAttribute);
-                    uconRequest.set(index, uconAttribute);
-                    if (uconAttribute.getRowId() == 1) {
-                        log.error("FOUND ATTRIBUTE: {}", uconAttribute);
-                    }
-                }
-                if (!uconSession.getAttributes().contains(uconAttribute)) {
-                    uconSession.addAttribute(uconAttribute);
-                    uconSession = em.merge(uconSession);
-                    if (uconAttribute.getRowId() == 1) {
-                        log.error("ADD: {} TO: {}", uconAttribute, uconSession);
-                    }
-                }
+                    //em.flush();
+                    //log.error("CREATED ATTRIBUTE {}", uconAttribute);
+                } 
+                int index = 0;
+                while(uconAttribute != uconRequest.get(index)) 
+                    index++;
+                uconAttribute = em.merge(uconAttribute);
+                uconRequest.set(index, uconAttribute);
+
+                uconAttribute.getSessions().remove(uconSession);
+                uconSession.addAttribute(uconAttribute);
+                //log.error("SET ATTRIBUTE {} TO {}", uconAttribute, uconSession);
+
             }
-            uconSession = em.merge(uconSession);
+            //log.error("COMMITTING {}", uconSession);
             em.getTransaction().commit();
         } catch (Exception e) {
             log.error("*** Unexpected exception: {}", e.getMessage());
@@ -316,12 +288,13 @@ public class DAL implements DALInterface {
     }
 
     @Override
-    public UconAttribute getAttribute(String category, String id) {
+    public UconAttribute getSharedAttribute(String category, String id) {
         EntityManager em = getEntityManager();
         UconAttribute uconAttribute;
+        log.error("***** CATEGORY {} ID {}", category, id);
         try {
             TypedQuery<UconAttribute> q = em.createQuery(
-                    "select a from UconAttribute a where a.category = :category and a.id = :id",
+                    "select a from UconAttribute a where a.category = :category and a.id = :id and a.parent is null",
                     UconAttribute.class)
                     .setParameter("category", category)
                     .setParameter("id", id);
@@ -333,13 +306,13 @@ public class DAL implements DALInterface {
     }
 
     private void removeAttributes(EntityManager em, UconSession uconSession) {
-        log.debug("removing all attributes for " + uconSession);
+        log.info("removing all attributes for " + uconSession);
         while (uconSession.getAttributes().size() > 0) {
             UconAttribute a = uconSession.getAttributes().iterator().next();
+            log.info("removing " + a);
             a.setParent(null);
             uconSession.removeAttribute(a);
             if (a.getSessions().isEmpty()) {
-
                 em.remove(a);
             }
         }
@@ -357,12 +330,16 @@ public class DAL implements DALInterface {
                     UconAttribute.class)
                     .setParameter("factory", factory);
             for (UconAttribute a : q.getResultList()) {
-                for (UconSession s : a.getSessions()) {
+                Collection<UconSession> l = new ArrayList<>(a.getSessions());
+                a.setParent(null);
+                for (UconSession s : l) {
                     s.removeAttribute(a);
                 }
+                em.remove(a);
             }
             em.getTransaction().commit();
         } catch (Exception e) {
+            log.error("*** unexpected exception: {}", e.getMessage());
             em.getTransaction().rollback();
             throw e;
         }
@@ -395,8 +372,8 @@ public class DAL implements DALInterface {
         //start transaction with method begin()
         em.getTransaction().begin();
         try {
-            uconSession = em.merge(uconSession);
             if (uconSession != null) {
+                uconSession = em.merge(uconSession);
                 removeAttributes(em, uconSession);
                 em.remove(uconSession);
             } else {
@@ -409,6 +386,7 @@ public class DAL implements DALInterface {
             throw e;
         }
         //debugDump();
+        log.info("ended " + uconSession);
         return uconSession;
     }
 

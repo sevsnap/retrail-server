@@ -18,7 +18,7 @@ public interface DALInterface {
 
     UconSession endSession(UconSession uconSession);
 
-    UconAttribute getAttribute(String category, String id);
+    UconAttribute getSharedAttribute(String category, String id);
 
     UconSession getSession(String uuid, URL uconUrl);
 
@@ -53,6 +53,4 @@ public interface DALInterface {
 
     UconSession startSession(UconSession uconSession, UconRequest uconRequest) throws Exception;
 
-    Collection<UconSession> updateAttribute(UconAttribute uconAttribute);
-    
 }
