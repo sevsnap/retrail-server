@@ -518,6 +518,8 @@ public class UCon extends Server implements UConInterface, UConProtocol {
         while (pip.size() > 0) {
             removePIP(pip.get(0));
         }
+        if(singleton == this)
+            singleton = null;
         log.warn("completing shutdown procedure for the UCon service");
         super.term();
         log.warn("UCon shutdown");
