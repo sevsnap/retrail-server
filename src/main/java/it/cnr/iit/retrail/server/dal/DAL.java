@@ -11,11 +11,8 @@ import java.util.ArrayList;
 import java.util.Collection;
 import java.util.Date;
 import java.util.HashMap;
-import java.util.HashSet;
-import java.util.Iterator;
 import java.util.LinkedList;
 import java.util.Map;
-import java.util.Objects;
 import javax.persistence.EntityManager;
 import javax.persistence.EntityManagerFactory;
 import javax.persistence.NoResultException;
@@ -23,7 +20,7 @@ import javax.persistence.Persistence;
 import javax.persistence.TypedQuery;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
-
+import org.eclipse.persistence.config.PersistenceUnitProperties;
 /**
  *
  * @author oneadmin
@@ -33,7 +30,8 @@ public class DAL implements DALInterface {
     //Create entity manager, this step will connect to database, please check 
     //JDBC driver on classpath, jdbc URL, jdbc driver name on persistence.xml
     private static final String PERSISTENCE_UNIT_NAME = "retrail";
-    private static final EntityManagerFactory factory = Persistence.createEntityManagerFactory(PERSISTENCE_UNIT_NAME);
+    private static EntityManagerFactory factory;
+
     protected static final Logger log = LoggerFactory.getLogger(DAL.class);
     final private ThreadLocal entityManager;
 
@@ -49,6 +47,12 @@ public class DAL implements DALInterface {
 
     public static DAL getInstance() {
         if (instance == null) {
+            if(factory == null) {
+                Map<String,String> properties = new HashMap<>();
+                properties.put(PersistenceUnitProperties.DDL_GENERATION_MODE, "database");
+                properties.put(PersistenceUnitProperties.SESSION_CUSTOMIZER, UUIDSequence.class.getCanonicalName());
+                factory = Persistence.createEntityManagerFactory(PERSISTENCE_UNIT_NAME, properties);
+            }
             instance = new DAL();
         }
         return instance;
@@ -79,6 +83,7 @@ public class DAL implements DALInterface {
 
     private DAL() {
         log.info("creating Data Access Layer");
+        
         this.entityManager = new ThreadLocal() {
             @Override
             protected synchronized Object initialValue() {
