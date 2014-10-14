@@ -210,6 +210,7 @@ public class DAL implements DALInterface {
             if (uconSession.getCustomId() == null || uconSession.getCustomId().length() == 0) {
                 uconSession.setCustomId(uconSession.getUuid());
                 uconSession = em.merge(uconSession);
+                
             }
             em.getTransaction().commit();
         } catch (Exception e) {
