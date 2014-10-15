@@ -80,11 +80,7 @@ public class UCon extends Server implements UConInterface, UConProtocol {
     public static UConInterface getInstance() {
         if (singleton == null) {
             try {
-                singleton = new UCon(
-                        UCon.class.getResourceAsStream("/META-INF/default-policies/pre.xml"),
-                        UCon.class.getResourceAsStream("/META-INF/default-policies/on.xml"),
-                        UCon.class.getResourceAsStream("/META-INF/default-policies/post.xml")
-                );
+                singleton = new UCon();
             } catch (XmlRpcException | IOException | URISyntaxException e) {
                 log.error(e.getMessage());
             }
@@ -97,62 +93,71 @@ public class UCon extends Server implements UConInterface, UConProtocol {
         return singleton;
     }
 
-    private UCon(InputStream pre, InputStream on, InputStream post) throws UnknownHostException, XmlRpcException, IOException, URISyntaxException {
+    private UCon() throws UnknownHostException, XmlRpcException, IOException, URISyntaxException {
         super(new URL(defaultUrlString), UConProtocolProxy.class);
         log.warn("loading builtin policies (permit anything)");
-        pdp[PdpEnum.PRE] = newPDP(pre);
-        pdp[PdpEnum.ON] = newPDP(on);
-        pdp[PdpEnum.POST] = newPDP(post);
+        setPreauthPolicy((URL)null);
+        setOngoingPolicy((URL)null);
+        setPostPolicy((URL)null);
         dal = DAL.getInstance();
+        assert(pdp[PdpEnum.POST] != null);
+    }
+
+    private PDP newPDP(PolicyFinderModule module) {
+        PolicyFinder policyFinder = new PolicyFinder();
+        Set<PolicyFinderModule> policyFinderModules = new HashSet<>();
+        policyFinderModules.add(module);
+        policyFinder.setModules(policyFinderModules);
+        AttributeFinder attributeFinder = new AttributeFinder();
+        List<AttributeFinderModule> attributeFinderModules = new ArrayList<>();
+        SelectorModule selectorModule = new SelectorModule();
+        CurrentEnvModule currentEnvModule = new CurrentEnvModule();
+        attributeFinderModules.add(selectorModule);
+        attributeFinderModules.add(currentEnvModule);
+        attributeFinder.setModules(attributeFinderModules);
+        PDPConfig pdpConfig = new PDPConfig(attributeFinder, policyFinder, null, false);
+        return new PDP(pdpConfig);
     }
 
     private PDP newPDP(URL location) {
-        PolicyFinder policyFinder = new PolicyFinder();
-        Set<PolicyFinderModule> policyFinderModules = new HashSet<>();
         Set<URL> locationSet = new HashSet<>();
         locationSet.add(location); //set the correct policy location
         URLBasedPolicyFinderModule URLBasedPolicyFinderModule = new URLBasedPolicyFinderModule(locationSet);
-        policyFinderModules.add(URLBasedPolicyFinderModule);
-        policyFinder.setModules(policyFinderModules);
-
-        AttributeFinder attributeFinder = new AttributeFinder();
-        List<AttributeFinderModule> attributeFinderModules = new ArrayList<>();
-        SelectorModule selectorModule = new SelectorModule();
-        CurrentEnvModule currentEnvModule = new CurrentEnvModule();
-        attributeFinderModules.add(selectorModule);
-        attributeFinderModules.add(currentEnvModule);
-        attributeFinder.setModules(attributeFinderModules);
-        PDPConfig pdpConfig = new PDPConfig(attributeFinder, policyFinder, null, false);
-        return new PDP(pdpConfig);
+        return newPDP(URLBasedPolicyFinderModule);
     }
 
     private PDP newPDP(InputStream stream) {
-        PolicyFinder policyFinder = new PolicyFinder();
-        Set<PolicyFinderModule> policyFinderModules = new HashSet<>();
         StreamBasedPolicyFinderModule streamBasedPolicyFinderModule = new StreamBasedPolicyFinderModule(stream);
-        policyFinderModules.add(streamBasedPolicyFinderModule);
-        policyFinder.setModules(policyFinderModules);
-        AttributeFinder attributeFinder = new AttributeFinder();
-        List<AttributeFinderModule> attributeFinderModules = new ArrayList<>();
-        SelectorModule selectorModule = new SelectorModule();
-        CurrentEnvModule currentEnvModule = new CurrentEnvModule();
-        attributeFinderModules.add(selectorModule);
-        attributeFinderModules.add(currentEnvModule);
-        attributeFinder.setModules(attributeFinderModules);
-        PDPConfig pdpConfig = new PDPConfig(attributeFinder, policyFinder, null, false);
-        return new PDP(pdpConfig);
+        return newPDP(streamBasedPolicyFinderModule);
     }
-
-    @Override
-    public void setPreauthPolicy(InputStream pre) {
-        log.warn("changing preauthorization policy");
-        pdp[PdpEnum.PRE] = newPDP(pre);
+    
+    private PDP newPDP(String resourceName) {
+        InputStream stream = UCon.class.getResourceAsStream(resourceName);
+        return newPDP(stream);
     }
     
     @Override
-    public void setOngoingPolicy(InputStream pre) {
+    public void setPreauthPolicy(InputStream pre) {
+        log.warn("changing preauthorization policy");
+        pdp[PdpEnum.PRE] = pre == null? 
+                newPDP("/META-INF/default-policies/pre.xml")
+                : newPDP(pre);
+    }
+        
+    @Override
+    public final void setPreauthPolicy(URL pre) {
+        log.warn("changing preauthorization policy to {}", pre);
+        pdp[PdpEnum.PRE] = pre == null? 
+                newPDP("/META-INF/default-policies/pre.xml")
+                : newPDP(pre);
+    }
+    
+    @Override
+    public void setOngoingPolicy(InputStream on) {
         log.warn("changing ongoing policy");
-        pdp[PdpEnum.ON] = newPDP(pre);
+        pdp[PdpEnum.ON] = on == null? 
+                newPDP("/META-INF/default-policies/on.xml")
+                : newPDP(on);
         if(inited) {
             Collection<UconSession> sessions = dal.listSessions(Status.ONGOING);
             if(sessions.size() > 0) {
@@ -161,17 +166,13 @@ public class UCon extends Server implements UConInterface, UConProtocol {
             }
         }
     }
-    
+
     @Override
-    public void setPreauthPolicy(URL pre) {
-        log.warn("changing preauthorization policy to {}", pre);
-        pdp[PdpEnum.PRE] = newPDP(pre);
-    }
-    
-    @Override
-    public void setOngoingPolicy(URL on) {
+    public final void setOngoingPolicy(URL on) {
         log.warn("changing ongoing policy to {}", on);
-        pdp[PdpEnum.ON] = newPDP(on);
+        pdp[PdpEnum.ON] = on == null? 
+                newPDP("/META-INF/default-policies/on.xml")
+                : newPDP(on);
         if(inited) {
             Collection<UconSession> sessions = dal.listSessions(Status.ONGOING);
             if(sessions.size() > 0) {
@@ -179,6 +180,22 @@ public class UCon extends Server implements UConInterface, UConProtocol {
                reevaluateSessions(sessions);
             }
         }
+    }
+    
+    @Override
+    public void setPostPolicy(InputStream post) {
+        log.warn("changing post policy");
+        pdp[PdpEnum.POST] = post == null? 
+                newPDP("/META-INF/default-policies/post.xml")
+                : newPDP(post);
+    }
+        
+    @Override
+    public final void setPostPolicy(URL post) {
+        log.warn("changing post policy to {}", post);
+        pdp[PdpEnum.POST] = post == null? 
+                newPDP("/META-INF/default-policies/post.xml")
+                : newPDP(post);
     }
     
     @Override
@@ -274,28 +291,28 @@ public class UCon extends Server implements UConInterface, UConProtocol {
     public Node endAccess(String uuid, String customId) throws Exception {
         log.info("uuid={}, customId={}", uuid, customId);
         uuid = getUuid(uuid, customId);
-        UconSession uconSession = dal.getSession(uuid, myUrl);
-        if (uconSession == null) {
+        UconSession session = dal.getSession(uuid, myUrl);
+        if (session == null) {
             throw new RuntimeException("no session with uuid: " + uuid);
         }
-        UconRequest uconRequest = rebuildUconRequest(uconSession);
-        refreshUconRequest(uconRequest, uconSession);
+        UconRequest uconRequest = rebuildUconRequest(session);
+        refreshUconRequest(uconRequest, session);
         for (PIPInterface p : pip) {
-            p.onBeforeEndAccess(uconRequest, uconSession);
+            p.onBeforeEndAccess(uconRequest, session);
         }
-        if(uconSession.getStatus() != Status.REVOKED) {
-            Document responseDocument = access(uconRequest, pdp[PdpEnum.POST]);
-            uconSession.setResponse(responseDocument);
-        } else 
-            uconSession.setDecision(PepResponse.DecisionEnum.Permit);
-        if (uconSession.getDecision() == PepResponse.DecisionEnum.Permit) {
-            uconSession.setStatus(Status.DELETED);
-            dal.endSession(uconSession);
+        Document responseDocument = access(uconRequest, pdp[PdpEnum.POST]);
+        log.error("DOC = {} {}", DomUtils.toString(responseDocument), pdp[PdpEnum.POST]);
+        session.setResponse(responseDocument);
+        if (session.getDecision() == PepResponse.DecisionEnum.Permit) {
+            session.setStatus(Status.DELETED);
+            dal.endSession(session);
+        } else {
+            dal.saveSession(session, uconRequest);
         }
         for (PIPInterface p : pip) {
-            p.onAfterEndAccess(uconRequest, uconSession);
+            p.onAfterEndAccess(uconRequest, session);
         }
-        return uconSession.toXacml3Element();
+        return session.toXacml3Element();
     }
 
     @Override
@@ -315,7 +332,7 @@ public class UCon extends Server implements UConInterface, UConProtocol {
             accessResponse = DomUtils.read(responseString);
             log.info("ACCESS UCON {}", DomUtils.toString(accessResponse));
         } catch (Exception ex) {
-            log.error(ex.getMessage());
+            log.error("Unexpected exception {}: {}", ex, ex.getMessage());
         }
         return accessResponse;
     }
