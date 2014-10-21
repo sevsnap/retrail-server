@@ -405,7 +405,7 @@ public class UCon extends Server implements UConInterface, UConProtocol {
             PepSession pepSession = new PepSession(PepResponse.DecisionEnum.NotApplicable, "Unexistent session");
             pepSession.setUuid(uuid);
             pepSession.setStatus(Status.UNKNOWN);
-            log.error("*********** HEARTBEAT REVOKING: {}", myUrl);
+            log.error("PEP at {} told it has {}, that is unknown to me: replying with UNKNOWN status", pepUrl);
             pepSession.setUconUrl(myUrl);
             Node n = doc.adoptNode(pepSession.toXacml3Element());
             responses.appendChild(n);
