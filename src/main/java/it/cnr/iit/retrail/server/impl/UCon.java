@@ -32,6 +32,7 @@ import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
+import javax.persistence.NoResultException;
 import javax.xml.transform.TransformerConfigurationException;
 import javax.xml.transform.TransformerException;
 import org.apache.xmlrpc.XmlRpcException;
@@ -205,8 +206,13 @@ public class UCon extends Server implements UConInterface, UConProtocol {
     @Override
     public Node tryAccess(Node accessRequest, String pepUrlString, String customId) throws Exception {
         log.info("pepUrl={}, customId={}", pepUrlString, customId);
-        if(customId != null && dal.getSessionByCustomId(customId) != null)
+        try {
+            if(customId != null)
+                    dal.getSessionByCustomId(customId);
             throw new RuntimeException("session "+customId+" already exists!");
+        } catch(NoResultException e) {
+            // pass
+        }
         URL pepUrl = new URL(pepUrlString);
         UconRequest uconRequest = new UconRequest((Document) accessRequest);
         
