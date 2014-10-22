@@ -208,9 +208,10 @@ public class UCon extends Server implements UConInterface, UConProtocol {
     public Node tryAccess(Node accessRequest, String pepUrlString, String customId) throws Exception {
         log.info("pepUrl={}, customId={}", pepUrlString, customId);
         try {
-            if(customId != null)
-                    dal.getSessionByCustomId(customId);
-            throw new RuntimeException("session "+customId+" already exists!");
+            if(customId != null) {
+                dal.getSessionByCustomId(customId);
+                throw new RuntimeException("session "+customId+" already exists!");
+            }
         } catch(NoResultException e) {
             // pass
         }
