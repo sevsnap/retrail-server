@@ -29,6 +29,7 @@ import java.util.Collection;
 import java.util.Date;
 import java.util.HashMap;
 import java.util.HashSet;
+import java.util.Iterator;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
@@ -392,7 +393,14 @@ public class UCon extends Server implements UConInterface, UConProtocol {
         Date now = new Date();
         // Permit sessions unknown to the client.
         for (UconSession uconSession : sessions) {
-            boolean isNotKnownByClient = !sessionsList.remove(uconSession.getUuid());
+            
+            boolean isNotKnownByClient = true;
+            for(Iterator<String> i = sessionsList.iterator(); isNotKnownByClient && i.hasNext(); ) {
+                String uuid = i.next();
+                isNotKnownByClient = !uuid.equals(uconSession.getUuid());
+                if(!isNotKnownByClient)
+                    i.remove();
+            }
             if (isNotKnownByClient) {
                 UconRequest uconRequest = rebuildUconRequest(uconSession);
                 PepResponse r = new PepSession(PepResponse.DecisionEnum.Permit, "recoverable session");
@@ -411,7 +419,7 @@ public class UCon extends Server implements UConInterface, UConProtocol {
             PepSession pepSession = new PepSession(PepResponse.DecisionEnum.NotApplicable, "Unexistent session");
             pepSession.setUuid(uuid);
             pepSession.setStatus(Status.UNKNOWN);
-            log.error("PEP at {} told it has {}, that is unknown to me: replying with UNKNOWN status", pepUrl);
+            log.error("PEP at {} told it has {}, that is unknown to me: replying with UNKNOWN status", pepUrl, pepSession);
             pepSession.setUconUrl(myUrl);
             Node n = doc.adoptNode(pepSession.toXacml3Element());
             responses.appendChild(n);
