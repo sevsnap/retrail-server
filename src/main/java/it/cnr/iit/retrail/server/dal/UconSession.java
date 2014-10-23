@@ -63,6 +63,7 @@ public class UconSession extends PepSession {
     static public UconSession newInstance(Document e) throws Exception {
         PepSession p = new PepSession(e);
         UconSession s = new UconSession();
+        // Note: a simple copyProperties will not copy the localInfo map.
         BeanUtils.copyProperties(s, p);
         return s;
     }
