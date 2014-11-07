@@ -389,8 +389,13 @@ public class UCon extends Server implements UConInterface, UConProtocol {
     protected Document heartbeat(URL pepUrl, List<String> sessionsList) throws Exception {
         Collection<UconSession> sessions = dal.listSessions(pepUrl);
         Document doc = DomUtils.newDocument();
+        Element heartbeat = doc.createElement("Heartbeat");
         Element responses = doc.createElement("Responses");
-        doc.appendChild(responses);
+        heartbeat.appendChild(responses);
+        Element config = doc.createElement("Config");
+        config.setAttribute("watchdogPeriod", Integer.toString(watchdogPeriod));
+        config.setAttribute("maxMissedHeartbeats", Integer.toString(maxMissedHeartbeats));
+        heartbeat.appendChild(config);
         Date now = new Date();
         // Permit sessions unknown to the client.
         for (UconSession uconSession : sessions) {
