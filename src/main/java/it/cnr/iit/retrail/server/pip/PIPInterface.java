@@ -134,6 +134,29 @@ public interface PIPInterface {
      * @param session the current (deleted) session.
      */
     void onAfterEndAccess(PepRequestInterface request, PepSessionInterface session);
+  
+    /**
+     * onBeforeRunObligations()
+
+ is the event handler called by the UCon just before sending obligations
+ during the evaluation runloop. 
+     * The default implementation does nothing.
+     *
+     * @param request the request.
+     * @param session the current session.
+     */
+    void onBeforeRunObligations(PepRequestInterface request, PepSessionInterface session);
+
+    /**
+     * onAfterRunObligations()
+
+ is the event handler invoked by the UCon just after having sent 
+ obligations to the PEP. The default implementation does nothing.
+     *
+     * @param request the request.
+     * @param session the current session.
+     */
+    void onAfterRunObligations(PepRequestInterface request, PepSessionInterface session);
 
     /**
      * newSharedAttribute() creates a new shared PEP attribute.

@@ -353,6 +353,28 @@ public class UCon extends Server implements UConInterface, UConProtocol {
         return doc;
     }
 
+    private Document runObligations(URL pepUrl, UconSession uconSession) throws Exception {
+        // revoke session on db
+        UconRequest uconRequest = rebuildUconRequest(uconSession);
+        refreshUconRequest(uconRequest, uconSession);
+        for (PIPInterface p : pip) {
+            p.onBeforeRunObligations(uconRequest, uconSession);
+        }
+
+        // create client
+        log.warn("invoking PEP at " + pepUrl + " to send obligations for " + uconSession);
+        Client client = new Client(pepUrl);
+        // remote call. TODO: should consider error handling
+        Object[] params = new Object[]{uconSession.toXacml3Element()};
+        Document doc = (Document) client.execute("PEP.runObligations", params);
+        // TODO: check error
+        for (PIPInterface p : pip) {
+            p.onAfterRunObligations(uconRequest, uconSession);
+        }
+        uconSession = (UconSession) dal.save(uconSession);
+        return doc;
+    }
+
     private UconRequest rebuildUconRequest(UconSession uconSession) {
         log.debug("" + uconSession);
         UconRequest accessRequest = new UconRequest();
@@ -375,6 +397,7 @@ public class UCon extends Server implements UConInterface, UConProtocol {
         Collection<UconSession> sessions = dal.listSessions(pepUrl);
         Document doc = DomUtils.newDocument();
         Element heartbeat = doc.createElement("Heartbeat");
+        doc.appendChild(heartbeat);
         Element responses = doc.createElement("Responses");
         heartbeat.appendChild(responses);
         Element config = doc.createElement("Config");
@@ -436,6 +459,9 @@ public class UCon extends Server implements UConInterface, UConProtocol {
                     log.warn("revoking {}", involvedSession);
                     URL pepUrl = new URL(involvedSession.getPepUrl());
                     revokeAccess(pepUrl, involvedSession);
+                } else if(involvedSession.getObligations().size() > 0) {
+                    URL pepUrl = new URL(involvedSession.getPepUrl());
+                    runObligations(pepUrl, involvedSession);
                 } else {
                     log.info("updating {}", involvedSession);
                     dal.saveSession(involvedSession, uconRequest);

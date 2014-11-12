@@ -7,13 +7,10 @@ package it.cnr.iit.retrail.server.pip.impl;
 import it.cnr.iit.retrail.commons.PepAttributeInterface;
 import it.cnr.iit.retrail.commons.PepRequestInterface;
 import it.cnr.iit.retrail.commons.PepSessionInterface;
-import it.cnr.iit.retrail.commons.impl.PepRequest;
 import it.cnr.iit.retrail.commons.impl.PepAttribute;
-import it.cnr.iit.retrail.commons.impl.PepSession;
 import it.cnr.iit.retrail.server.dal.UconAttribute;
 import it.cnr.iit.retrail.server.dal.DAL;
 import it.cnr.iit.retrail.server.pip.PIPInterface;
-import java.util.ArrayList;
 import java.util.Collection;
 import java.util.Date;
 import org.slf4j.Logger;
@@ -119,6 +116,16 @@ public abstract class PIP implements PIPInterface {
 
     @Override
     public void onAfterEndAccess(PepRequestInterface request, PepSessionInterface session) {
+        log.debug("dummy PIP processor called, ignoring");
+    }
+
+    @Override
+    public void onBeforeRunObligations(PepRequestInterface request, PepSessionInterface session) {
+        log.debug("dummy PIP processor called, ignoring");
+    }
+
+    @Override
+    public void onAfterRunObligations(PepRequestInterface request, PepSessionInterface session) {
         log.debug("dummy PIP processor called, ignoring");
     }
 
