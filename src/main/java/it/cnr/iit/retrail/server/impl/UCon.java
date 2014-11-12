@@ -59,16 +59,17 @@ public class UCon extends Server implements UConInterface, UConProtocol {
     public int maxMissedHeartbeats = 1;
 
     private static final String defaultUrlString = "http://localhost:8080";
+    private static final String defaultPolicyNames[] = {
+        "/META-INF/default-policies/pre.xml",
+        "/META-INF/default-policies/trystart.xml",
+        "/META-INF/default-policies/tryend.xml",
+        "/META-INF/default-policies/on.xml",
+        "/META-INF/default-policies/post.xml"
+    };
+    
     private static UCon singleton;
-
-    private static class PdpEnum {
-
-        static final int PRE = 0;
-        static final int ON = 1;
-        static final int POST = 2;
-    }
-
-    private final PDP pdp[] = new PDP[3];
+    
+    private final PDP pdp[] = new PDP[PolicyEnum.values().length];
     public List<PIPInterface> pip = new ArrayList<>();
     public Map<String, PIPInterface> pipNameToInstanceMap = new HashMap<>();
     private final DAL dal;
@@ -97,11 +98,9 @@ public class UCon extends Server implements UConInterface, UConProtocol {
     private UCon() throws UnknownHostException, XmlRpcException, IOException, URISyntaxException {
         super(new URL(defaultUrlString), UConProtocolProxy.class);
         log.warn("loading builtin policies (permit anything)");
-        setPreauthPolicy((URL)null);
-        setOngoingPolicy((URL)null);
-        setPostPolicy((URL)null);
+        for(PolicyEnum p: PolicyEnum.values())
+            setPolicy(p, (URL)null);
         dal = DAL.getInstance();
-        assert(pdp[PdpEnum.POST] != null);
     }
 
     private PDP newPDP(PolicyFinderModule module) {
@@ -138,65 +137,34 @@ public class UCon extends Server implements UConInterface, UConProtocol {
     }
     
     @Override
-    public void setPreauthPolicy(InputStream pre) {
-        log.warn("changing preauthorization policy");
-        pdp[PdpEnum.PRE] = pre == null? 
-                newPDP("/META-INF/default-policies/pre.xml")
-                : newPDP(pre);
-    }
-        
-    @Override
-    public final void setPreauthPolicy(URL pre) {
-        log.warn("changing preauthorization policy to {}", pre);
-        pdp[PdpEnum.PRE] = pre == null? 
-                newPDP("/META-INF/default-policies/pre.xml")
-                : newPDP(pre);
-    }
-    
-    @Override
-    public void setOngoingPolicy(InputStream on) {
-        log.warn("changing ongoing policy");
-        pdp[PdpEnum.ON] = on == null? 
-                newPDP("/META-INF/default-policies/on.xml")
-                : newPDP(on);
-        if(inited) {
+    public void setPolicy(PolicyEnum p, InputStream is) {
+        log.warn("changing policy");
+        pdp[p.ordinal()] = is == null? 
+                newPDP(defaultPolicyNames[p.ordinal()])
+                : newPDP(is);
+        if(p == PolicyEnum.ON && inited) {
             Collection<UconSession> sessions = dal.listSessions(Status.ONGOING);
             if(sessions.size() > 0) {
                log.warn("UCon already running, reevaluating {} currently opened sessions", sessions.size());
                 reevaluateSessions(sessions);
             }
         }
-    }
 
-    @Override
-    public final void setOngoingPolicy(URL on) {
-        log.warn("changing ongoing policy to {}", on);
-        pdp[PdpEnum.ON] = on == null? 
-                newPDP("/META-INF/default-policies/on.xml")
-                : newPDP(on);
-        if(inited) {
-            Collection<UconSession> sessions = dal.listSessions(Status.ONGOING);
-            if(sessions.size() > 0) {
-               log.warn("UCon already running, reevaluating {} currently opened sessions", sessions.size());
-               reevaluateSessions(sessions);
-            }
-        }
-    }
-    
-    @Override
-    public void setPostPolicy(InputStream post) {
-        log.warn("changing post policy");
-        pdp[PdpEnum.POST] = post == null? 
-                newPDP("/META-INF/default-policies/post.xml")
-                : newPDP(post);
     }
         
     @Override
-    public final void setPostPolicy(URL post) {
-        log.warn("changing post policy to {}", post);
-        pdp[PdpEnum.POST] = post == null? 
-                newPDP("/META-INF/default-policies/post.xml")
-                : newPDP(post);
+    public final void setPolicy(PolicyEnum p, URL url) {
+        log.warn("changing policy to {}", url);
+        pdp[p.ordinal()] = url == null? 
+                newPDP(defaultPolicyNames[p.ordinal()])
+                : newPDP(url);
+        if(p == PolicyEnum.ON && inited) {
+            Collection<UconSession> sessions = dal.listSessions(Status.ONGOING);
+            if(sessions.size() > 0) {
+               log.warn("UCon already running, reevaluating {} currently opened sessions", sessions.size());
+                reevaluateSessions(sessions);
+            }
+        }
     }
     
     @Override
@@ -224,7 +192,7 @@ public class UCon extends Server implements UConInterface, UConProtocol {
         }
         // Now send the enriched request to the PDP
         // UUID is attributed by the dal, as well as customId if not given.
-        Document responseDocument = access(uconRequest, pdp[PdpEnum.PRE]);
+        Document responseDocument = access(uconRequest, pdp[PolicyEnum.PRE.ordinal()]);
         UconSession session = new UconSession(responseDocument);
         session.setCustomId(customId);
         session.setPepUrl(pepUrlString);
@@ -282,7 +250,7 @@ public class UCon extends Server implements UConInterface, UConProtocol {
         for (PIPInterface p : pip) {
             p.onBeforeStartAccess(uconRequest, session);
         }
-        Document responseDocument = access(uconRequest, pdp[PdpEnum.ON]);
+        Document responseDocument = access(uconRequest, pdp[PolicyEnum.TRYSTART.ordinal()]);
         session.setResponse(responseDocument);
         session.setStatus(session.getDecision() == PepResponse.DecisionEnum.Permit?
             Status.ONGOING : Status.TRY);
@@ -304,14 +272,31 @@ public class UCon extends Server implements UConInterface, UConProtocol {
         if (session == null) {
             throw new RuntimeException("no session with uuid: " + uuid);
         }
+        PDP pdpInUse = null;
+        switch(session.getStatus()) {
+            case TRY:
+                pdpInUse = pdp[PolicyEnum.TRYEND.ordinal()];
+                break;
+            case ONGOING:
+                pdpInUse = pdp[PolicyEnum.POST.ordinal()];
+                break;
+            case REVOKED:
+                break;  
+            default:
+                throw new RuntimeException(session + " must be in TRY, ONGOING, or REVOKED state to perform this operation");
+        }
+
         UconRequest uconRequest = rebuildUconRequest(session);
         refreshUconRequest(uconRequest, session);
         for (PIPInterface p : pip) {
             p.onBeforeEndAccess(uconRequest, session);
         }
-        Document responseDocument = access(uconRequest, pdp[PdpEnum.POST]);
-        log.error("DOC = {} {}", DomUtils.toString(responseDocument), pdp[PdpEnum.POST]);
-        session.setResponse(responseDocument);
+        if(session.getStatus() == Status.REVOKED) {
+            session.setDecision(PepResponse.DecisionEnum.Permit);
+        } else {
+            Document responseDocument = access(uconRequest, pdpInUse);
+            session.setResponse(responseDocument);
+        }
         if (session.getDecision() == PepResponse.DecisionEnum.Permit) {
             session.setStatus(Status.DELETED);
             dal.endSession(session);
@@ -443,7 +428,7 @@ public class UCon extends Server implements UConInterface, UConProtocol {
                 refreshUconRequest(uconRequest, involvedSession);
                 // Now make PDP evaluate the request
                 log.debug("evaluating request");
-                Document responseDocument = access(uconRequest, pdp[PdpEnum.ON]);
+                Document responseDocument = access(uconRequest, pdp[PolicyEnum.ON.ordinal()]);
                 involvedSession.setResponse(responseDocument);
                 boolean mustRevoke = involvedSession.getDecision() != PepResponse.DecisionEnum.Permit;
                 // Explicitly revoke access if anything went wrong

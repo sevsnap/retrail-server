@@ -1,7 +1,7 @@
 <?xml version="1.0" encoding="UTF-8"?>
-<Policy xmlns="urn:oasis:names:tc:xacml:3.0:core:schema:wd-17" PolicyId="post-policy"
+<Policy xmlns="urn:oasis:names:tc:xacml:3.0:core:schema:wd-17" PolicyId="tryend-policy"
         RuleCombiningAlgId="urn:oasis:names:tc:xacml:1.0:rule-combining-algorithm:first-applicable" Version="1.0">
-    <Description>Default POST policy</Description>
+    <Description>Default TRYEND policy</Description>
     <Target></Target>
     <Rule Effect="Permit" RuleId="test:rule">
         <Target>

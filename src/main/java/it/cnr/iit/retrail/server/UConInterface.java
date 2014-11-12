@@ -5,7 +5,6 @@
 package it.cnr.iit.retrail.server;
 
 import it.cnr.iit.retrail.commons.PepAttributeInterface;
-import it.cnr.iit.retrail.commons.impl.PepAttribute;
 import it.cnr.iit.retrail.server.pip.PIPInterface;
 import java.io.InputStream;
 import java.net.URL;
@@ -17,6 +16,10 @@ import java.util.Collection;
  */
 public interface UConInterface {
 
+    public enum PolicyEnum {
+        PRE, TRYSTART, TRYEND, ON, POST
+    }
+    
     /**
      * init()
      *
@@ -90,70 +93,32 @@ public interface UConInterface {
      * for thread interruption.
      */
     void term() throws InterruptedException;
-
+    
     /**
-     * setOngoingPolicy()
+     * setPolicy()
      *
-     * changes the current ongoing policy by reading the new one from the
+     * changes the current policy by reading the new one from the
      * stream. The input format must be xacml3. If the UCon service has already
-     * been started by init(), the current ongoing sessions are re-evaluated.
+     * been started by init() and you are changing the ON policy, the current 
+     * ongoing sessions are re-evaluated.
      *
+     * @param p the policy to be set.
      * @param s the input stream containing the new policy to be set, in xacml3
      * format.
      */
-    void setOngoingPolicy(InputStream s);
+    void setPolicy(PolicyEnum p, InputStream s);
 
     /**
-     * setOngoingPolicy()
+     * setPolicy()
      *
-     * changes the current ongoing policy by reading the new one from the URL.
+     * changes the current policy by reading the new one from the URL.
      * The input format must be xacml3. If the UCon service has already been
-     * started by init(), the current ongoing sessions are re-evaluated.
+     * started by init() and you are changing the ON policy, the current ongoing
+     * sessions are re-evaluated.
      *
+     * @param p the policy to be set.
      * @param url the url containing the new policy to be set, in xacml3 format.
      */
-    void setOngoingPolicy(URL url);
-
-    /**
-     * setPreauthPolicy()
-     *
-     * changes the current preauth policy by reading the new one from the
-     * stream. The input format must be xacml3.
-     *
-     * @param s the input stream containing the new policy to be set, in xacml3
-     * format.
-     */
-    void setPreauthPolicy(InputStream s);
-
-    /**
-     *     * setPreauthPolicy()
-     *
-     * changes the current preauth policy by reading the new one from the URL.
-     * The input format must be xacml3.
-     *
-     * @param url the url containing the new policy to be set, in xacml3 format.
-     */
-    void setPreauthPolicy(URL url);
-
-    /**
-     * setPostPolicy()
-     *
-     * changes the current post policy by reading the new one from the stream.
-     * The input format must be xacml3.
-     *
-     * @param s the input stream containing the new policy to be set, in xacml3
-     * format.
-     */
-    void setPostPolicy(InputStream s);
-
-    /**
-     *     * setPostPolicy()
-     *
-     * changes the current setPostPolicy policy by reading the new one from the
-     * URL. The input format must be xacml3.
-     *
-     * @param url the url containing the new policy to be set, in xacml3 format.
-     */
-    void setPostPolicy(URL url);
+    void setPolicy(PolicyEnum p, URL url);
 
 }
