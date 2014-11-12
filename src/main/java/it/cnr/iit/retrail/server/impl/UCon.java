@@ -154,7 +154,7 @@ public class UCon extends Server implements UConInterface, UConProtocol {
         
     @Override
     public final void setPolicy(PolicyEnum p, URL url) {
-        log.warn("changing policy to {}", url);
+        log.warn("setting {} policy to {}", p, url == null? "default" : url);
         pdp[p.ordinal()] = url == null? 
                 newPDP(defaultPolicyNames[p.ordinal()])
                 : newPDP(url);
