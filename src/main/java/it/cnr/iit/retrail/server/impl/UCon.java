@@ -89,12 +89,31 @@ public class UCon extends Server implements UConInterface, UConProtocol {
         }
         return singleton;
     }
+    
+    public static UConInterface getInstance(URL url) {
+        if (singleton == null) {
+            try {
+                singleton = new UCon(url);
+            } catch (XmlRpcException | IOException | URISyntaxException e) {
+                log.error(e.getMessage());
+            }
+        }
+        return singleton;
+    }
 
     public static UConProtocol getProtocolInstance() {
         getInstance();
         return singleton;
     }
 
+    private UCon(URL url) throws UnknownHostException, XmlRpcException, IOException, URISyntaxException {
+        super(url, UConProtocolProxy.class);
+        log.warn("loading builtin policies (permit anything)");
+        for(PolicyEnum p: PolicyEnum.values())
+            setPolicy(p, (URL)null);
+        dal = DAL.getInstance();
+    }
+    
     private UCon() throws UnknownHostException, XmlRpcException, IOException, URISyntaxException {
         super(new URL(defaultUrlString), UConProtocolProxy.class);
         log.warn("loading builtin policies (permit anything)");
