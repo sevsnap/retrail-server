@@ -194,6 +194,7 @@ public class UCon extends Server implements UConInterface, UConProtocol {
     @Override
     public Node tryAccess(Node accessRequest, String pepUrlString, String customId) throws Exception {
         log.info("pepUrl={}, customId={}", pepUrlString, customId);
+        long start = System.currentTimeMillis();
         try {
             if(customId != null) {
                 dal.getSessionByCustomId(customId);
@@ -229,6 +230,7 @@ public class UCon extends Server implements UConInterface, UConProtocol {
            assert(session.getCustomId() != null  && session.getCustomId().length() > 0);
            assert(session.getStatus() == Status.TRY);
         }
+        session.setMs(System.currentTimeMillis()-start);
         return session.toXacml3Element();
     }
 
@@ -250,6 +252,7 @@ public class UCon extends Server implements UConInterface, UConProtocol {
     @Override
     public Node startAccess(String uuid, String customId) throws Exception {
         log.info("uuid={}, customId={}", uuid, customId);
+        long start = System.currentTimeMillis();
         uuid = getUuid(uuid, customId);
         UconSession session = dal.getSession(uuid, myUrl);
         if (session == null) {
@@ -280,12 +283,14 @@ public class UCon extends Server implements UConInterface, UConProtocol {
         dal.saveSession(session, uconRequest);
         assert(session.getUuid() != null);
         assert(session.getUconUrl() != null);
+        session.setMs(System.currentTimeMillis()-start);
         return session.toXacml3Element();
     }
 
     @Override
     public Node endAccess(String uuid, String customId) throws Exception {
         log.info("uuid={}, customId={}", uuid, customId);
+        long start = System.currentTimeMillis();
         uuid = getUuid(uuid, customId);
         UconSession session = dal.getSession(uuid, myUrl);
         if (session == null) {
@@ -325,6 +330,7 @@ public class UCon extends Server implements UConInterface, UConProtocol {
         for (PIPInterface p : pip) {
             p.onAfterEndAccess(uconRequest, session);
         }
+        session.setMs(System.currentTimeMillis()-start);
         return session.toXacml3Element();
     }
 
@@ -336,14 +342,15 @@ public class UCon extends Server implements UConInterface, UConProtocol {
 
     private Document access(PepRequest accessRequest, PDP p) {
         Document accessResponse = null;
+        long start = System.currentTimeMillis();
         try {
             Element xacmlRequest = accessRequest.toElement();
             AbstractRequestCtx request = RequestCtxFactory.getFactory().getRequestCtx(xacmlRequest);
             ResponseCtx response = p.evaluate(request);
             String responseString = response.encode();
-            log.info("ACCESS UCON {}", responseString);
             accessResponse = DomUtils.read(responseString);
-            log.info("ACCESS UCON {}", DomUtils.toString(accessResponse));
+            accessResponse.getDocumentElement().setAttribute("ms", ""+(System.currentTimeMillis()-start));
+            //log.info("ACCESS UCON {}", DomUtils.toString(accessResponse));
         } catch (Exception ex) {
             log.error("Unexpected exception {}: {}", ex, ex.getMessage());
         }
@@ -352,6 +359,7 @@ public class UCon extends Server implements UConInterface, UConProtocol {
 
     private Document revokeAccess(URL pepUrl, UconSession session) throws Exception {
         // revoke session on db
+        long start = System.currentTimeMillis();
         UconRequest uconRequest = rebuildUconRequest(session);
         refreshUconRequest(uconRequest, session);
         for (PIPInterface p : pip) {
@@ -367,6 +375,7 @@ public class UCon extends Server implements UConInterface, UConProtocol {
         Client client = new Client(pepUrl);
         // remote call. TODO: should consider error handling
         session.setStatus(Status.REVOKED);
+        session.setMs(System.currentTimeMillis()-start);
         Object[] params = new Object[]{session.toXacml3Element()};
         Document doc = (Document) client.execute("PEP.revokeAccess", params);
         return doc;

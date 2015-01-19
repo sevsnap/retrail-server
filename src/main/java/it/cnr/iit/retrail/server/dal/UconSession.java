@@ -56,6 +56,9 @@ public class UconSession extends PepSession {
     @Transient
     private URL uconUrl;
 
+    @Transient
+    private long ms;
+
     public UconSession() throws Exception {
         super();
     }
@@ -137,6 +140,14 @@ public class UconSession extends PepSession {
         this.uconUrl = uconUrl;
     }
 
+    public long getMs() {
+        return ms;
+    }
+
+    public void setMs(long ms) {
+        this.ms = ms;
+    }
+    
     @Override
     public void setUuid(String uuid) {
         this.uuid = uuid;
