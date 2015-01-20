@@ -24,6 +24,7 @@ import java.io.InputStream;
 import java.net.URISyntaxException;
 import java.net.URL;
 import java.net.UnknownHostException;
+import java.text.DecimalFormat;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.Date;
@@ -342,14 +343,16 @@ public class UCon extends Server implements UConInterface, UConProtocol {
 
     private Document access(PepRequest accessRequest, PDP p) {
         Document accessResponse = null;
-        long start = System.currentTimeMillis();
+        long start = System.nanoTime();
         try {
             Element xacmlRequest = accessRequest.toElement();
             AbstractRequestCtx request = RequestCtxFactory.getFactory().getRequestCtx(xacmlRequest);
             ResponseCtx response = p.evaluate(request);
             String responseString = response.encode();
             accessResponse = DomUtils.read(responseString);
-            accessResponse.getDocumentElement().setAttribute("ms", ""+(System.currentTimeMillis()-start));
+            DecimalFormat df = new DecimalFormat("#.###");
+            String ms = df.format((System.nanoTime()-start)/1.0e+6);
+            accessResponse.getDocumentElement().setAttribute("ms", ms);
             //log.info("ACCESS UCON {}", DomUtils.toString(accessResponse));
         } catch (Exception ex) {
             log.error("Unexpected exception {}: {}", ex, ex.getMessage());
