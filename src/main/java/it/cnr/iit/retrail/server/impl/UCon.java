@@ -19,8 +19,10 @@ import it.cnr.iit.retrail.server.dal.DAL;
 import it.cnr.iit.retrail.server.dal.UconRequest;
 import it.cnr.iit.retrail.server.dal.UconSession;
 import it.cnr.iit.retrail.server.pip.PIPInterface;
+import java.io.File;
 import java.io.IOException;
 import java.io.InputStream;
+import java.net.MalformedURLException;
 import java.net.URISyntaxException;
 import java.net.URL;
 import java.net.UnknownHostException;
@@ -33,7 +35,6 @@ import java.util.HashSet;
 import java.util.Iterator;
 import java.util.List;
 import java.util.Map;
-import java.util.Set;
 import javax.persistence.NoResultException;
 import javax.xml.transform.TransformerConfigurationException;
 import javax.xml.transform.TransformerException;
@@ -42,18 +43,9 @@ import org.w3c.dom.Document;
 import org.w3c.dom.Element;
 import org.w3c.dom.Node;
 import org.wso2.balana.PDP;
-import org.wso2.balana.PDPConfig;
 import org.wso2.balana.ctx.AbstractRequestCtx;
 import org.wso2.balana.ctx.RequestCtxFactory;
 import org.wso2.balana.ctx.ResponseCtx;
-import org.wso2.balana.finder.AttributeFinder;
-import org.wso2.balana.finder.AttributeFinderModule;
-import org.wso2.balana.finder.PolicyFinder;
-import org.wso2.balana.finder.PolicyFinderModule;
-import org.wso2.balana.finder.impl.CurrentEnvModule;
-import org.wso2.balana.finder.impl.SelectorModule;
-import org.wso2.balana.finder.impl.StreamBasedPolicyFinderModule;
-import org.wso2.balana.finder.impl.URLBasedPolicyFinderModule;
 
 public class UCon extends Server implements UConInterface, UConProtocol {
 
@@ -70,7 +62,7 @@ public class UCon extends Server implements UConInterface, UConProtocol {
     
     private static UCon singleton;
     
-    private final PDP pdp[] = new PDP[PolicyEnum.values().length];
+    private final PDPPool pdpPool[] = new PDPPool[PolicyEnum.values().length];
     public List<PIPInterface> pip = new ArrayList<>();
     public Map<String, PIPInterface> pipNameToInstanceMap = new HashMap<>();
     private final DAL dal;
@@ -111,7 +103,7 @@ public class UCon extends Server implements UConInterface, UConProtocol {
         super(url, UConProtocolProxy.class);
         log.warn("loading builtin policies (permit anything)");
         for(PolicyEnum p: PolicyEnum.values())
-            setPolicy(p, (URL)null);
+            setPolicy(p, null);
         dal = DAL.getInstance();
     }
     
@@ -119,65 +111,20 @@ public class UCon extends Server implements UConInterface, UConProtocol {
         super(new URL(defaultUrlString), UConProtocolProxy.class);
         log.warn("loading builtin policies (permit anything)");
         for(PolicyEnum p: PolicyEnum.values())
-            setPolicy(p, (URL)null);
+            setPolicy(p, null);
         dal = DAL.getInstance();
-    }
-
-    private PDP newPDP(PolicyFinderModule module) {
-        PolicyFinder policyFinder = new PolicyFinder();
-        Set<PolicyFinderModule> policyFinderModules = new HashSet<>();
-        policyFinderModules.add(module);
-        policyFinder.setModules(policyFinderModules);
-        AttributeFinder attributeFinder = new AttributeFinder();
-        List<AttributeFinderModule> attributeFinderModules = new ArrayList<>();
-        SelectorModule selectorModule = new SelectorModule();
-        CurrentEnvModule currentEnvModule = new CurrentEnvModule();
-        attributeFinderModules.add(selectorModule);
-        attributeFinderModules.add(currentEnvModule);
-        attributeFinder.setModules(attributeFinderModules);
-        PDPConfig pdpConfig = new PDPConfig(attributeFinder, policyFinder, null, false);
-        return new PDP(pdpConfig);
-    }
-
-    private PDP newPDP(URL location) {
-        Set<URL> locationSet = new HashSet<>();
-        locationSet.add(location); //set the correct policy location
-        URLBasedPolicyFinderModule URLBasedPolicyFinderModule = new URLBasedPolicyFinderModule(locationSet);
-        return newPDP(URLBasedPolicyFinderModule);
-    }
-
-    private PDP newPDP(InputStream stream) {
-        StreamBasedPolicyFinderModule streamBasedPolicyFinderModule = new StreamBasedPolicyFinderModule(stream);
-        return newPDP(streamBasedPolicyFinderModule);
-    }
-    
-    private PDP newPDP(String resourceName) {
-        InputStream stream = UCon.class.getResourceAsStream(resourceName);
-        return newPDP(stream);
-    }
-    
-    @Override
-    public void setPolicy(PolicyEnum p, InputStream is) {
-        log.warn("changing policy");
-        pdp[p.ordinal()] = is == null? 
-                newPDP(defaultPolicyNames[p.ordinal()])
-                : newPDP(is);
-        if(p == PolicyEnum.ON && inited) {
-            Collection<UconSession> sessions = dal.listSessions(Status.ONGOING);
-            if(sessions.size() > 0) {
-               log.warn("UCon already running, reevaluating {} currently opened sessions", sessions.size());
-                reevaluateSessions(sessions);
-            }
-        }
-
     }
         
     @Override
-    public final void setPolicy(PolicyEnum p, URL url) {
-        log.warn("setting {} policy to {}", p, url == null? "default" : url);
-        pdp[p.ordinal()] = url == null? 
-                newPDP(defaultPolicyNames[p.ordinal()])
-                : newPDP(url);
+    public final void setPolicy(PolicyEnum p, URL url) throws MalformedURLException, IOException {
+        if(url == null) {
+            log.warn("creating pool with default {} policy", p);
+            InputStream stream = UCon.class.getResourceAsStream(defaultPolicyNames[p.ordinal()]);
+            pdpPool[p.ordinal()] = new PDPPool(stream);
+        } else {
+            log.warn("creating pool for policy {} at URL {}", p, url);
+            pdpPool[p.ordinal()] = new PDPPool(url);   
+        }
         if(p == PolicyEnum.ON && inited) {
             Collection<UconSession> sessions = dal.listSessions(Status.ONGOING);
             if(sessions.size() > 0) {
@@ -213,7 +160,8 @@ public class UCon extends Server implements UConInterface, UConProtocol {
         }
         // Now send the enriched request to the PDP
         // UUID is attributed by the dal, as well as customId if not given.
-        Document responseDocument = access(uconRequest, pdp[PolicyEnum.PRE.ordinal()]);
+        PDP pdp = pdpPool[PolicyEnum.PRE.ordinal()].obtainPDP();
+        Document responseDocument = access(uconRequest, pdp);
         UconSession session = new UconSession(responseDocument);
         session.setCustomId(customId);
         session.setPepUrl(pepUrlString);
@@ -232,6 +180,7 @@ public class UCon extends Server implements UConInterface, UConProtocol {
            assert(session.getStatus() == Status.TRY);
         }
         session.setMs(System.currentTimeMillis()-start);
+        pdpPool[PolicyEnum.PRE.ordinal()].returnPDP(pdp);
         return session.toXacml3Element();
     }
 
@@ -273,7 +222,8 @@ public class UCon extends Server implements UConInterface, UConProtocol {
         for (PIPInterface p : pip) {
             p.onBeforeStartAccess(uconRequest, session);
         }
-        Document responseDocument = access(uconRequest, pdp[PolicyEnum.TRYSTART.ordinal()]);
+        PDP pdp = pdpPool[PolicyEnum.TRYSTART.ordinal()].obtainPDP();
+        Document responseDocument = access(uconRequest, pdp);
         session.setResponse(responseDocument);
         session.setStatus(session.getDecision() == PepResponse.DecisionEnum.Permit?
             Status.ONGOING : Status.TRY);
@@ -285,6 +235,7 @@ public class UCon extends Server implements UConInterface, UConProtocol {
         assert(session.getUuid() != null);
         assert(session.getUconUrl() != null);
         session.setMs(System.currentTimeMillis()-start);
+        pdpPool[PolicyEnum.TRYSTART.ordinal()].returnPDP(pdp);
         return session.toXacml3Element();
     }
 
@@ -297,13 +248,13 @@ public class UCon extends Server implements UConInterface, UConProtocol {
         if (session == null) {
             throw new RuntimeException("no session with uuid: " + uuid);
         }
-        PDP pdpInUse = null;
+        PDPPool pdpPoolInUse = pdpPool[PolicyEnum.POST.ordinal()];
         switch(session.getStatus()) {
             case TRY:
-                pdpInUse = pdp[PolicyEnum.TRYEND.ordinal()];
+                pdpPoolInUse = pdpPool[PolicyEnum.TRYEND.ordinal()];
                 break;
             case ONGOING:
-                pdpInUse = pdp[PolicyEnum.POST.ordinal()];
+                pdpPoolInUse = pdpPool[PolicyEnum.POST.ordinal()];
                 break;
             case REVOKED:
                 break;  
@@ -319,7 +270,9 @@ public class UCon extends Server implements UConInterface, UConProtocol {
         if(session.getStatus() == Status.REVOKED) {
             session.setDecision(PepResponse.DecisionEnum.Permit);
         } else {
-            Document responseDocument = access(uconRequest, pdpInUse);
+            PDP pdp = pdpPoolInUse.obtainPDP();
+            Document responseDocument = access(uconRequest, pdp);
+            pdpPoolInUse.returnPDP(pdp);
             session.setResponse(responseDocument);
         }
         if (session.getDecision() == PepResponse.DecisionEnum.Permit) {
@@ -473,6 +426,7 @@ public class UCon extends Server implements UConInterface, UConProtocol {
     }
 
     private void reevaluateSessions(Collection<UconSession> involvedSessions) {
+        PDP pdp = pdpPool[PolicyEnum.ON.ordinal()].obtainPDP();
         for (UconSession involvedSession : involvedSessions) {
             try {
                 log.debug("involved session: {}", involvedSession);
@@ -482,7 +436,7 @@ public class UCon extends Server implements UConInterface, UConProtocol {
                 refreshUconRequest(uconRequest, involvedSession);
                 // Now make PDP evaluate the request
                 log.debug("evaluating request");
-                Document responseDocument = access(uconRequest, pdp[PolicyEnum.ON.ordinal()]);
+                Document responseDocument = access(uconRequest, pdp);
                 involvedSession.setResponse(responseDocument);
                 boolean mustRevoke = involvedSession.getDecision() != PepResponse.DecisionEnum.Permit;
                 // Explicitly revoke access if anything went wrong
@@ -501,6 +455,7 @@ public class UCon extends Server implements UConInterface, UConProtocol {
                 log.error(ex.getMessage());
             }
         }
+        pdpPool[PolicyEnum.ON.ordinal()].returnPDP(pdp);
     }
 
     @Override

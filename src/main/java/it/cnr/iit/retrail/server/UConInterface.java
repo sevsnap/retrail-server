@@ -6,7 +6,9 @@ package it.cnr.iit.retrail.server;
 
 import it.cnr.iit.retrail.commons.PepAttributeInterface;
 import it.cnr.iit.retrail.server.pip.PIPInterface;
+import java.io.IOException;
 import java.io.InputStream;
+import java.net.MalformedURLException;
 import java.net.URL;
 import java.util.Collection;
 
@@ -94,19 +96,6 @@ public interface UConInterface {
      */
     void term() throws InterruptedException;
     
-    /**
-     * setPolicy()
-     *
-     * changes the current policy by reading the new one from the
-     * stream. The input format must be xacml3. If the UCon service has already
-     * been started by init() and you are changing the ON policy, the current 
-     * ongoing sessions are re-evaluated.
-     *
-     * @param p the policy to be set.
-     * @param s the input stream containing the new policy to be set, in xacml3
-     * format.
-     */
-    void setPolicy(PolicyEnum p, InputStream s);
 
     /**
      * setPolicy()
@@ -118,7 +107,8 @@ public interface UConInterface {
      *
      * @param p the policy to be set.
      * @param url the url containing the new policy to be set, in xacml3 format.
+     * @throws java.net.MalformedURLException
      */
-    void setPolicy(PolicyEnum p, URL url);
+    void setPolicy(PolicyEnum p, URL url) throws MalformedURLException, IOException;
 
 }
