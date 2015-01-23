@@ -34,6 +34,8 @@ import java.util.HashSet;
 import java.util.Iterator;
 import java.util.List;
 import java.util.Map;
+import java.util.logging.Level;
+import java.util.logging.Logger;
 import javax.persistence.NoResultException;
 import javax.xml.transform.TransformerConfigurationException;
 import javax.xml.transform.TransformerException;
@@ -58,9 +60,9 @@ public class UCon extends Server implements UConInterface, UConProtocol {
         "/META-INF/default-policies/on.xml",
         "/META-INF/default-policies/post.xml"
     };
-    
+
     private static UCon singleton;
-    
+
     private final PDPPool pdpPool[] = new PDPPool[PolicyEnum.values().length];
     public List<PIPInterface> pip = new ArrayList<>();
     public Map<String, PIPInterface> pipNameToInstanceMap = new HashMap<>();
@@ -77,17 +79,21 @@ public class UCon extends Server implements UConInterface, UConProtocol {
                 singleton = new UCon();
             } catch (XmlRpcException | IOException | URISyntaxException e) {
                 log.error(e.getMessage());
+            } catch(Exception e) {
+                log.error("while creating UCon: {}", e.getMessage());
             }
         }
         return singleton;
     }
-    
+
     public static UConInterface getInstance(URL url) {
         if (singleton == null) {
             try {
                 singleton = new UCon(url);
             } catch (XmlRpcException | IOException | URISyntaxException e) {
                 log.error(e.getMessage());
+            } catch(Exception e) {
+                log.error("while creating UCon with URL {}: {}", url, e.getMessage());
             }
         }
         return singleton;
@@ -98,41 +104,43 @@ public class UCon extends Server implements UConInterface, UConProtocol {
         return singleton;
     }
 
-    private UCon(URL url) throws UnknownHostException, XmlRpcException, IOException, URISyntaxException {
+    private UCon(URL url) throws Exception {
         super(url, UConProtocolProxy.class);
         log.warn("loading builtin policies (permit anything)");
-        for(PolicyEnum p: PolicyEnum.values())
+        for (PolicyEnum p : PolicyEnum.values()) {
             setPolicy(p, null);
+        }
         dal = DAL.getInstance();
     }
-    
-    private UCon() throws UnknownHostException, XmlRpcException, IOException, URISyntaxException {
+
+    private UCon() throws Exception {
         super(new URL(defaultUrlString), UConProtocolProxy.class);
         log.warn("loading builtin policies (permit anything)");
-        for(PolicyEnum p: PolicyEnum.values())
+        for (PolicyEnum p : PolicyEnum.values()) {
             setPolicy(p, null);
+        }
         dal = DAL.getInstance();
     }
-        
+
     @Override
-    public final void setPolicy(PolicyEnum p, URL url) throws MalformedURLException, IOException {
-        if(url == null) {
+    public final void setPolicy(PolicyEnum p, URL url) throws Exception {
+        if (url == null) {
             log.warn("creating pool with default {} policy", p);
             InputStream stream = UCon.class.getResourceAsStream(defaultPolicyNames[p.ordinal()]);
             pdpPool[p.ordinal()] = new PDPPool(stream);
         } else {
             log.warn("creating pool for policy {} at URL {}", p, url);
-            pdpPool[p.ordinal()] = new PDPPool(url);   
+            pdpPool[p.ordinal()] = new PDPPool(url);
         }
-        if(p == PolicyEnum.ON && inited) {
+        if (p == PolicyEnum.ON && inited) {
             Collection<UconSession> sessions = dal.listSessions(Status.ONGOING);
-            if(sessions.size() > 0) {
-               log.warn("UCon already running, reevaluating {} currently opened sessions", sessions.size());
+            if (sessions.size() > 0) {
+                log.warn("UCon already running, reevaluating {} currently opened sessions", sessions.size());
                 reevaluateSessions(sessions);
             }
         }
     }
-    
+
     @Override
     public Node echo(Node node) throws TransformerConfigurationException, TransformerException {
         return node;
@@ -143,43 +151,42 @@ public class UCon extends Server implements UConInterface, UConProtocol {
         log.info("pepUrl={}, customId={}", pepUrlString, customId);
         long start = System.currentTimeMillis();
         try {
-            if(customId != null) {
+            if (customId != null) {
                 dal.getSessionByCustomId(customId);
-                throw new RuntimeException("session "+customId+" already exists!");
+                throw new RuntimeException("session " + customId + " already exists!");
             }
-        } catch(NoResultException e) {
+        } catch (NoResultException e) {
             // pass
         }
         URL pepUrl = new URL(pepUrlString);
         UconRequest uconRequest = new UconRequest((Document) accessRequest);
-        
+
         // First enrich the request by calling the PIPs
         for (PIPInterface p : pip) {
             p.onBeforeTryAccess(uconRequest);
         }
         // Now send the enriched request to the PDP
         // UUID is attributed by the dal, as well as customId if not given.
-        PDP pdp = pdpPool[PolicyEnum.PRE.ordinal()].obtainPDP();
-        Document responseDocument = access(uconRequest, pdp);
+
+        Document responseDocument = access(uconRequest, pdpPool[PolicyEnum.PRE.ordinal()]);
         UconSession session = new UconSession(responseDocument);
         session.setCustomId(customId);
         session.setPepUrl(pepUrlString);
         session.setUconUrl(myUrl);
-        session.setStatus(session.getDecision() == PepResponse.DecisionEnum.Permit? 
-                Status.TRY : Status.REJECTED);
+        session.setStatus(session.getDecision() == PepResponse.DecisionEnum.Permit
+                ? Status.TRY : Status.REJECTED);
         for (PIPInterface p : pip) {
             p.onAfterTryAccess(uconRequest, session);
         }
         if (session.getDecision() == PepResponse.DecisionEnum.Permit) {
-           UconSession uconSession = dal.startSession(session, uconRequest);
-           session.setUuid(uconSession.getUuid());
-           session.setCustomId(uconSession.getCustomId());
-           assert(session.getUuid() != null && session.getUuid().length() > 0);
-           assert(session.getCustomId() != null  && session.getCustomId().length() > 0);
-           assert(session.getStatus() == Status.TRY);
+            UconSession uconSession = dal.startSession(session, uconRequest);
+            session.setUuid(uconSession.getUuid());
+            session.setCustomId(uconSession.getCustomId());
+            assert (session.getUuid() != null && session.getUuid().length() > 0);
+            assert (session.getCustomId() != null && session.getCustomId().length() > 0);
+            assert (session.getStatus() == Status.TRY);
         }
-        session.setMs(System.currentTimeMillis()-start);
-        pdpPool[PolicyEnum.PRE.ordinal()].returnPDP(pdp);
+        session.setMs(System.currentTimeMillis() - start);
         return session.toXacml3Element();
     }
 
@@ -210,31 +217,29 @@ public class UCon extends Server implements UConInterface, UConProtocol {
         if (session.getStatus() != Status.TRY) {
             throw new RuntimeException(session + " must be in TRY state to perform this operation");
         }
-        assert(session.getUuid() != null && session.getUuid().length() > 0);
+        assert (session.getUuid() != null && session.getUuid().length() > 0);
         session.setUconUrl(myUrl);
-        assert(session.getUconUrl() != null);
-        assert(session.getCustomId() != null  && session.getCustomId().length() > 0);
-        
+        assert (session.getUconUrl() != null);
+        assert (session.getCustomId() != null && session.getCustomId().length() > 0);
+
         // rebuild pepAccessRequest for PIP's onBeforeStartAccess argument
         UconRequest uconRequest = rebuildUconRequest(session);
         refreshUconRequest(uconRequest, session);
         for (PIPInterface p : pip) {
             p.onBeforeStartAccess(uconRequest, session);
         }
-        PDP pdp = pdpPool[PolicyEnum.TRYSTART.ordinal()].obtainPDP();
-        Document responseDocument = access(uconRequest, pdp);
+        Document responseDocument = access(uconRequest, pdpPool[PolicyEnum.TRYSTART.ordinal()]);
         session.setResponse(responseDocument);
-        session.setStatus(session.getDecision() == PepResponse.DecisionEnum.Permit?
-            Status.ONGOING : Status.TRY);
+        session.setStatus(session.getDecision() == PepResponse.DecisionEnum.Permit
+                ? Status.ONGOING : Status.TRY);
         dal.saveSession(session, uconRequest);
         for (PIPInterface p : pip) {
             p.onAfterStartAccess(uconRequest, session);
         }
         dal.saveSession(session, uconRequest);
-        assert(session.getUuid() != null);
-        assert(session.getUconUrl() != null);
-        session.setMs(System.currentTimeMillis()-start);
-        pdpPool[PolicyEnum.TRYSTART.ordinal()].returnPDP(pdp);
+        assert (session.getUuid() != null);
+        assert (session.getUconUrl() != null);
+        session.setMs(System.currentTimeMillis() - start);
         return session.toXacml3Element();
     }
 
@@ -248,7 +253,7 @@ public class UCon extends Server implements UConInterface, UConProtocol {
             throw new RuntimeException("no session with uuid: " + uuid);
         }
         PDPPool pdpPoolInUse = pdpPool[PolicyEnum.POST.ordinal()];
-        switch(session.getStatus()) {
+        switch (session.getStatus()) {
             case TRY:
                 pdpPoolInUse = pdpPool[PolicyEnum.TRYEND.ordinal()];
                 break;
@@ -256,7 +261,7 @@ public class UCon extends Server implements UConInterface, UConProtocol {
                 pdpPoolInUse = pdpPool[PolicyEnum.POST.ordinal()];
                 break;
             case REVOKED:
-                break;  
+                break;
             default:
                 throw new RuntimeException(session + " must be in TRY, ONGOING, or REVOKED state to perform this operation");
         }
@@ -266,12 +271,10 @@ public class UCon extends Server implements UConInterface, UConProtocol {
         for (PIPInterface p : pip) {
             p.onBeforeEndAccess(uconRequest, session);
         }
-        if(session.getStatus() == Status.REVOKED) {
+        if (session.getStatus() == Status.REVOKED) {
             session.setDecision(PepResponse.DecisionEnum.Permit);
         } else {
-            PDP pdp = pdpPoolInUse.obtainPDP();
-            Document responseDocument = access(uconRequest, pdp);
-            pdpPoolInUse.returnPDP(pdp);
+            Document responseDocument = access(uconRequest, pdpPoolInUse);
             session.setResponse(responseDocument);
         }
         if (session.getDecision() == PepResponse.DecisionEnum.Permit) {
@@ -283,7 +286,7 @@ public class UCon extends Server implements UConInterface, UConProtocol {
         for (PIPInterface p : pip) {
             p.onAfterEndAccess(uconRequest, session);
         }
-        session.setMs(System.currentTimeMillis()-start);
+        session.setMs(System.currentTimeMillis() - start);
         return session.toXacml3Element();
     }
 
@@ -303,7 +306,7 @@ public class UCon extends Server implements UConInterface, UConProtocol {
             String responseString = response.encode();
             accessResponse = DomUtils.read(responseString);
             DecimalFormat df = new DecimalFormat("#.###");
-            String ms = df.format((System.nanoTime()-start)/1.0e+6);
+            String ms = df.format((System.nanoTime() - start) / 1.0e+6);
             accessResponse.getDocumentElement().setAttribute("ms", ms);
             //log.info("ACCESS UCON {}", DomUtils.toString(accessResponse));
         } catch (Exception ex) {
@@ -312,49 +315,83 @@ public class UCon extends Server implements UConInterface, UConProtocol {
         return accessResponse;
     }
 
-    private Document revokeAccess(URL pepUrl, UconSession session) throws Exception {
-        // revoke session on db
-        long start = System.currentTimeMillis();
-        UconRequest uconRequest = rebuildUconRequest(session);
-        refreshUconRequest(uconRequest, session);
-        for (PIPInterface p : pip) {
-            p.onBeforeRevokeAccess(uconRequest, session);
+    private Document access(PepRequest accessRequest, PDPPool pool) {
+        PDP pdp = pool.obtainPDP();
+        Document doc = null;
+        try {
+            doc = access(accessRequest, pdp);
+        } finally {
+            pool.returnPDP(pdp);
         }
-        UconSession uconSession = dal.revokeSession(session);
-        for (PIPInterface p : pip) {
-            p.onAfterRevokeAccess(uconRequest, uconSession);
+        return doc;
+    }
+
+    private Document revokeAccess(URL pepUrl, Collection<UconSession> sessions) throws Exception {
+        // revoke sessions on db
+        Document sessionsDocument = DomUtils.newDocument();
+        Element sessionsElement = sessionsDocument.createElement("Responses");
+        sessionsDocument.appendChild(sessionsElement);
+        for (UconSession session : sessions) {
+            long start = System.currentTimeMillis();
+            UconRequest uconRequest = rebuildUconRequest(session);
+            refreshUconRequest(uconRequest, session);
+            for (PIPInterface p : pip) {
+                p.onBeforeRevokeAccess(uconRequest, session);
+            }
+            UconSession uconSession = dal.revokeSession(session);
+            for (PIPInterface p : pip) {
+                p.onAfterRevokeAccess(uconRequest, uconSession);
+            }
+            uconSession = (UconSession) dal.save(uconSession);
+            session.setStatus(Status.REVOKED);
+            session.setMs(System.currentTimeMillis() - start);
+            Element sessionElement = session.toXacml3Element();
+            sessionElement = (Element) sessionsDocument.adoptNode(sessionElement);
+            log.error(DomUtils.toString(sessionElement));
+            sessionsElement.appendChild(sessionElement);
         }
-        uconSession = (UconSession) dal.save(uconSession);
         // create client
-        log.warn("invoking PEP at " + pepUrl + " to revoke " + uconSession);
+        log.warn("invoking PEP at " + pepUrl + " to revoke sessions");
         Client client = new Client(pepUrl);
         // remote call. TODO: should consider error handling
-        session.setStatus(Status.REVOKED);
-        session.setMs(System.currentTimeMillis()-start);
-        Object[] params = new Object[]{session.toXacml3Element()};
+        Object[] params = new Object[]{sessionsElement};
         Document doc = (Document) client.execute("PEP.revokeAccess", params);
         return doc;
     }
 
-    private Document runObligations(URL pepUrl, UconSession uconSession) throws Exception {
-        // revoke session on db
-        UconRequest uconRequest = rebuildUconRequest(uconSession);
-        refreshUconRequest(uconRequest, uconSession);
-        for (PIPInterface p : pip) {
-            p.onBeforeRunObligations(uconRequest, uconSession);
+    private Document runObligations(URL pepUrl, Collection<UconSession> uconSessions) throws Exception {
+        Document sessionsDocument = DomUtils.newDocument();
+        Element sessionsElement = sessionsDocument.createElement("Responses");
+        sessionsDocument.appendChild(sessionsElement);
+        Collection<UconSession> uconSessions2 = new ArrayList<>(uconSessions.size());
+        for (UconSession uconSession : uconSessions) {
+            // revoke session on db
+            UconRequest uconRequest = rebuildUconRequest(uconSession);
+            refreshUconRequest(uconRequest, uconSession);
+            for (PIPInterface p : pip) {
+                p.onBeforeRunObligations(uconRequest, uconSession);
+            }
+            Element sessionElement = uconSession.toXacml3Element();
+            sessionsDocument.adoptNode(sessionElement);
+            sessionsElement.appendChild(sessionElement);
+            // save ucon session
+            uconSession = (UconSession) dal.save(uconSession);
+            uconSessions2.add(uconSession);
         }
-
         // create client
-        log.warn("invoking PEP at " + pepUrl + " to send obligations for " + uconSession);
+        log.warn("invoking PEP at " + pepUrl + " to send obligations");
         Client client = new Client(pepUrl);
         // remote call. TODO: should consider error handling
-        Object[] params = new Object[]{uconSession.toXacml3Element()};
+        Object[] params = new Object[]{sessionsElement};
         Document doc = (Document) client.execute("PEP.runObligations", params);
         // TODO: check error
-        for (PIPInterface p : pip) {
-            p.onAfterRunObligations(uconRequest, uconSession);
+        for (UconSession uconSession : uconSessions2) {
+            UconRequest uconRequest = rebuildUconRequest(uconSession);
+            for (PIPInterface p : pip) {
+                p.onAfterRunObligations(uconRequest, uconSession);
+            }
+            uconSession = (UconSession) dal.save(uconSession);
         }
-        uconSession = (UconSession) dal.save(uconSession);
         return doc;
     }
 
@@ -390,13 +427,14 @@ public class UCon extends Server implements UConInterface, UConProtocol {
         Date now = new Date();
         // Permit sessions unknown to the client.
         for (UconSession uconSession : sessions) {
-            
+
             boolean isNotKnownByClient = true;
-            for(Iterator<String> i = sessionsList.iterator(); isNotKnownByClient && i.hasNext(); ) {
+            for (Iterator<String> i = sessionsList.iterator(); isNotKnownByClient && i.hasNext();) {
                 String uuid = i.next();
                 isNotKnownByClient = !uuid.equals(uconSession.getUuid());
-                if(!isNotKnownByClient)
+                if (!isNotKnownByClient) {
                     i.remove();
+                }
             }
             if (isNotKnownByClient) {
                 UconRequest uconRequest = rebuildUconRequest(uconSession);
@@ -424,8 +462,10 @@ public class UCon extends Server implements UConInterface, UConProtocol {
         return doc;
     }
 
-    private void reevaluateSessions(Collection<UconSession> involvedSessions) {
+    private void reevaluateSessions(Collection<UconSession> involvedSessions) throws Exception {
         PDP pdp = pdpPool[PolicyEnum.ON.ordinal()].obtainPDP();
+        Map<URL, Collection<UconSession>> revokedSessionsMap = new HashMap<>(involvedSessions.size());
+        Map<URL, Collection<UconSession>> obligationSessionsMap = new HashMap<>(involvedSessions.size());
         for (UconSession involvedSession : involvedSessions) {
             try {
                 log.debug("involved session: {}", involvedSession);
@@ -442,10 +482,20 @@ public class UCon extends Server implements UConInterface, UConProtocol {
                 if (mustRevoke) {
                     log.warn("revoking {}", involvedSession);
                     URL pepUrl = new URL(involvedSession.getPepUrl());
-                    revokeAccess(pepUrl, involvedSession);
-                } else if(involvedSession.getObligations().size() > 0) {
+                    Collection<UconSession> revokedSessions = revokedSessionsMap.get(pepUrl);
+                    if (revokedSessions == null) {
+                        revokedSessions = new ArrayList<>();
+                        revokedSessionsMap.put(pepUrl, revokedSessions);
+                    }
+                    revokedSessions.add(involvedSession);
+                } else if (involvedSession.getObligations().size() > 0) {
                     URL pepUrl = new URL(involvedSession.getPepUrl());
-                    runObligations(pepUrl, involvedSession);
+                    Collection<UconSession> obligationSessions = revokedSessionsMap.get(pepUrl);
+                    if (obligationSessions == null) {
+                        obligationSessions = new ArrayList<>();
+                        obligationSessionsMap.put(pepUrl, obligationSessions);
+                    }
+                    obligationSessions.add(involvedSession);
                 } else {
                     log.info("updating {}", involvedSession);
                     dal.saveSession(involvedSession, uconRequest);
@@ -455,6 +505,12 @@ public class UCon extends Server implements UConInterface, UConProtocol {
             }
         }
         pdpPool[PolicyEnum.ON.ordinal()].returnPDP(pdp);
+        for (URL pepUrl : revokedSessionsMap.keySet()) {
+            revokeAccess(pepUrl, revokedSessionsMap.get(pepUrl));
+        }
+        for (URL pepUrl : obligationSessionsMap.keySet()) {
+            runObligations(pepUrl, obligationSessionsMap.get(pepUrl));
+        }
     }
 
     @Override
@@ -462,7 +518,7 @@ public class UCon extends Server implements UConInterface, UConProtocol {
         // Gather all the sessions that involve the changed attributes
         log.info("{} attributes changed, updating DAL", changedAttributes.size());
         Collection<UconSession> involvedSessions = new HashSet<>();
-        for(PepAttributeInterface a: changedAttributes) {
+        for (PepAttributeInterface a : changedAttributes) {
             UconAttribute u = (UconAttribute) dal.save(a);
             involvedSessions.addAll(u.getSessions());
         }
@@ -503,9 +559,12 @@ public class UCon extends Server implements UConInterface, UConProtocol {
         }
         // Gather all the sessions that involve expired attributes
         Collection<UconSession> outdatedSessions = dal.listOutdatedSessions();
-
-        // Re-evaluating possible outdated sessions
-        reevaluateSessions(outdatedSessions);
+        try {
+            // Re-evaluating possible outdated sessions
+            reevaluateSessions(outdatedSessions);
+        } catch (Exception ex) {
+            log.error("while reevaluating sessions: {}", ex);
+        }
 
         log.debug("OK (#sessions: {})", dal.listSessions().size());
     }
@@ -539,9 +598,9 @@ public class UCon extends Server implements UConInterface, UConProtocol {
     public void init() throws Exception {
         super.init();
         Collection<UconSession> sessions = dal.listSessions(Status.ONGOING);
-        if(sessions.size() > 0) {
-           log.warn("reevaluating {} previously opened sessions", sessions.size());
-           reevaluateSessions(sessions);
+        if (sessions.size() > 0) {
+            log.warn("reevaluating {} previously opened sessions", sessions.size());
+            reevaluateSessions(sessions);
         }
         inited = true;
     }
@@ -551,8 +610,9 @@ public class UCon extends Server implements UConInterface, UConProtocol {
         while (pip.size() > 0) {
             removePIP(pip.get(0));
         }
-        if(singleton == this)
+        if (singleton == this) {
             singleton = null;
+        }
         log.warn("completing shutdown procedure for the UCon service");
         super.term();
         log.warn("UCon shutdown");

@@ -107,8 +107,8 @@ public interface UConInterface {
      *
      * @param p the policy to be set.
      * @param url the url containing the new policy to be set, in xacml3 format.
-     * @throws java.net.MalformedURLException
+     * @throws java.lang.Exception
      */
-    void setPolicy(PolicyEnum p, URL url) throws MalformedURLException, IOException;
+    void setPolicy(PolicyEnum p, URL url) throws Exception;
 
 }
