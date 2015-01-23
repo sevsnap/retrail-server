@@ -19,7 +19,6 @@ import it.cnr.iit.retrail.server.dal.DAL;
 import it.cnr.iit.retrail.server.dal.UconRequest;
 import it.cnr.iit.retrail.server.dal.UconSession;
 import it.cnr.iit.retrail.server.pip.PIPInterface;
-import java.io.File;
 import java.io.IOException;
 import java.io.InputStream;
 import java.net.MalformedURLException;
