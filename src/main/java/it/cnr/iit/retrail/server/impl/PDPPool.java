@@ -4,11 +4,13 @@
  */
 package it.cnr.iit.retrail.server.impl;
 
+import it.cnr.iit.retrail.commons.DomUtils;
+import it.cnr.iit.retrail.commons.impl.PepRequest;
 import java.io.ByteArrayInputStream;
-import java.io.File;
 import java.io.IOException;
 import java.io.InputStream;
 import java.net.URL;
+import java.text.DecimalFormat;
 import java.util.ArrayList;
 import java.util.HashSet;
 import java.util.LinkedList;
@@ -18,8 +20,13 @@ import java.util.Set;
 import org.eclipse.persistence.internal.helper.IdentityHashSet;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.w3c.dom.Document;
+import org.w3c.dom.Element;
 import org.wso2.balana.PDP;
 import org.wso2.balana.PDPConfig;
+import org.wso2.balana.ctx.AbstractRequestCtx;
+import org.wso2.balana.ctx.RequestCtxFactory;
+import org.wso2.balana.ctx.ResponseCtx;
 import org.wso2.balana.finder.AttributeFinder;
 import org.wso2.balana.finder.AttributeFinderModule;
 import org.wso2.balana.finder.PolicyFinder;
@@ -89,7 +96,7 @@ public final class PDPPool {
         return newPDP(streamBasedPolicyFinderModule);
     }
     
-    public synchronized PDP obtainPDP() {
+    private synchronized PDP obtainPDP() {
         PDP pdp = null;
         if(available.isEmpty()) {
             if(policyURL == null) {
@@ -103,9 +110,40 @@ public final class PDPPool {
         return pdp;
     }
     
-    public synchronized void returnPDP(PDP pdp) {
+    private synchronized void returnPDP(PDP pdp) {
         if(busy.remove(pdp) && available.size() < maxPoolSize)
             available.add(pdp);
     }
+    
+    private Document access(PepRequest accessRequest, PDP p) {
+        Document accessResponse = null;
+        long start = System.nanoTime();
+        try {
+            Element xacmlRequest = accessRequest.toElement();
+            AbstractRequestCtx request = RequestCtxFactory.getFactory().getRequestCtx(xacmlRequest);
+            ResponseCtx response = p.evaluate(request);
+            String responseString = response.encode();
+            accessResponse = DomUtils.read(responseString);
+            DecimalFormat df = new DecimalFormat("#.###");
+            String ms = df.format((System.nanoTime() - start) / 1.0e+6);
+            accessResponse.getDocumentElement().setAttribute("ms", ms);
+            //log.info("ACCESS UCON {}", DomUtils.toString(accessResponse));
+        } catch (Exception ex) {
+            log.error("Unexpected exception {}: {}", ex, ex.getMessage());
+        }
+        return accessResponse;
+    }
+
+    public Document access(PepRequest accessRequest) {
+        PDP pdp = obtainPDP();
+        Document doc = null;
+        try {
+            doc = access(accessRequest, pdp);
+        } finally {
+            returnPDP(pdp);
+        }
+        return doc;
+    }
+
     
 }

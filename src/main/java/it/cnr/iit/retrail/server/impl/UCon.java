@@ -9,7 +9,6 @@ import it.cnr.iit.retrail.server.UConProtocol;
 import it.cnr.iit.retrail.commons.Client;
 import it.cnr.iit.retrail.commons.DomUtils;
 import it.cnr.iit.retrail.commons.PepAttributeInterface;
-import it.cnr.iit.retrail.commons.impl.PepRequest;
 import it.cnr.iit.retrail.commons.impl.PepResponse;
 import it.cnr.iit.retrail.commons.impl.PepSession;
 import it.cnr.iit.retrail.commons.Server;
@@ -21,11 +20,8 @@ import it.cnr.iit.retrail.server.dal.UconSession;
 import it.cnr.iit.retrail.server.pip.PIPInterface;
 import java.io.IOException;
 import java.io.InputStream;
-import java.net.MalformedURLException;
 import java.net.URISyntaxException;
 import java.net.URL;
-import java.net.UnknownHostException;
-import java.text.DecimalFormat;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.Date;
@@ -34,8 +30,6 @@ import java.util.HashSet;
 import java.util.Iterator;
 import java.util.List;
 import java.util.Map;
-import java.util.logging.Level;
-import java.util.logging.Logger;
 import javax.persistence.NoResultException;
 import javax.xml.transform.TransformerConfigurationException;
 import javax.xml.transform.TransformerException;
@@ -43,10 +37,6 @@ import org.apache.xmlrpc.XmlRpcException;
 import org.w3c.dom.Document;
 import org.w3c.dom.Element;
 import org.w3c.dom.Node;
-import org.wso2.balana.PDP;
-import org.wso2.balana.ctx.AbstractRequestCtx;
-import org.wso2.balana.ctx.RequestCtxFactory;
-import org.wso2.balana.ctx.ResponseCtx;
 
 public class UCon extends Server implements UConInterface, UConProtocol {
 
@@ -168,7 +158,7 @@ public class UCon extends Server implements UConInterface, UConProtocol {
         // Now send the enriched request to the PDP
         // UUID is attributed by the dal, as well as customId if not given.
 
-        Document responseDocument = access(uconRequest, pdpPool[PolicyEnum.PRE.ordinal()]);
+        Document responseDocument = pdpPool[PolicyEnum.PRE.ordinal()].access(uconRequest);
         UconSession session = new UconSession(responseDocument);
         session.setCustomId(customId);
         session.setPepUrl(pepUrlString);
@@ -228,7 +218,7 @@ public class UCon extends Server implements UConInterface, UConProtocol {
         for (PIPInterface p : pip) {
             p.onBeforeStartAccess(uconRequest, session);
         }
-        Document responseDocument = access(uconRequest, pdpPool[PolicyEnum.TRYSTART.ordinal()]);
+        Document responseDocument = pdpPool[PolicyEnum.TRYSTART.ordinal()].access(uconRequest);
         session.setResponse(responseDocument);
         session.setStatus(session.getDecision() == PepResponse.DecisionEnum.Permit
                 ? Status.ONGOING : Status.TRY);
@@ -274,7 +264,7 @@ public class UCon extends Server implements UConInterface, UConProtocol {
         if (session.getStatus() == Status.REVOKED) {
             session.setDecision(PepResponse.DecisionEnum.Permit);
         } else {
-            Document responseDocument = access(uconRequest, pdpPoolInUse);
+            Document responseDocument = pdpPoolInUse.access(uconRequest);
             session.setResponse(responseDocument);
         }
         if (session.getDecision() == PepResponse.DecisionEnum.Permit) {
@@ -294,36 +284,6 @@ public class UCon extends Server implements UConInterface, UConProtocol {
     public Node heartbeat(String pepUrl, List<String> sessionsList) throws Exception {
         log.debug("called, with url: " + pepUrl);
         return heartbeat(new URL(pepUrl), sessionsList);
-    }
-
-    private Document access(PepRequest accessRequest, PDP p) {
-        Document accessResponse = null;
-        long start = System.nanoTime();
-        try {
-            Element xacmlRequest = accessRequest.toElement();
-            AbstractRequestCtx request = RequestCtxFactory.getFactory().getRequestCtx(xacmlRequest);
-            ResponseCtx response = p.evaluate(request);
-            String responseString = response.encode();
-            accessResponse = DomUtils.read(responseString);
-            DecimalFormat df = new DecimalFormat("#.###");
-            String ms = df.format((System.nanoTime() - start) / 1.0e+6);
-            accessResponse.getDocumentElement().setAttribute("ms", ms);
-            //log.info("ACCESS UCON {}", DomUtils.toString(accessResponse));
-        } catch (Exception ex) {
-            log.error("Unexpected exception {}: {}", ex, ex.getMessage());
-        }
-        return accessResponse;
-    }
-
-    private Document access(PepRequest accessRequest, PDPPool pool) {
-        PDP pdp = pool.obtainPDP();
-        Document doc = null;
-        try {
-            doc = access(accessRequest, pdp);
-        } finally {
-            pool.returnPDP(pdp);
-        }
-        return doc;
     }
 
     private Document revokeAccess(URL pepUrl, Collection<UconSession> sessions) throws Exception {
@@ -463,7 +423,6 @@ public class UCon extends Server implements UConInterface, UConProtocol {
     }
 
     private void reevaluateSessions(Collection<UconSession> involvedSessions) throws Exception {
-        PDP pdp = pdpPool[PolicyEnum.ON.ordinal()].obtainPDP();
         Map<URL, Collection<UconSession>> revokedSessionsMap = new HashMap<>(involvedSessions.size());
         Map<URL, Collection<UconSession>> obligationSessionsMap = new HashMap<>(involvedSessions.size());
         for (UconSession involvedSession : involvedSessions) {
@@ -475,7 +434,7 @@ public class UCon extends Server implements UConInterface, UConProtocol {
                 refreshUconRequest(uconRequest, involvedSession);
                 // Now make PDP evaluate the request
                 log.debug("evaluating request");
-                Document responseDocument = access(uconRequest, pdp);
+                Document responseDocument = pdpPool[PolicyEnum.ON.ordinal()].access(uconRequest);
                 involvedSession.setResponse(responseDocument);
                 boolean mustRevoke = involvedSession.getDecision() != PepResponse.DecisionEnum.Permit;
                 // Explicitly revoke access if anything went wrong
@@ -504,7 +463,6 @@ public class UCon extends Server implements UConInterface, UConProtocol {
                 log.error(ex.getMessage());
             }
         }
-        pdpPool[PolicyEnum.ON.ordinal()].returnPDP(pdp);
         for (URL pepUrl : revokedSessionsMap.keySet()) {
             revokeAccess(pepUrl, revokedSessionsMap.get(pepUrl));
         }
