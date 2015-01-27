@@ -129,7 +129,7 @@ public final class PDPPool {
             accessResponse.getDocumentElement().setAttribute("ms", ms);
             //log.info("ACCESS UCON {}", DomUtils.toString(accessResponse));
         } catch (Exception ex) {
-            log.error("Unexpected exception {}: {}", ex, ex.getMessage());
+            log.error("while querying balana: {}", ex);
         }
         return accessResponse;
     }
