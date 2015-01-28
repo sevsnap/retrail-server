@@ -110,5 +110,19 @@ public interface UConInterface {
      * @throws java.lang.Exception
      */
     void setPolicy(PolicyEnum p, URL url) throws Exception;
+    
+        /**
+     * setPolicy()
+     *
+     * changes the current policy by reading the new one from the stream.
+     * The input format must be xacml3. If the UCon service has already been
+     * started by init() and you are changing the ON policy, the current ongoing
+     * sessions are re-evaluated.
+     *
+     * @param p the policy to be set.
+     * @param stream the stream containing the new policy to be set, in xacml3 format.
+     * @throws java.lang.Exception
+     */
+    void setPolicy(PolicyEnum p, InputStream stream) throws Exception;
 
 }

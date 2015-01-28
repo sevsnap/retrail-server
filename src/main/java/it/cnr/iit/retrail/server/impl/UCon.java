@@ -98,7 +98,7 @@ public class UCon extends Server implements UConInterface, UConProtocol {
         super(url, UConProtocolProxy.class);
         log.warn("loading builtin policies (permit anything)");
         for (PolicyEnum p : PolicyEnum.values()) {
-            setPolicy(p, null);
+            setPolicy(p, (URL)null);
         }
         dal = DAL.getInstance();
     }
@@ -107,7 +107,7 @@ public class UCon extends Server implements UConInterface, UConProtocol {
         super(new URL(defaultUrlString), UConProtocolProxy.class);
         log.warn("loading builtin policies (permit anything)");
         for (PolicyEnum p : PolicyEnum.values()) {
-            setPolicy(p, null);
+            setPolicy(p, (URL)null);
         }
         dal = DAL.getInstance();
     }
@@ -122,6 +122,23 @@ public class UCon extends Server implements UConInterface, UConProtocol {
             log.warn("creating pool for policy {} at URL {}", p, url);
             pdpPool[p.ordinal()] = new PDPPool(url);
         }
+        if (p == PolicyEnum.ON && inited) {
+            Collection<UconSession> sessions = dal.listSessions(Status.ONGOING);
+            if (sessions.size() > 0) {
+                log.warn("UCon already running, reevaluating {} currently opened sessions", sessions.size());
+                reevaluateSessions(sessions);
+            }
+        }
+    }
+    
+    @Override
+    public final void setPolicy(PolicyEnum p, InputStream stream) throws Exception {
+        if (stream == null) {
+            log.warn("creating pool with default {} policy", p);
+            stream = UCon.class.getResourceAsStream(defaultPolicyNames[p.ordinal()]);
+        } else
+            log.warn("creating pool for policy {} with resource stream {}", p, stream);
+        pdpPool[p.ordinal()] = new PDPPool(stream);
         if (p == PolicyEnum.ON && inited) {
             Collection<UconSession> sessions = dal.listSessions(Status.ONGOING);
             if (sessions.size() > 0) {
