@@ -9,7 +9,6 @@ import it.cnr.iit.retrail.commons.PepAttributeInterface;
 import it.cnr.iit.retrail.commons.PepRequestInterface;
 import it.cnr.iit.retrail.commons.PepSessionInterface;
 import it.cnr.iit.retrail.commons.Status;
-import it.cnr.iit.retrail.server.pip.impl.PIP;
 import org.slf4j.LoggerFactory;
 
 /**

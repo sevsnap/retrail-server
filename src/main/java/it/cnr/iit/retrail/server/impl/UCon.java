@@ -69,7 +69,7 @@ public class UCon extends Server implements UConInterface, UConProtocol {
                 singleton = new UCon();
             } catch (XmlRpcException | IOException | URISyntaxException e) {
                 log.error(e.getMessage());
-            } catch(Exception e) {
+            } catch (Exception e) {
                 log.error("while creating UCon: {}", e.getMessage());
             }
         }
@@ -82,7 +82,7 @@ public class UCon extends Server implements UConInterface, UConProtocol {
                 singleton = new UCon(url);
             } catch (XmlRpcException | IOException | URISyntaxException e) {
                 log.error(e.getMessage());
-            } catch(Exception e) {
+            } catch (Exception e) {
                 log.error("while creating UCon with URL {}: {}", url, e.getMessage());
             }
         }
@@ -98,7 +98,7 @@ public class UCon extends Server implements UConInterface, UConProtocol {
         super(url, UConProtocolProxy.class);
         log.warn("loading builtin policies (permit anything)");
         for (PolicyEnum p : PolicyEnum.values()) {
-            setPolicy(p, (URL)null);
+            setPolicy(p, (URL) null);
         }
         dal = DAL.getInstance();
     }
@@ -107,7 +107,7 @@ public class UCon extends Server implements UConInterface, UConProtocol {
         super(new URL(defaultUrlString), UConProtocolProxy.class);
         log.warn("loading builtin policies (permit anything)");
         for (PolicyEnum p : PolicyEnum.values()) {
-            setPolicy(p, (URL)null);
+            setPolicy(p, (URL) null);
         }
         dal = DAL.getInstance();
     }
@@ -130,14 +130,15 @@ public class UCon extends Server implements UConInterface, UConProtocol {
             }
         }
     }
-    
+
     @Override
     public final void setPolicy(PolicyEnum p, InputStream stream) throws Exception {
         if (stream == null) {
             log.warn("creating pool with default {} policy", p);
             stream = UCon.class.getResourceAsStream(defaultPolicyNames[p.ordinal()]);
-        } else
+        } else {
             log.warn("creating pool for policy {} with resource stream {}", p, stream);
+        }
         pdpPool[p.ordinal()] = new PDPPool(stream);
         if (p == PolicyEnum.ON && inited) {
             Collection<UconSession> sessions = dal.listSessions(Status.ONGOING);
@@ -250,8 +251,7 @@ public class UCon extends Server implements UConInterface, UConProtocol {
         return session.toXacml3Element();
     }
 
-    @Override
-    public Node endAccess(String uuid, String customId) throws Exception {
+    protected Element endAccess(String uuid, String customId) throws Exception {
         log.info("uuid={}, customId={}", uuid, customId);
         long start = System.currentTimeMillis();
         uuid = getUuid(uuid, customId);
@@ -298,6 +298,20 @@ public class UCon extends Server implements UConInterface, UConProtocol {
     }
 
     @Override
+    public Node endAccess(List<String> uuidList, List<String> customIdList) throws Exception {
+        Document sessionsDocument = DomUtils.newDocument();
+        Element sessionsElement = sessionsDocument.createElement("Responses");
+        sessionsDocument.appendChild(sessionsElement);
+        for (String uuid : uuidList) {
+            String customId = customIdList != null ? customIdList.remove(0) : null;
+            Element sessionElement = endAccess(uuid, customId);
+            sessionElement = (Element) sessionsDocument.adoptNode(sessionElement);
+            sessionsElement.appendChild(sessionElement);
+        }
+        return sessionsElement;
+    }
+
+    @Override
     public Node heartbeat(String pepUrl, List<String> sessionsList) throws Exception {
         log.debug("called, with url: " + pepUrl);
         return heartbeat(new URL(pepUrl), sessionsList);
@@ -324,7 +338,6 @@ public class UCon extends Server implements UConInterface, UConProtocol {
             session.setMs(System.currentTimeMillis() - start);
             Element sessionElement = session.toXacml3Element();
             sessionElement = (Element) sessionsDocument.adoptNode(sessionElement);
-            log.error(DomUtils.toString(sessionElement));
             sessionsElement.appendChild(sessionElement);
         }
         // create client

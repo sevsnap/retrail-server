@@ -24,7 +24,7 @@ public interface UConProtocol {
     
     Node startAccess(String uuid, String customId) throws Exception;
 
-    Node endAccess(String uuid, String customId) throws Exception;
+    Node endAccess(List<String> uuidList, List<String> customIdsList) throws Exception;
 
     Node heartbeat(String pepUrl, List<String> sessionsList) throws Exception;
 

@@ -6,8 +6,6 @@
 package it.cnr.iit.retrail.server.pip.impl;
 
 import it.cnr.iit.retrail.commons.PepAttributeInterface;
-import it.cnr.iit.retrail.commons.impl.PepAttribute;
-import it.cnr.iit.retrail.server.UConInterface;
 import it.cnr.iit.retrail.server.impl.UCon;
 import java.util.Collection;
 
