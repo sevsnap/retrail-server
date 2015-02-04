@@ -27,6 +27,11 @@ public class UConProtocolProxy implements UConProtocol {
     public final List<Node> endAccess(List<String> uuidList, List<String> customIdList) throws Exception {
         return UCon.getProtocolInstance().endAccess(uuidList, customIdList);
     }
+    
+    @Override
+    public final Node endAccess(String uuid, String customId) throws Exception {
+        return UCon.getProtocolInstance().endAccess(uuid, customId);
+    }
 
     @Override
     public final Node heartbeat(String pepUrl, List<String> sessionsList) throws Exception {

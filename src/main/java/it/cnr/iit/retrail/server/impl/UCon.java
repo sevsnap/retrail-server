@@ -251,7 +251,8 @@ public class UCon extends Server implements UConInterface, UConProtocol {
         return session.toXacml3Element();
     }
 
-    protected Element endAccess(String uuid, String customId) throws Exception {
+    @Override
+    public Node endAccess(String uuid, String customId) throws Exception {
         log.info("uuid={}, customId={}", uuid, customId);
         long start = System.currentTimeMillis();
         uuid = getUuid(uuid, customId);
@@ -302,7 +303,7 @@ public class UCon extends Server implements UConInterface, UConProtocol {
         List<Node> responses = new ArrayList<>(uuidList.size());
         for (String uuid : uuidList) {
             String customId = customIdList != null ? customIdList.remove(0) : null;
-            Element responseElement = endAccess(uuid, customId);
+            Node responseElement = endAccess(uuid, customId);
             responses.add(responseElement);
         }
         return responses;
