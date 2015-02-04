@@ -1,6 +1,6 @@
 /*
  * CNR - IIT
- * Coded by: 2014 Enrico "KMcC;) Carniani
+ * Coded by: 2014-2015 Enrico "KMcC;) Carniani
  */
 package it.cnr.iit.retrail.server.impl;
 
@@ -298,17 +298,14 @@ public class UCon extends Server implements UConInterface, UConProtocol {
     }
 
     @Override
-    public Node endAccess(List<String> uuidList, List<String> customIdList) throws Exception {
-        Document sessionsDocument = DomUtils.newDocument();
-        Element sessionsElement = sessionsDocument.createElement("Responses");
-        sessionsDocument.appendChild(sessionsElement);
+    public List<Node> endAccess(List<String> uuidList, List<String> customIdList) throws Exception {
+        List<Node> responses = new ArrayList<>(uuidList.size());
         for (String uuid : uuidList) {
             String customId = customIdList != null ? customIdList.remove(0) : null;
-            Element sessionElement = endAccess(uuid, customId);
-            sessionElement = (Element) sessionsDocument.adoptNode(sessionElement);
-            sessionsElement.appendChild(sessionElement);
+            Element responseElement = endAccess(uuid, customId);
+            responses.add(responseElement);
         }
-        return sessionsElement;
+        return responses;
     }
 
     @Override
@@ -317,11 +314,9 @@ public class UCon extends Server implements UConInterface, UConProtocol {
         return heartbeat(new URL(pepUrl), sessionsList);
     }
 
-    private Document revokeAccess(URL pepUrl, Collection<UconSession> sessions) throws Exception {
+    private List<Element> revokeAccess(URL pepUrl, Collection<UconSession> sessions) throws Exception {
+        List<Element> responses = new ArrayList<>(sessions.size());
         // revoke sessions on db
-        Document sessionsDocument = DomUtils.newDocument();
-        Element sessionsElement = sessionsDocument.createElement("Responses");
-        sessionsDocument.appendChild(sessionsElement);
         for (UconSession session : sessions) {
             long start = System.currentTimeMillis();
             UconRequest uconRequest = rebuildUconRequest(session);
@@ -337,22 +332,19 @@ public class UCon extends Server implements UConInterface, UConProtocol {
             session.setStatus(Status.REVOKED);
             session.setMs(System.currentTimeMillis() - start);
             Element sessionElement = session.toXacml3Element();
-            sessionElement = (Element) sessionsDocument.adoptNode(sessionElement);
-            sessionsElement.appendChild(sessionElement);
+            responses.add(sessionElement);
         }
         // create client
         log.warn("invoking PEP at " + pepUrl + " to revoke sessions");
         Client client = new Client(pepUrl);
         // remote call. TODO: should consider error handling
-        Object[] params = new Object[]{sessionsElement};
+        Object[] params = new Object[]{responses};
         Document doc = (Document) client.execute("PEP.revokeAccess", params);
-        return doc;
+        return responses;
     }
 
-    private Document runObligations(URL pepUrl, Collection<UconSession> uconSessions) throws Exception {
-        Document sessionsDocument = DomUtils.newDocument();
-        Element sessionsElement = sessionsDocument.createElement("Responses");
-        sessionsDocument.appendChild(sessionsElement);
+    private void runObligations(URL pepUrl, Collection<UconSession> uconSessions) throws Exception {
+        List<Element> responses = new ArrayList<>(uconSessions.size());
         Collection<UconSession> uconSessions2 = new ArrayList<>(uconSessions.size());
         for (UconSession uconSession : uconSessions) {
             // revoke session on db
@@ -362,8 +354,7 @@ public class UCon extends Server implements UConInterface, UConProtocol {
                 p.onBeforeRunObligations(uconRequest, uconSession);
             }
             Element sessionElement = uconSession.toXacml3Element();
-            sessionsDocument.adoptNode(sessionElement);
-            sessionsElement.appendChild(sessionElement);
+            responses.add(sessionElement);
             // save ucon session
             uconSession = (UconSession) dal.save(uconSession);
             uconSessions2.add(uconSession);
@@ -372,8 +363,8 @@ public class UCon extends Server implements UConInterface, UConProtocol {
         log.warn("invoking PEP at " + pepUrl + " to send obligations");
         Client client = new Client(pepUrl);
         // remote call. TODO: should consider error handling
-        Object[] params = new Object[]{sessionsElement};
-        Document doc = (Document) client.execute("PEP.runObligations", params);
+        Object[] params = new Object[]{responses};
+        Object[] docs = (Object[]) client.execute("PEP.runObligations", params);
         // TODO: check error
         for (UconSession uconSession : uconSessions2) {
             UconRequest uconRequest = rebuildUconRequest(uconSession);
@@ -382,7 +373,7 @@ public class UCon extends Server implements UConInterface, UConProtocol {
             }
             uconSession = (UconSession) dal.save(uconSession);
         }
-        return doc;
+        // TODO: docs are currently ignored. should use them for some back ack
     }
 
     private UconRequest rebuildUconRequest(UconSession uconSession) {

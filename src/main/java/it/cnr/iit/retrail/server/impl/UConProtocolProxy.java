@@ -1,6 +1,6 @@
 /*
  * CNR - IIT
- * Coded by: 2014 Enrico "KMcC;) Carniani
+ * Coded by: 2014-2015 Enrico "KMcC;) Carniani
  */
 
 package it.cnr.iit.retrail.server.impl;
@@ -24,7 +24,7 @@ public class UConProtocolProxy implements UConProtocol {
     }
 
     @Override
-    public final Node endAccess(List<String> uuidList, List<String> customIdList) throws Exception {
+    public final List<Node> endAccess(List<String> uuidList, List<String> customIdList) throws Exception {
         return UCon.getProtocolInstance().endAccess(uuidList, customIdList);
     }
 

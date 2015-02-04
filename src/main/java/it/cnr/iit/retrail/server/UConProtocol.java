@@ -1,6 +1,6 @@
 /*
  * CNR - IIT
- * Coded by: 2014 Enrico "KMcC;) Carniani
+ * Coded by: 2014-2015 Enrico "KMcC;) Carniani
  */
 
 package it.cnr.iit.retrail.server;
@@ -24,7 +24,7 @@ public interface UConProtocol {
     
     Node startAccess(String uuid, String customId) throws Exception;
 
-    Node endAccess(List<String> uuidList, List<String> customIdsList) throws Exception;
+    List<Node> endAccess(List<String> uuidList, List<String> customIdsList) throws Exception;
 
     Node heartbeat(String pepUrl, List<String> sessionsList) throws Exception;
 
