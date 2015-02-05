@@ -17,6 +17,7 @@ import it.cnr.iit.retrail.server.dal.UconAttribute;
 import it.cnr.iit.retrail.server.dal.DAL;
 import it.cnr.iit.retrail.server.dal.UconRequest;
 import it.cnr.iit.retrail.server.dal.UconSession;
+import static it.cnr.iit.retrail.server.impl.PDPPool.log;
 import it.cnr.iit.retrail.server.pip.PIPInterface;
 import java.io.File;
 import java.io.IOException;
@@ -41,7 +42,9 @@ import org.w3c.dom.Element;
 import org.w3c.dom.Node;
 
 public class UCon extends Server implements UConInterface, UConProtocol {
-
+    private File recorderFile = null;
+    private boolean mustAppendToRecorderFile = false;
+    private boolean mustRecorderTrustAllPeers = false;
     public int maxMissedHeartbeats = 1;
 
     private static final String defaultUrlString = "http://localhost:8080";
@@ -170,6 +173,7 @@ public class UCon extends Server implements UConInterface, UConProtocol {
         }
         URL pepUrl = new URL(pepUrlString);
         UconRequest uconRequest = new UconRequest((Document) accessRequest);
+        log.debug("xacml request BEFORE enrichment: {}", DomUtils.toString(uconRequest.toElement()));
 
         // First enrich the request by calling the PIPs
         for (PIPInterface p : pip) {
@@ -315,15 +319,6 @@ public class UCon extends Server implements UConInterface, UConProtocol {
     public Node heartbeat(String pepUrl, List<String> sessionsList) throws Exception {
         log.debug("called, with url: " + pepUrl);
         return heartbeat(new URL(pepUrl), sessionsList);
-    }
-
-    private Object[] rpc(URL pepUrl, String api, List<Element> responses) throws Exception {
-        // create client
-        log.warn("invoking {} at {}", api, pepUrl);
-        Client client = new Client(pepUrl);
-        // remote call. TODO: should consider error handling
-        Object[] params = new Object[]{responses};
-        return (Object[]) client.execute(api, params);
     }
     
     private List<Element> revokeAccess(URL pepUrl, Collection<UconSession> sessions) throws Exception {
@@ -609,29 +604,57 @@ public class UCon extends Server implements UConInterface, UConProtocol {
         log.warn("UCon shutdown");
     }
 
+    private Object[] rpc(URL pepUrl, String api, List<Element> responses) throws Exception {
+        // create client
+        log.warn("invoking {} at {}", api, pepUrl);
+        Client client = new Client(pepUrl);
+        if(mustRecorderTrustAllPeers)
+            client.trustAllPeers();
+        if(recorderFile != null) {
+            if(mustAppendToRecorderFile)
+                client.continueRecording(recorderFile);
+            else  {
+                client.startRecording(recorderFile);
+                mustAppendToRecorderFile = true;
+            }
+        }
+        // remote call. TODO: should consider error handling
+        Object[] params = new Object[]{responses};
+        Object[] rv = (Object[]) client.execute(api, params);
+        if(recorderFile != null)
+            client.stopRecording();
+        return rv;
+    }
+    
     @Override
     public void startRecording(File outputFile) throws Exception {
-        throw new UnsupportedOperationException("Not supported yet."); //To change body of generated methods, choose Tools | Templates.
+        recorderFile = outputFile;
+        mustAppendToRecorderFile = false;
     }
 
     @Override
     public void continueRecording(File outputFile) throws Exception {
-        throw new UnsupportedOperationException("Not supported yet."); //To change body of generated methods, choose Tools | Templates.
+        recorderFile = outputFile;
+        mustAppendToRecorderFile = true;
     }
 
     @Override
     public boolean isRecording() {
-        throw new UnsupportedOperationException("Not supported yet."); //To change body of generated methods, choose Tools | Templates.
+        return recorderFile != null;
     }
 
     @Override
     public void stopRecording() {
-        throw new UnsupportedOperationException("Not supported yet."); //To change body of generated methods, choose Tools | Templates.
+        recorderFile = null;
+        mustAppendToRecorderFile = false;
     }
 
     @Override
     public SSLContext trustAllPeers() throws Exception {
-        throw new UnsupportedOperationException("Not supported yet."); //To change body of generated methods, choose Tools | Templates.
+        mustRecorderTrustAllPeers = true;
+        // XXX TODO just emulated by this call. So no SSL context.
+        // Should use the right ssl context.
+        return null;
     }
 
 }

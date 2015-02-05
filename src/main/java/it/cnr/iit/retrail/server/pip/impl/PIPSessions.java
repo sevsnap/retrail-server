@@ -36,7 +36,7 @@ public class PIPSessions extends PIP {
     public void onBeforeTryAccess(PepRequestInterface request) {
         log.info("Number of open sessions: " + sessions);
         PepAttributeInterface test = newSharedAttribute(id, "http://www.w3.org/2001/XMLSchema#integer", Integer.toString(sessions), "http://localhost:8080/federation-id-prov/saml", category);
-        request.add(test);
+        request.replace(test);
     }
 
     @Override
@@ -44,7 +44,7 @@ public class PIPSessions extends PIP {
         sessions++;
         log.info("Number of open sessions incremented to: " + sessions);
         PepAttributeInterface test = newSharedAttribute(id, "http://www.w3.org/2001/XMLSchema#integer", Integer.toString(sessions), "http://localhost:8080/federation-id-prov/saml", category);
-        request.add(test);
+        request.replace(test);
     }
     
     @Override
@@ -53,7 +53,7 @@ public class PIPSessions extends PIP {
             sessions--;
             log.warn("Number of open sessions decremented to {} because session status = {}", sessions, session.getStatus());
             PepAttributeInterface test = newSharedAttribute(id, "http://www.w3.org/2001/XMLSchema#integer", Integer.toString(sessions), "http://localhost:8080/federation-id-prov/saml", category);
-            request.add(test);
+            request.replace(test);
         }
         log.info("Number of open sessions: {}, status = {}", sessions, session.getStatus());
     }
@@ -64,7 +64,7 @@ public class PIPSessions extends PIP {
             sessions--;
             log.info("Number of open sessions decremented to {} because status = {}", sessions, session.getStatus());
             PepAttributeInterface test = newSharedAttribute(id, "http://www.w3.org/2001/XMLSchema#integer", Integer.toString(sessions), "http://localhost:8080/federation-id-prov/saml", category);
-            request.add(test);
+            request.replace(test);
         }
         log.info("Number of open sessions: {}, status = {}", sessions, session.getStatus());
     }

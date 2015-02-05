@@ -127,7 +127,7 @@ public final class PDPPool {
             DecimalFormat df = new DecimalFormat("#.###");
             String ms = df.format((System.nanoTime() - start) / 1.0e+6);
             accessResponse.getDocumentElement().setAttribute("ms", ms);
-            //log.info("ACCESS UCON {}", DomUtils.toString(accessResponse));
+            log.debug("xacml response {}", DomUtils.toString(accessResponse));
         } catch (Exception ex) {
             log.error("while querying balana: {}", ex);
         }
