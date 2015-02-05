@@ -6,7 +6,7 @@ package it.cnr.iit.retrail.server.impl;
 
 import it.cnr.iit.retrail.server.UConInterface;
 import it.cnr.iit.retrail.server.UConProtocol;
-import it.cnr.iit.retrail.commons.Client;
+import it.cnr.iit.retrail.commons.impl.Client;
 import it.cnr.iit.retrail.commons.DomUtils;
 import it.cnr.iit.retrail.commons.PepAttributeInterface;
 import it.cnr.iit.retrail.commons.impl.PepResponse;
@@ -18,6 +18,7 @@ import it.cnr.iit.retrail.server.dal.DAL;
 import it.cnr.iit.retrail.server.dal.UconRequest;
 import it.cnr.iit.retrail.server.dal.UconSession;
 import it.cnr.iit.retrail.server.pip.PIPInterface;
+import java.io.File;
 import java.io.IOException;
 import java.io.InputStream;
 import java.net.URISyntaxException;
@@ -30,6 +31,7 @@ import java.util.HashSet;
 import java.util.Iterator;
 import java.util.List;
 import java.util.Map;
+import javax.net.ssl.SSLContext;
 import javax.persistence.NoResultException;
 import javax.xml.transform.TransformerConfigurationException;
 import javax.xml.transform.TransformerException;
@@ -315,32 +317,45 @@ public class UCon extends Server implements UConInterface, UConProtocol {
         return heartbeat(new URL(pepUrl), sessionsList);
     }
 
+    private Object[] rpc(URL pepUrl, String api, List<Element> responses) throws Exception {
+        // create client
+        log.warn("invoking {} at {}", api, pepUrl);
+        Client client = new Client(pepUrl);
+        // remote call. TODO: should consider error handling
+        Object[] params = new Object[]{responses};
+        return (Object[]) client.execute(api, params);
+    }
+    
     private List<Element> revokeAccess(URL pepUrl, Collection<UconSession> sessions) throws Exception {
         List<Element> responses = new ArrayList<>(sessions.size());
+        Collection<UconSession> uconSessions2 = new ArrayList<>(sessions.size());
         // revoke sessions on db
-        for (UconSession session : sessions) {
+        for (UconSession uconSession : sessions) {
             long start = System.currentTimeMillis();
-            UconRequest uconRequest = rebuildUconRequest(session);
-            refreshUconRequest(uconRequest, session);
+            UconRequest uconRequest = rebuildUconRequest(uconSession);
+            refreshUconRequest(uconRequest, uconSession);
             for (PIPInterface p : pip) {
-                p.onBeforeRevokeAccess(uconRequest, session);
+                p.onBeforeRevokeAccess(uconRequest, uconSession);
             }
-            UconSession uconSession = dal.revokeSession(session);
+            UconSession uconSession2 = dal.revokeSession(uconSession);
+            uconSession.setStatus(Status.REVOKED);
+            uconSession.setMs(System.currentTimeMillis() - start);
+            Element sessionElement = uconSession.toXacml3Element();
+            responses.add(sessionElement);
+            uconSessions2.add(uconSession2);
+        }
+        // TODO: check error
+        // TODO: returned docs are currently ignored. 
+        // should use them for some back ack
+
+        rpc(pepUrl, "PEP.revokeAccess", responses);
+        for (UconSession uconSession : uconSessions2) {
+            UconRequest uconRequest = rebuildUconRequest(uconSession);
             for (PIPInterface p : pip) {
                 p.onAfterRevokeAccess(uconRequest, uconSession);
             }
             uconSession = (UconSession) dal.save(uconSession);
-            session.setStatus(Status.REVOKED);
-            session.setMs(System.currentTimeMillis() - start);
-            Element sessionElement = session.toXacml3Element();
-            responses.add(sessionElement);
-        }
-        // create client
-        log.warn("invoking PEP at " + pepUrl + " to revoke sessions");
-        Client client = new Client(pepUrl);
-        // remote call. TODO: should consider error handling
-        Object[] params = new Object[]{responses};
-        Document doc = (Document) client.execute("PEP.revokeAccess", params);
+        }   
         return responses;
     }
 
@@ -360,21 +375,17 @@ public class UCon extends Server implements UConInterface, UConProtocol {
             uconSession = (UconSession) dal.save(uconSession);
             uconSessions2.add(uconSession);
         }
-        // create client
-        log.warn("invoking PEP at " + pepUrl + " to send obligations");
-        Client client = new Client(pepUrl);
-        // remote call. TODO: should consider error handling
-        Object[] params = new Object[]{responses};
-        Object[] docs = (Object[]) client.execute("PEP.runObligations", params);
         // TODO: check error
+        // TODO: returned docs are currently ignored. 
+        // should use them for some back ack
+        rpc(pepUrl, "PEP.runObligations", responses);
         for (UconSession uconSession : uconSessions2) {
             UconRequest uconRequest = rebuildUconRequest(uconSession);
             for (PIPInterface p : pip) {
                 p.onAfterRunObligations(uconRequest, uconSession);
             }
             uconSession = (UconSession) dal.save(uconSession);
-        }
-        // TODO: docs are currently ignored. should use them for some back ack
+        }        
     }
 
     private UconRequest rebuildUconRequest(UconSession uconSession) {
@@ -596,6 +607,31 @@ public class UCon extends Server implements UConInterface, UConProtocol {
         log.warn("completing shutdown procedure for the UCon service");
         super.term();
         log.warn("UCon shutdown");
+    }
+
+    @Override
+    public void startRecording(File outputFile) throws Exception {
+        throw new UnsupportedOperationException("Not supported yet."); //To change body of generated methods, choose Tools | Templates.
+    }
+
+    @Override
+    public void continueRecording(File outputFile) throws Exception {
+        throw new UnsupportedOperationException("Not supported yet."); //To change body of generated methods, choose Tools | Templates.
+    }
+
+    @Override
+    public boolean isRecording() {
+        throw new UnsupportedOperationException("Not supported yet."); //To change body of generated methods, choose Tools | Templates.
+    }
+
+    @Override
+    public void stopRecording() {
+        throw new UnsupportedOperationException("Not supported yet."); //To change body of generated methods, choose Tools | Templates.
+    }
+
+    @Override
+    public SSLContext trustAllPeers() throws Exception {
+        throw new UnsupportedOperationException("Not supported yet."); //To change body of generated methods, choose Tools | Templates.
     }
 
 }

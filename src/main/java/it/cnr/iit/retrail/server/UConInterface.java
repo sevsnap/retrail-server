@@ -5,10 +5,9 @@
 package it.cnr.iit.retrail.server;
 
 import it.cnr.iit.retrail.commons.PepAttributeInterface;
+import it.cnr.iit.retrail.commons.RecorderInterface;
 import it.cnr.iit.retrail.server.pip.PIPInterface;
-import java.io.IOException;
 import java.io.InputStream;
-import java.net.MalformedURLException;
 import java.net.URL;
 import java.util.Collection;
 
@@ -16,7 +15,7 @@ import java.util.Collection;
  *
  * @author Enrico Carniani
  */
-public interface UConInterface {
+public interface UConInterface extends RecorderInterface {
 
     public enum PolicyEnum {
         PRE, TRYSTART, TRYEND, ON, POST
