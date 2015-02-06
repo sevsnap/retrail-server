@@ -17,7 +17,6 @@ import it.cnr.iit.retrail.server.dal.UconAttribute;
 import it.cnr.iit.retrail.server.dal.DAL;
 import it.cnr.iit.retrail.server.dal.UconRequest;
 import it.cnr.iit.retrail.server.dal.UconSession;
-import static it.cnr.iit.retrail.server.impl.PDPPool.log;
 import it.cnr.iit.retrail.server.pip.PIPInterface;
 import java.io.File;
 import java.io.IOException;
@@ -45,6 +44,7 @@ public class UCon extends Server implements UConInterface, UConProtocol {
     private File recorderFile = null;
     private boolean mustAppendToRecorderFile = false;
     private boolean mustRecorderTrustAllPeers = false;
+    private long recorderMillis = 0;
     public int maxMissedHeartbeats = 1;
 
     private static final String defaultUrlString = "http://localhost:8080";
@@ -612,7 +612,7 @@ public class UCon extends Server implements UConInterface, UConProtocol {
             client.trustAllPeers();
         if(recorderFile != null) {
             if(mustAppendToRecorderFile)
-                client.continueRecording(recorderFile);
+                client.continueRecording(recorderFile, recorderMillis);
             else  {
                 client.startRecording(recorderFile);
                 mustAppendToRecorderFile = true;
@@ -621,8 +621,10 @@ public class UCon extends Server implements UConInterface, UConProtocol {
         // remote call. TODO: should consider error handling
         Object[] params = new Object[]{responses};
         Object[] rv = (Object[]) client.execute(api, params);
-        if(recorderFile != null)
+        if(recorderFile != null) {
+            recorderMillis = client.getMillis();
             client.stopRecording();
+        }
         return rv;
     }
     
@@ -630,12 +632,14 @@ public class UCon extends Server implements UConInterface, UConProtocol {
     public void startRecording(File outputFile) throws Exception {
         recorderFile = outputFile;
         mustAppendToRecorderFile = false;
+        recorderMillis = 0;
     }
 
     @Override
-    public void continueRecording(File outputFile) throws Exception {
+    public void continueRecording(File outputFile, long millis) throws Exception {
         recorderFile = outputFile;
         mustAppendToRecorderFile = true;
+        recorderMillis = millis;
     }
 
     @Override
