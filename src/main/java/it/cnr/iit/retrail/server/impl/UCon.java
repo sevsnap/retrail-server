@@ -172,6 +172,7 @@ public class UCon extends Server implements UConInterface, UConProtocol {
             // pass
         }
         URL pepUrl = new URL(pepUrlString);
+        log.debug("xacml RAW request: {}", DomUtils.toString(accessRequest));
         UconRequest uconRequest = new UconRequest((Document) accessRequest);
         log.debug("xacml request BEFORE enrichment: {}", DomUtils.toString(uconRequest.toElement()));
 
