@@ -18,9 +18,10 @@ import java.util.Collection;
 public interface UConInterface extends RecorderInterface {
 
     public enum PolicyEnum {
+
         PRE, TRYSTART, TRYEND, ON, POST
     }
-    
+
     /**
      * init()
      *
@@ -94,32 +95,32 @@ public interface UConInterface extends RecorderInterface {
      * for thread interruption.
      */
     void term() throws InterruptedException;
-    
 
     /**
      * setPolicy()
      *
-     * changes the current policy by reading the new one from the URL.
-     * The input format must be xacml3. If the UCon service has already been
-     * started by init() and you are changing the ON policy, the current ongoing
-     * sessions are re-evaluated.
+     * changes the current policy by reading the new one from the URL. The input
+     * format must be xacml3. If the UCon service has already been started by
+     * init() and you are changing the ON policy, the current ongoing sessions
+     * are re-evaluated.
      *
      * @param p the policy to be set.
      * @param url the url containing the new policy to be set, in xacml3 format.
      * @throws java.lang.Exception
      */
     void setPolicy(PolicyEnum p, URL url) throws Exception;
-    
-        /**
+
+    /**
      * setPolicy()
      *
-     * changes the current policy by reading the new one from the stream.
-     * The input format must be xacml3. If the UCon service has already been
-     * started by init() and you are changing the ON policy, the current ongoing
+     * changes the current policy by reading the new one from the stream. The
+     * input format must be xacml3. If the UCon service has already been started
+     * by init() and you are changing the ON policy, the current ongoing
      * sessions are re-evaluated.
      *
      * @param p the policy to be set.
-     * @param stream the stream containing the new policy to be set, in xacml3 format.
+     * @param stream the stream containing the new policy to be set, in xacml3
+     * format.
      * @throws java.lang.Exception
      */
     void setPolicy(PolicyEnum p, InputStream stream) throws Exception;

@@ -19,9 +19,7 @@ import it.cnr.iit.retrail.server.dal.UconRequest;
 import it.cnr.iit.retrail.server.dal.UconSession;
 import it.cnr.iit.retrail.server.pip.PIPInterface;
 import java.io.File;
-import java.io.IOException;
 import java.io.InputStream;
-import java.net.URISyntaxException;
 import java.net.URL;
 import java.util.ArrayList;
 import java.util.Collection;
@@ -35,19 +33,18 @@ import javax.net.ssl.SSLContext;
 import javax.persistence.NoResultException;
 import javax.xml.transform.TransformerConfigurationException;
 import javax.xml.transform.TransformerException;
-import org.apache.xmlrpc.XmlRpcException;
 import org.w3c.dom.Document;
 import org.w3c.dom.Element;
 import org.w3c.dom.Node;
 
 public class UCon extends Server implements UConInterface, UConProtocol {
+
     private File recorderFile = null;
     private boolean mustAppendToRecorderFile = false;
     private boolean mustRecorderTrustAllPeers = false;
     private long recorderMillis = 0;
     public int maxMissedHeartbeats = 1;
 
-    private static final String defaultUrlString = "http://localhost:8080";
     private static final String defaultPolicyNames[] = {
         "/META-INF/default-policies/pre.xml",
         "/META-INF/default-policies/trystart.xml",
@@ -56,60 +53,14 @@ public class UCon extends Server implements UConInterface, UConProtocol {
         "/META-INF/default-policies/post.xml"
     };
 
-    private static UCon singleton;
-
     private final PDPPool pdpPool[] = new PDPPool[PolicyEnum.values().length];
-    public List<PIPInterface> pip = new ArrayList<>();
-    public Map<String, PIPInterface> pipNameToInstanceMap = new HashMap<>();
+    private List<PIPInterface> pip = new ArrayList<>();
+    private Map<String, PIPInterface> pipNameToInstanceMap = new HashMap<>();
     private final DAL dal;
     private boolean inited = false;
 
-    /**
-     *
-     * @return
-     */
-    public static UConInterface getInstance() {
-        if (singleton == null) {
-            try {
-                singleton = new UCon();
-            } catch (XmlRpcException | IOException | URISyntaxException e) {
-                log.error(e.getMessage());
-            } catch (Exception e) {
-                log.error("while creating UCon: {}", e.getMessage());
-            }
-        }
-        return singleton;
-    }
-
-    public static UConInterface getInstance(URL url) {
-        if (singleton == null) {
-            try {
-                singleton = new UCon(url);
-            } catch (XmlRpcException | IOException | URISyntaxException e) {
-                log.error(e.getMessage());
-            } catch (Exception e) {
-                log.error("while creating UCon with URL {}: {}", url, e.getMessage());
-            }
-        }
-        return singleton;
-    }
-
-    public static UConProtocol getProtocolInstance() {
-        getInstance();
-        return singleton;
-    }
-
-    private UCon(URL url) throws Exception {
+    protected UCon(URL url) throws Exception {
         super(url, UConProtocolProxy.class);
-        log.warn("loading builtin policies (permit anything)");
-        for (PolicyEnum p : PolicyEnum.values()) {
-            setPolicy(p, (URL) null);
-        }
-        dal = DAL.getInstance();
-    }
-
-    private UCon() throws Exception {
-        super(new URL(defaultUrlString), UConProtocolProxy.class);
         log.warn("loading builtin policies (permit anything)");
         for (PolicyEnum p : PolicyEnum.values()) {
             setPolicy(p, (URL) null);
@@ -321,7 +272,7 @@ public class UCon extends Server implements UConInterface, UConProtocol {
         log.debug("called, with url: " + pepUrl);
         return heartbeat(new URL(pepUrl), sessionsList);
     }
-    
+
     private List<Element> revokeAccess(URL pepUrl, Collection<UconSession> sessions) throws Exception {
         List<Element> responses = new ArrayList<>(sessions.size());
         Collection<UconSession> uconSessions2 = new ArrayList<>(sessions.size());
@@ -351,7 +302,7 @@ public class UCon extends Server implements UConInterface, UConProtocol {
                 p.onAfterRevokeAccess(uconRequest, uconSession);
             }
             uconSession = (UconSession) dal.save(uconSession);
-        }   
+        }
         return responses;
     }
 
@@ -381,7 +332,7 @@ public class UCon extends Server implements UConInterface, UConProtocol {
                 p.onAfterRunObligations(uconRequest, uconSession);
             }
             uconSession = (UconSession) dal.save(uconSession);
-        }        
+        }
     }
 
     private UconRequest rebuildUconRequest(UconSession uconSession) {
@@ -597,8 +548,8 @@ public class UCon extends Server implements UConInterface, UConProtocol {
         while (pip.size() > 0) {
             removePIP(pip.get(0));
         }
-        if (singleton == this) {
-            singleton = null;
+        if (UConFactory.singleton == this) {
+            UConFactory.singleton = null;
         }
         log.warn("completing shutdown procedure for the UCon service");
         super.term();
@@ -609,12 +560,13 @@ public class UCon extends Server implements UConInterface, UConProtocol {
         // create client
         log.warn("invoking {} at {}", api, pepUrl);
         Client client = new Client(pepUrl);
-        if(mustRecorderTrustAllPeers)
+        if (mustRecorderTrustAllPeers) {
             client.trustAllPeers();
-        if(recorderFile != null) {
-            if(mustAppendToRecorderFile)
+        }
+        if (recorderFile != null) {
+            if (mustAppendToRecorderFile) {
                 client.continueRecording(recorderFile, recorderMillis);
-            else  {
+            } else {
                 client.startRecording(recorderFile);
                 mustAppendToRecorderFile = true;
             }
@@ -622,13 +574,13 @@ public class UCon extends Server implements UConInterface, UConProtocol {
         // remote call. TODO: should consider error handling
         Object[] params = new Object[]{responses};
         Object[] rv = (Object[]) client.execute(api, params);
-        if(recorderFile != null) {
+        if (recorderFile != null) {
             recorderMillis = client.getMillis();
             client.stopRecording();
         }
         return rv;
     }
-    
+
     @Override
     public void startRecording(File outputFile) throws Exception {
         recorderFile = outputFile;

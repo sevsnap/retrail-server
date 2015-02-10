@@ -2,7 +2,6 @@
  * CNR - IIT
  * Coded by: 2014 Enrico "KMcC;) Carniani
  */
-
 package it.cnr.iit.retrail.server.dal;
 
 import it.cnr.iit.retrail.commons.Status;
@@ -23,7 +22,6 @@ import org.apache.commons.beanutils.BeanUtils;
 import org.eclipse.persistence.annotations.Index;
 import org.w3c.dom.Document;
 
-
 /**
  *
  * @author oneadmin
@@ -33,20 +31,19 @@ public class UconSession extends PepSession {
 
     //For SQLite use GenerationType.AUTO to generate rowId
     //for derby, H2, MySQL etc use GenerationType.IDENTITY
-    
     //@GeneratedValue(strategy = GenerationType.AUTO)
     //@GeneratedValue(strategy = GenerationType.IDENTITY)
     @Id
-    @GeneratedValue(generator="system-uuid")
+    @GeneratedValue(generator = "system-uuid")
     private String uuid;
-    
-    @Index(unique=true)
+
+    @Index(unique = true)
     private String customId;
-    
+
     private String pepUrl;
-    
+
     private Status status = Status.TRY;
-    
+
     @Temporal(javax.persistence.TemporalType.TIMESTAMP)
     private Date lastSeen = new Date();
 
@@ -62,7 +59,7 @@ public class UconSession extends PepSession {
     public UconSession() throws Exception {
         super();
     }
-    
+
     static public UconSession newInstance(Document e) throws Exception {
         PepSession p = new PepSession(e);
         UconSession s = new UconSession();
@@ -88,7 +85,7 @@ public class UconSession extends PepSession {
         attributes.remove(attribute);
         attribute.getSessions().remove(this);
     }
-    
+
     @Override
     public String getCustomId() {
         return customId;
@@ -147,7 +144,7 @@ public class UconSession extends PepSession {
     public void setMs(long ms) {
         this.ms = ms;
     }
-    
+
     @Override
     public void setUuid(String uuid) {
         this.uuid = uuid;
@@ -155,7 +152,7 @@ public class UconSession extends PepSession {
 
     @Override
     public boolean equals(Object o) {
-        return o instanceof UconSession && Objects.equals(((UconSession)o).uuid, uuid);
+        return o instanceof UconSession && Objects.equals(((UconSession) o).uuid, uuid);
     }
 
     @Override
@@ -168,6 +165,6 @@ public class UconSession extends PepSession {
     //this is optional, just for print out into console
     @Override
     public String toString() {
-        return "UconSession [uuid=" + uuid  + ", customId=" + customId +", status="+status+ ", pepUrl="+pepUrl+", lastSeen="+lastSeen+"]";
+        return "UconSession [uuid=" + uuid + ", customId=" + customId + ", status=" + status + ", pepUrl=" + pepUrl + ", lastSeen=" + lastSeen + "]";
     }
 }

@@ -34,7 +34,7 @@ public abstract class PIP implements PIPInterface {
     @Override
     public PepAttributeInterface newSharedAttribute(String id, String type, String value, String issuer, String category) {
         UconAttribute u = dal.getSharedAttribute(category, id);
-        if(u == null) {
+        if (u == null) {
             PepAttribute a = new PepAttribute(id, type, value, issuer, category, uuid);
             u = UconAttribute.newInstance(a);
         } else {
@@ -42,7 +42,7 @@ public abstract class PIP implements PIPInterface {
             u.setValue(value);
             u.setIssuer(issuer);
         }
-        assert(u.getFactory() != null);
+        assert (u.getFactory() != null);
         //assert(u.getRowId() != null);
         return u;
     }
@@ -50,12 +50,13 @@ public abstract class PIP implements PIPInterface {
     @Override
     public PepAttributeInterface newPrivateAttribute(String id, String type, String value, String issuer, PepAttributeInterface parent) {
         UconAttribute p = (UconAttribute) parent;
-        for(UconAttribute child: p.getChildren())
-            if(child.getId().equals(id)) {
+        for (UconAttribute child : p.getChildren()) {
+            if (child.getId().equals(id)) {
                 child.setType(type);
                 child.setValue(value);
                 child.setIssuer(issuer);
                 return child;
+            }
         }
         PepAttribute a = new PepAttribute(id, type, value, issuer, parent.getCategory(), uuid);
         UconAttribute u = UconAttribute.newInstance(a);
@@ -64,7 +65,7 @@ public abstract class PIP implements PIPInterface {
         u.setParent(p);
         return u;
     }
-    
+
     @Override
     public Collection<PepAttributeInterface> listUnmanagedAttributes() {
         return dal.listUnmanagedAttributes(uuid);

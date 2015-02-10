@@ -2,7 +2,6 @@
  *  KMcC;) Balana policy finder module able to read files from a URL.
  *  Coded by: Enrico KMcC;) Carniani for iit.cnr.it.
  */
-
 package org.wso2.balana.finder.impl;
 
 import org.w3c.dom.Document;
@@ -28,8 +27,9 @@ import org.wso2.balana.finder.PolicyFinderModule;
 import org.xml.sax.SAXException;
 
 /**
- * This is file based policy repository.  Policies can be inside the directory in a file system.
- * Then you can set directory location using "org.wso2.balana.PolicyDirectory" JAVA property   
+ * This is file based policy repository. Policies can be inside the directory in
+ * a file system. Then you can set directory location using
+ * "org.wso2.balana.PolicyDirectory" JAVA property
  */
 public abstract class AbstractStreamPolicyFinderModule extends PolicyFinderModule {
 
@@ -52,25 +52,26 @@ public abstract class AbstractStreamPolicyFinderModule extends PolicyFinderModul
         loadPolicies();
         combiningAlg = new DenyOverridesPolicyAlg();
     }
-    
+
     public abstract void loadPolicies();
 
     @Override
     public PolicyFinderResult findPolicy(EvaluationCtx context) {
-        
+
         ArrayList<AbstractPolicy> selectedPolicies = new ArrayList<>();
         Set<Map.Entry<URI, AbstractPolicy>> entrySet = policies.entrySet();
 
         // iterate through all the policies we currently have loaded
         for (Map.Entry<URI, AbstractPolicy> entry : entrySet) {
-            
+
             AbstractPolicy policy = entry.getValue();
             MatchResult match = policy.match(context);
             int result = match.getResult();
 
             // if target matching was indeterminate, then return the error
-            if (result == MatchResult.INDETERMINATE)
+            if (result == MatchResult.INDETERMINATE) {
                 return new PolicyFinderResult(match.getStatus());
+            }
 
             // see if the target matched
             if (result == MatchResult.MATCH) {
@@ -80,7 +81,7 @@ public abstract class AbstractStreamPolicyFinderModule extends PolicyFinderModul
                     ArrayList<String> code = new ArrayList<>();
                     code.add(Status.STATUS_PROCESSING_ERROR);
                     Status status = new Status(code, "too many applicable "
-                                               + "top-level policies");
+                            + "top-level policies");
                     return new PolicyFinderResult(status);
                 }
 
@@ -92,30 +93,30 @@ public abstract class AbstractStreamPolicyFinderModule extends PolicyFinderModul
         // no errors happened during the search, so now take the right
         // action based on how many policies we found
         switch (selectedPolicies.size()) {
-        case 0:
-            if(log.isDebugEnabled()){
-                log.debug("No matching XACML policy found");
-            }
-            return new PolicyFinderResult();
-        case 1:
-             return new PolicyFinderResult((selectedPolicies.get(0)));
-        default:
-            return new PolicyFinderResult(new PolicySet(null, combiningAlg, null, selectedPolicies));
+            case 0:
+                if (log.isDebugEnabled()) {
+                    log.debug("No matching XACML policy found");
+                }
+                return new PolicyFinderResult();
+            case 1:
+                return new PolicyFinderResult((selectedPolicies.get(0)));
+            default:
+                return new PolicyFinderResult(new PolicySet(null, combiningAlg, null, selectedPolicies));
         }
     }
 
     @Override
-    public PolicyFinderResult findPolicy(URI idReference, int type, VersionConstraints constraints, 
-                                         PolicyMetaData parentMetaData) {
+    public PolicyFinderResult findPolicy(URI idReference, int type, VersionConstraints constraints,
+            PolicyMetaData parentMetaData) {
 
         AbstractPolicy policy = policies.get(idReference);
-        if(policy != null){
+        if (policy != null) {
             if (type == PolicyReference.POLICY_REFERENCE) {
-                if (policy instanceof Policy){
+                if (policy instanceof Policy) {
                     return new PolicyFinderResult(policy);
                 }
             } else {
-                if (policy instanceof PolicySet){
+                if (policy instanceof PolicySet) {
                     return new PolicyFinderResult(policy);
                 }
             }
@@ -125,7 +126,7 @@ public abstract class AbstractStreamPolicyFinderModule extends PolicyFinderModul
         ArrayList<String> code = new ArrayList<>();
         code.add(Status.STATUS_PROCESSING_ERROR);
         Status status = new Status(code,
-                                   "couldn't load referenced policy");
+                "couldn't load referenced policy");
         return new PolicyFinderResult(status);
     }
 
@@ -176,7 +177,7 @@ public abstract class AbstractStreamPolicyFinderModule extends PolicyFinderModul
             // just only logs
             log.error("Failed to load policy : {}" + e.getMessage());
         } finally {
-            if(stream != null){
+            if (stream != null) {
                 try {
                     stream.close();
                 } catch (IOException e) {
@@ -185,11 +186,11 @@ public abstract class AbstractStreamPolicyFinderModule extends PolicyFinderModul
             }
         }
 
-        if(policy != null){
+        if (policy != null) {
             policies.put(policy.getId(), policy);
         }
 
         return policy;
     }
-    
+
 }

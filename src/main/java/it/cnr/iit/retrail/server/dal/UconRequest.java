@@ -15,27 +15,27 @@ import org.w3c.dom.Element;
  * @author oneadmin
  */
 public class UconRequest extends PepRequest {
- 
+
     public UconRequest(Document doc) {
         super(doc);
     }
-    
+
     public UconRequest() {
         super();
     }
 
     @Override
     public boolean add(PepAttributeInterface a) {
-        assert(a instanceof UconAttribute);
+        assert (a instanceof UconAttribute);
         return super.add(a);
     }
-    
+
     @Override
     protected PepAttributeInterface newAttribute(Element e) {
         PepAttribute a = new PepAttribute(e);
         return UconAttribute.newInstance(a);
     }
-    
+
     @Override
     protected PepAttributeInterface newAttribute(String id, String type, String value, String issuer, String category, String factory) {
         PepAttribute tmp = new PepAttribute(id, type, value, issuer, category, factory);
@@ -43,5 +43,5 @@ public class UconRequest extends PepRequest {
         a.copy(tmp);
         return a;
     }
-    
+
 }

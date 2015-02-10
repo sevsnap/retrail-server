@@ -2,7 +2,6 @@
  * CNR - IIT
  * Coded by: 2014 Enrico "KMcC;) Carniani
  */
-
 package it.cnr.iit.retrail.server.dal;
 
 import it.cnr.iit.retrail.commons.PepAttributeInterface;
@@ -19,40 +18,38 @@ import javax.persistence.OneToMany;
 import javax.persistence.Temporal;
 import org.eclipse.persistence.annotations.Index;
 
-
 /**
  *
  * @author oneadmin
  */
-
 @Entity
 public class UconAttribute implements PepAttributeInterface {
 
-	//For SQLite use GenerationType.AUTO to generate id
+    //For SQLite use GenerationType.AUTO to generate id
     //for derby, H2, MySQL etc use GenerationType.IDENTITY
     @Id
     //@GeneratedValue(strategy = GenerationType.AUTO)
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long rowId;
-    @ManyToMany(mappedBy="attributes")
+    @ManyToMany(mappedBy = "attributes")
     private final Collection<UconSession> sessions = new ArrayList<>();
 
     @ManyToOne
     private UconAttribute parent;
 
-    @OneToMany(mappedBy="parent")//, cascade = {CascadeType.PERSIST,CascadeType.MERGE})
+    @OneToMany(mappedBy = "parent")//, cascade = {CascadeType.PERSIST,CascadeType.MERGE})
     private final Collection<UconAttribute> children = new ArrayList<>();
 
     @Index
     private String id;
     @Index
     private String category;
-    
+
     private String type, value, issuer;
-    
+
     @Temporal(javax.persistence.TemporalType.TIMESTAMP)
     private Date expires;
-    
+
     @Index
     private String factory;
 
@@ -71,17 +68,17 @@ public class UconAttribute implements PepAttributeInterface {
     protected UconAttribute() {
         super();
     }
-    
+
     public void copy(PepAttributeInterface pepAttribute) {
         id = pepAttribute.getId();
         type = pepAttribute.getType();
         value = pepAttribute.getValue();
         issuer = pepAttribute.getIssuer();
         category = pepAttribute.getCategory();
-        expires = pepAttribute.getExpires();        
+        expires = pepAttribute.getExpires();
         factory = pepAttribute.getFactory();
     }
-    
+
     public Collection<UconSession> getSessions() {
         return sessions;
     }
@@ -154,42 +151,46 @@ public class UconAttribute implements PepAttributeInterface {
     public void setFactory(String factory) {
         this.factory = factory;
     }
-    
+
     public UconAttribute getParent() {
         return parent;
     }
-    
+
     public void setParent(UconAttribute parent) {
-        if(this.parent != null)
+        if (this.parent != null) {
             this.parent.children.remove(this);
-        if(parent != null) {
+        }
+        if (parent != null) {
             this.parent = parent;
             parent.children.add(this);
-        } else this.parent = null;
+        } else {
+            this.parent = null;
+        }
     }
 
     public Collection<UconAttribute> getChildren() {
         return children;
     }
-    
+
     //this is optional, just for print out into console
     @Override
     public String toString() {
-        String s = getClass().getSimpleName()+" [rowId="+rowId+", id=" + id + "; value=" + value +", #sessions="+getSessions().size()+", #children="+getChildren().size()+ ", factory="+factory+"]";
-        if(getParent() != null)
-            s += " *** with parent: "+getParent().toString();
-       return s;
+        String s = getClass().getSimpleName() + " [rowId=" + rowId + ", id=" + id + "; value=" + value + ", #sessions=" + getSessions().size() + ", #children=" + getChildren().size() + ", factory=" + factory + "]";
+        if (getParent() != null) {
+            s += " *** with parent: " + getParent().toString();
+        }
+        return s;
     }
-    
+
     @Override
     public boolean equals(Object o) {
-        if(!(o instanceof UconAttribute))
+        if (!(o instanceof UconAttribute)) {
             return false;
-        if(rowId == null || ((UconAttribute)o).rowId == null) {
-            throw new RuntimeException("cannot compare "+this+" to "+o+" since they have no rowId");
         }
-        return ((UconAttribute)o).rowId.equals(rowId);
+        if (rowId == null || ((UconAttribute) o).rowId == null) {
+            throw new RuntimeException("cannot compare " + this + " to " + o + " since they have no rowId");
+        }
+        return ((UconAttribute) o).rowId.equals(rowId);
     }
-    
 
 }

@@ -41,6 +41,7 @@ import org.wso2.balana.finder.impl.URLBasedPolicyFinderModule;
  * @author oneadmin
  */
 public final class PDPPool {
+
     protected static final Logger log = LoggerFactory.getLogger(PDPPool.class);
     protected static final int maxPoolSize = 10;
     final private URL policyURL;
@@ -57,7 +58,7 @@ public final class PDPPool {
         // Allocate one PDP at least, in order to perform policy syntax checking on start.
         returnPDP(obtainPDP());
     }
-    
+
     public PDPPool(InputStream stream) throws IOException {
         log.debug("reading policy from stream");
         policyString = new Scanner(stream).useDelimiter("\\A").next();
@@ -67,7 +68,7 @@ public final class PDPPool {
         // Allocate one PDP at least, in order to perform policy syntax checking on start.
         returnPDP(obtainPDP());
     }
-    
+
     private PDP newPDP(PolicyFinderModule module) {
         PolicyFinder policyFinder = new PolicyFinder();
         Set<PolicyFinderModule> policyFinderModules = new HashSet<>();
@@ -90,31 +91,37 @@ public final class PDPPool {
         URLBasedPolicyFinderModule URLBasedPolicyFinderModule = new URLBasedPolicyFinderModule(locationSet);
         return newPDP(URLBasedPolicyFinderModule);
     }
-    
+
     private PDP newPDP(InputStream stream) {
         StreamBasedPolicyFinderModule streamBasedPolicyFinderModule = new StreamBasedPolicyFinderModule(stream);
         return newPDP(streamBasedPolicyFinderModule);
     }
-    
+
     private synchronized PDP obtainPDP() {
         PDP pdp = null;
-        if(available.isEmpty()) {
-            if(policyURL == null) {
-               InputStream stream = new ByteArrayInputStream(policyString.getBytes());
-               pdp = newPDP(stream);
-            } else pdp = newPDP(policyURL);
-        } else pdp = available.removeFirst();
+        if (available.isEmpty()) {
+            if (policyURL == null) {
+                InputStream stream = new ByteArrayInputStream(policyString.getBytes());
+                pdp = newPDP(stream);
+            } else {
+                pdp = newPDP(policyURL);
+            }
+        } else {
+            pdp = available.removeFirst();
+        }
         busy.add(pdp);
-        if(busy.size() > maxPoolSize)
+        if (busy.size() > maxPoolSize) {
             log.warn("running PDPs > {}, consider enlarging PDPPool.maxPoolSize value (policy URL: {})", maxPoolSize, policyURL);
+        }
         return pdp;
     }
-    
+
     private synchronized void returnPDP(PDP pdp) {
-        if(busy.remove(pdp) && available.size() < maxPoolSize)
+        if (busy.remove(pdp) && available.size() < maxPoolSize) {
             available.add(pdp);
+        }
     }
-    
+
     private Document access(PepRequest accessRequest, PDP p) {
         Document accessResponse = null;
         long start = System.nanoTime();
@@ -145,5 +152,4 @@ public final class PDPPool {
         return doc;
     }
 
-    
 }

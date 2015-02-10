@@ -21,6 +21,7 @@ import javax.persistence.TypedQuery;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.eclipse.persistence.config.PersistenceUnitProperties;
+
 /**
  *
  * @author oneadmin
@@ -47,8 +48,8 @@ public class DAL implements DALInterface {
 
     public static DAL getInstance() {
         if (instance == null) {
-            if(factory == null) {
-                Map<String,String> properties = new HashMap<>();
+            if (factory == null) {
+                Map<String, String> properties = new HashMap<>();
                 properties.put(PersistenceUnitProperties.DDL_GENERATION_MODE, "database");
                 properties.put(PersistenceUnitProperties.SESSION_CUSTOMIZER, UUIDSequence.class.getCanonicalName());
                 factory = Persistence.createEntityManagerFactory(PERSISTENCE_UNIT_NAME, properties);
@@ -83,7 +84,7 @@ public class DAL implements DALInterface {
 
     private DAL() {
         log.info("creating Data Access Layer");
-        
+
         this.entityManager = new ThreadLocal() {
             @Override
             protected synchronized Object initialValue() {
@@ -210,7 +211,7 @@ public class DAL implements DALInterface {
             if (uconSession.getCustomId() == null || uconSession.getCustomId().length() == 0) {
                 uconSession.setCustomId(uconSession.getUuid());
                 uconSession = em.merge(uconSession);
-                
+
             }
             em.getTransaction().commit();
         } catch (Exception e) {
@@ -245,10 +246,11 @@ public class DAL implements DALInterface {
             for (UconAttribute uconAttribute : rootsFirst) {
                 if (uconAttribute.getRowId() == null) {
                     em.persist(uconAttribute);
-                } 
+                }
                 int index = 0;
-                while(uconAttribute != uconRequest.get(index)) 
+                while (uconAttribute != uconRequest.get(index)) {
                     index++;
+                }
                 uconAttribute = em.merge(uconAttribute);
                 uconRequest.set(index, uconAttribute);
 
