@@ -344,7 +344,7 @@ public class UCon extends Server implements UConInterface, UConProtocol {
         return accessRequest;
     }
 
-    private void refreshUconRequest(UconRequest accessRequest, UconSession session) {
+    private void refreshUconRequest(UconRequest accessRequest, UconSession session) throws Exception {
         // TODO: should call only pips for changed attributes
         log.debug("refreshing request attributes");
 
@@ -361,7 +361,7 @@ public class UCon extends Server implements UConInterface, UConProtocol {
         Element responses = doc.createElement("Responses");
         heartbeat.appendChild(responses);
         Element config = doc.createElement("Config");
-        config.setAttribute("watchdogPeriod", Integer.toString(watchdogPeriod));
+        config.setAttribute("watchdogPeriod", Integer.toString(getWatchdogPeriod()));
         config.setAttribute("maxMissedHeartbeats", Integer.toString(maxMissedHeartbeats));
         heartbeat.appendChild(config);
         Date now = new Date();
@@ -410,7 +410,7 @@ public class UCon extends Server implements UConInterface, UConProtocol {
                 log.debug("involved session: {}", involvedSession);
                 // Rebuild PEP request without expired attributes 
                 UconRequest uconRequest = rebuildUconRequest(involvedSession);
-                // refresh the request the ren-evaluate.
+                // refresh the request then re-evaluate.
                 refreshUconRequest(uconRequest, involvedSession);
                 // Now make PDP evaluate the request
                 log.debug("evaluating request");
@@ -484,7 +484,7 @@ public class UCon extends Server implements UConInterface, UConProtocol {
     protected void watchdog() {
         // List all sessions that were not heartbeaten since at least maxMissedHeartbeats+1 periods
         Date now = new Date();
-        Date lastSeenBefore = new Date(now.getTime() - 1000 * (maxMissedHeartbeats + 1) * watchdogPeriod);
+        Date lastSeenBefore = new Date(now.getTime() - 1000 * (maxMissedHeartbeats + 1) * getWatchdogPeriod());
         Collection<UconSession> expiredSessions = dal.listSessions(lastSeenBefore);
         // Remove them
         for (UconSession expiredSession : expiredSessions) {
@@ -511,11 +511,11 @@ public class UCon extends Server implements UConInterface, UConProtocol {
     public synchronized void addPIP(PIPInterface p) {
         String uuid = p.getUUID();
         if (!pipNameToInstanceMap.containsKey(uuid)) {
-            p.init();
+            p.init(this);
             pipNameToInstanceMap.put(uuid, p);
             pip.add(p);
         } else {
-            log.warn("{} already in filter chain -- ignoring", p);
+            throw new RuntimeException("already in filter chain: "+ p);
         }
     }
 
@@ -548,11 +548,9 @@ public class UCon extends Server implements UConInterface, UConProtocol {
         while (pip.size() > 0) {
             removePIP(pip.get(0));
         }
-        if (UConFactory.singleton == this) {
-            UConFactory.singleton = null;
-        }
         log.warn("completing shutdown procedure for the UCon service");
         super.term();
+        UConFactory.releaseInstance(this);
         log.warn("UCon shutdown");
     }
 

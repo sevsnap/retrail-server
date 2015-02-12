@@ -8,6 +8,7 @@ import it.cnr.iit.retrail.commons.PepAttributeInterface;
 import it.cnr.iit.retrail.commons.PepRequestInterface;
 import it.cnr.iit.retrail.commons.PepSessionInterface;
 import it.cnr.iit.retrail.commons.Status;
+import it.cnr.iit.retrail.server.UConInterface;
 import org.slf4j.LoggerFactory;
 
 /**
@@ -25,6 +26,14 @@ public class PIPSessions extends PIP {
     public PIPSessions() {
         super();
         this.log = LoggerFactory.getLogger(PIPSessions.class);
+    }
+
+    @Override
+    public void init(UConInterface ucon) {
+        super.init(ucon);
+        sessions = 
+                dal.listSessions(Status.ONGOING).size()+
+                dal.listSessions(Status.REVOKED).size();
     }
 
     public int getSessions() {
@@ -50,6 +59,7 @@ public class PIPSessions extends PIP {
     public void onAfterStartAccess(PepRequestInterface request, PepSessionInterface session) {
         if (session.getStatus() != Status.ONGOING) {
             sessions--;
+            assert (sessions >= 0);
             log.warn("Number of open sessions decremented to {} because session status = {}", sessions, session.getStatus());
             PepAttributeInterface test = newSharedAttribute(id, "http://www.w3.org/2001/XMLSchema#integer", Integer.toString(sessions), "http://localhost:8080/federation-id-prov/saml", category);
             request.replace(test);
@@ -62,6 +72,7 @@ public class PIPSessions extends PIP {
         if (session.getStatus() != Status.TRY) {
             sessions--;
             log.info("Number of open sessions decremented to {} because status = {}", sessions, session.getStatus());
+            assert (sessions >= 0);
             PepAttributeInterface test = newSharedAttribute(id, "http://www.w3.org/2001/XMLSchema#integer", Integer.toString(sessions), "http://localhost:8080/federation-id-prov/saml", category);
             request.replace(test);
         }

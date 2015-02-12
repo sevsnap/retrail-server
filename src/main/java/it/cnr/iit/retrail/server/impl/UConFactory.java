@@ -8,6 +8,7 @@ import it.cnr.iit.retrail.server.UConProtocol;
 import java.net.URL;
 import java.util.HashMap;
 import java.util.Map;
+import org.slf4j.LoggerFactory;
 
 /**
  *
@@ -15,12 +16,14 @@ import java.util.Map;
  */
 public class UConFactory {
     public static final String defaultUrlString = "http://localhost:8080";
+    static final org.slf4j.Logger log = LoggerFactory.getLogger(UConFactory.class);
     protected static Map<String,UCon> uconMap = new HashMap<>();
-    protected static UConProtocol singleton;
+    private static UConProtocol singleton = null;
     
     static public synchronized UCon getInstance(URL url) throws Exception {
         UCon ucon = uconMap.get(url.toString());
         if(ucon == null) {
+            log.warn("creating new UCon for URL: {}", url);
             switch(url.getProtocol()) {
                 case "http":
                     ucon = new UCon(url);
@@ -38,14 +41,22 @@ public class UConFactory {
         return ucon;
     }
        
+    static public synchronized void releaseInstance(UCon ucon) {
+        if(singleton == ucon) {
+             log.info("singleton instance set to null");
+            singleton = null;
+        }
+        uconMap.remove(ucon.myUrl.toString());
+    }
+    
     static public synchronized UCon getInstance() throws Exception {
         return getInstance(new URL(defaultUrlString));
     }
 
     @Deprecated
-    public static synchronized UConProtocol getProtocolInstance() throws Exception {
+    public static UConProtocol getProtocolInstance() throws Exception {
         if(singleton == null)
-            getInstance();
+            log.warn("singleton instance is null!");
         return singleton;
     }
 }

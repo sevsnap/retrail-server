@@ -8,6 +8,7 @@ import it.cnr.iit.retrail.commons.PepAttributeInterface;
 import it.cnr.iit.retrail.commons.PepRequestInterface;
 import it.cnr.iit.retrail.commons.PepSessionInterface;
 import it.cnr.iit.retrail.commons.impl.PepAttribute;
+import it.cnr.iit.retrail.server.UConInterface;
 import it.cnr.iit.retrail.server.dal.UconAttribute;
 import it.cnr.iit.retrail.server.dal.DAL;
 import it.cnr.iit.retrail.server.pip.PIPInterface;
@@ -24,11 +25,14 @@ public abstract class PIP implements PIPInterface {
 
     protected Logger log = LoggerFactory.getLogger(PIP.class);
     protected static final DAL dal = DAL.getInstance();
+    protected UConInterface ucon;
+    
     private final String uuid = getUUID();
 
     @Override
-    public void init() {
+    public void init(UConInterface ucon) {
         log.info("initializing {}", this);
+        this.ucon = ucon;
     }
 
     @Override
@@ -144,6 +148,10 @@ public abstract class PIP implements PIPInterface {
     @Override
     public String getUUID() {
         return getClass().getCanonicalName();
+    }
+    
+    public UConInterface getUCon() {
+        return ucon;
     }
 
     @Override

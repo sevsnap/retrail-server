@@ -5,6 +5,8 @@
 package it.cnr.iit.retrail.server.pip.impl;
 
 import it.cnr.iit.retrail.commons.PepAttributeInterface;
+import it.cnr.iit.retrail.server.UConInterface;
+import it.cnr.iit.retrail.server.impl.UCon;
 import it.cnr.iit.retrail.server.impl.UConFactory;
 import java.util.Collection;
 
@@ -17,8 +19,8 @@ public abstract class StandAlonePIP extends PIP implements Runnable {
     private Thread thread;
 
     @Override
-    public void init() {
-        super.init();
+    public void init(UConInterface ucon) {
+        super.init(ucon);
         thread = new Thread(this);
         thread.setName(getUUID());
         log.info("starting standalone thread " + thread);
@@ -26,13 +28,12 @@ public abstract class StandAlonePIP extends PIP implements Runnable {
     }
 
     protected void notifyChanges(Collection<PepAttributeInterface> changedAttributes) throws Exception {
-        // FIXME should not use singleton instance!
-        UConFactory.getInstance().notifyChanges(changedAttributes);
+        ucon.notifyChanges(changedAttributes);
     }
 
     protected void notifyChanges(PepAttributeInterface changedAttribute) throws Exception {
         // FIXME should not use singleton instance!
-        UConFactory.getInstance().notifyChanges(changedAttribute);
+        ucon.notifyChanges(changedAttribute);
     }
 
     @Override

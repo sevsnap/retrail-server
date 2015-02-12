@@ -24,6 +24,7 @@ import org.w3c.dom.Document;
 import org.w3c.dom.Element;
 import org.wso2.balana.PDP;
 import org.wso2.balana.PDPConfig;
+import org.wso2.balana.XACMLConstants;
 import org.wso2.balana.ctx.AbstractRequestCtx;
 import org.wso2.balana.ctx.RequestCtxFactory;
 import org.wso2.balana.ctx.ResponseCtx;
@@ -127,12 +128,14 @@ public final class PDPPool {
         long start = System.nanoTime();
         try {
             Element xacmlRequest = accessRequest.toElement();
+            log.debug("xacml request {}", DomUtils.toString(xacmlRequest));
             AbstractRequestCtx request = RequestCtxFactory.getFactory().getRequestCtx(xacmlRequest);
             ResponseCtx response = p.evaluate(request);
             String responseString = response.encode();
             accessResponse = DomUtils.read(responseString);
             DecimalFormat df = new DecimalFormat("#.###");
             String ms = df.format((System.nanoTime() - start) / 1.0e+6);
+            accessResponse.getDocumentElement().setAttribute("xmlns", XACMLConstants.XACML_3_0_IDENTIFIER);
             accessResponse.getDocumentElement().setAttribute("ms", ms);
             log.debug("xacml response {}", DomUtils.toString(accessResponse));
         } catch (Exception ex) {

@@ -7,6 +7,7 @@ package it.cnr.iit.retrail.server.pip;
 import it.cnr.iit.retrail.commons.PepRequestInterface;
 import it.cnr.iit.retrail.commons.PepAttributeInterface;
 import it.cnr.iit.retrail.commons.PepSessionInterface;
+import it.cnr.iit.retrail.server.UConInterface;
 import java.util.Collection;
 
 /**
@@ -33,8 +34,9 @@ public interface PIPInterface {
      * is called each time the PIP is inserted in a chain, so it is very
      * important that an init()-term() call leaves the PIP in a consistent and
      * recyclable environment. The default implementation does nothing.
+     * @param uconInterface the ucon this pip belongs to.
      */
-    void init();
+    void init(UConInterface uconInterface);
 
     /**
      * onBeforeTryAccess()
@@ -235,8 +237,9 @@ public interface PIPInterface {
      *
      * @param accessRequest the request whose attributes are to be refreshed.
      * @param session the session related to the request.
+     * @throws java.lang.Exception
      */
-    void refresh(PepRequestInterface accessRequest, PepSessionInterface session);
+    void refresh(PepRequestInterface accessRequest, PepSessionInterface session) throws Exception;
 
     /**
      * term()

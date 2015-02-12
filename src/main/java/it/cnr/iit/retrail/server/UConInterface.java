@@ -125,4 +125,7 @@ public interface UConInterface extends RecorderInterface {
      */
     void setPolicy(PolicyEnum p, InputStream stream) throws Exception;
 
+    
+    void setWatchdogPeriod(int watchdogPeriod);
+    int getWatchdogPeriod();
 }
