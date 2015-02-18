@@ -6,6 +6,7 @@ package it.cnr.iit.retrail.server.dal;
 
 import it.cnr.iit.retrail.commons.PepAttributeInterface;
 import it.cnr.iit.retrail.commons.Status;
+import it.cnr.iit.retrail.commons.impl.PepAttribute;
 import java.net.URL;
 import java.util.ArrayList;
 import java.util.Collection;
@@ -167,6 +168,18 @@ public class DAL implements DALInterface {
         TypedQuery<UconAttribute> q = em.createQuery(
                 "select a from UconAttribute a",
                 UconAttribute.class);
+        Collection<UconAttribute> attributes = q.getResultList();
+        return attributes;
+    }
+
+    @Override
+    public Collection<UconAttribute> listAttributes(String category, String id) {
+        EntityManager em = getEntityManager();
+        TypedQuery<UconAttribute> q = em.createQuery(
+                "select a from UconAttribute a where a.category = :category and a.id = :id",
+                UconAttribute.class)
+                .setParameter("category", category)
+                .setParameter("id", id);
         Collection<UconAttribute> attributes = q.getResultList();
         return attributes;
     }
@@ -407,4 +420,39 @@ public class DAL implements DALInterface {
         // warning: returned object returned has transients reset.
         return o;
     }
+    
+    @Override
+    public UconAttribute newPrivateAttribute(String id, String type, String value, String issuer, UconAttribute parent, String uuid) {
+        for (UconAttribute child : parent.getChildren()) {
+            if (child.getId().equals(id)) {
+                child.setType(type);
+                child.setValue(value);
+                child.setIssuer(issuer);
+                return child;
+            }
+        }
+        PepAttribute a = new PepAttribute(id, type, value, issuer, parent.getCategory(), uuid);
+        UconAttribute u = UconAttribute.newInstance(a);
+        u = (UconAttribute) save(u);
+        // DON'T SAVE ME!
+        u.setParent(parent);
+        return u;
+    }
+    
+    @Override
+    public UconAttribute newSharedAttribute(String id, String type, String value, String issuer, String category, String uuid) {
+        UconAttribute u = getSharedAttribute(category, id);
+        if (u == null) {
+            PepAttribute a = new PepAttribute(id, type, value, issuer, category, uuid);
+            u = UconAttribute.newInstance(a);
+        } else {
+            u.setType(type);
+            u.setValue(value);
+            u.setIssuer(issuer);
+        }
+        assert (u.getFactory() != null);
+        //assert(u.getRowId() != null);
+        return u;
+    }
+
 }

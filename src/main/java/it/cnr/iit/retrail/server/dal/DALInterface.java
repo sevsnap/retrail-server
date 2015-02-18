@@ -15,21 +15,26 @@ import java.util.Date;
  * @author oneadmin
  */
 public interface DALInterface {
+    UconAttribute newPrivateAttribute(String id, String type, String value, String issuer, UconAttribute parent, String uuid);
 
-    UconSession endSession(UconSession uconSession);
+    UconAttribute newSharedAttribute(String id, String type, String value, String issuer, String category, String uuid);
 
     UconAttribute getSharedAttribute(String category, String id);
-
-    UconSession getSession(String uuid, URL uconUrl);
-
-    @Deprecated
-    UconSession getSessionByCustomId(String customId);
 
     Collection<UconAttribute> listAttributes(URL pepUrl);
 
     Collection<UconAttribute> listAttributes();
 
+    Collection<UconAttribute> listAttributes(String category, String id);
+
     Collection<PepAttributeInterface> listManagedAttributes(String factory);
+
+    Collection<PepAttributeInterface> listUnmanagedAttributes(String factory);
+
+    void removeAttributesByFactory(String factory);
+
+    @Deprecated
+    UconSession getSessionByCustomId(String customId);
 
     Collection<UconSession> listOutdatedSessions();
 
@@ -41,10 +46,6 @@ public interface DALInterface {
 
     Collection<UconSession> listSessions(URL pepUrl);
 
-    Collection<PepAttributeInterface> listUnmanagedAttributes(String factory);
-
-    void removeAttributesByFactory(String factory);
-
     UconSession revokeSession(UconSession uconSession);
 
     Object save(Object o);
@@ -52,5 +53,9 @@ public interface DALInterface {
     UconSession saveSession(UconSession uconSession, UconRequest uconRequest);
 
     UconSession startSession(UconSession uconSession, UconRequest uconRequest) throws Exception;
+
+    UconSession endSession(UconSession uconSession);
+
+    UconSession getSession(String uuid, URL uconUrl);
 
 }
