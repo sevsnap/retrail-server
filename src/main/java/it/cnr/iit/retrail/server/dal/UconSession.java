@@ -122,6 +122,10 @@ public class UconSession extends PepSession {
         this.status = status;
     }
 
+    public void setStatus(String statusString) { // FIXME
+        this.status = Status.valueOf(statusString);
+    }
+
     @Override
     public String getUuid() {
         return uuid;
@@ -137,10 +141,12 @@ public class UconSession extends PepSession {
         this.uconUrl = uconUrl;
     }
 
+    @Override
     public long getMs() {
         return ms;
     }
 
+    @Override
     public void setMs(long ms) {
         this.ms = ms;
     }

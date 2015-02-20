@@ -86,6 +86,24 @@ public class PIPChain extends ArrayList<PIPInterface> implements PIPChainInterfa
     }
     
     @Override
+    public void fireBeforeActionEvent(Event e) {
+        lockIfNeeded();
+        for(PIPInterface p: this)
+            p.fireBeforeActionEvent(e);
+    }
+    
+    @Override
+    public void fireAfterActionEvent(Event e) {
+        try {
+                    for(PIPInterface p: this)
+                        p.fireAfterActionEvent(e);
+                }
+                finally {
+                    unlockIfNeeded();
+                }
+    }
+
+    @Override
     public void fireEvent(Event e) {
         switch(e.type) {
             case beforeTryAccess:
@@ -93,6 +111,7 @@ public class PIPChain extends ArrayList<PIPInterface> implements PIPChainInterfa
             case beforeRunObligations:
             case beforeRevokeAccess:
             case beforeEndAccess:
+            case beforeApplyChanges:
                 lockIfNeeded();
                 for(PIPInterface p: this)
                     p.fireEvent(e);
@@ -102,6 +121,7 @@ public class PIPChain extends ArrayList<PIPInterface> implements PIPChainInterfa
             case afterRunObligations:
             case afterRevokeAccess:
             case afterEndAccess:
+            case afterApplyChanges:
                 try {
                     for(PIPInterface p: this)
                         p.fireEvent(e);

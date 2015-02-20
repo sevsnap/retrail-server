@@ -36,6 +36,8 @@ import java.util.HashSet;
 import java.util.Iterator;
 import java.util.List;
 import java.util.Map;
+import java.util.logging.Level;
+import java.util.logging.Logger;
 import javax.net.ssl.SSLContext;
 import javax.persistence.NoResultException;
 import javax.xml.transform.TransformerConfigurationException;
@@ -62,9 +64,9 @@ public class UCon extends Server implements UConInterface, UConProtocol {
     };
 
     private final PDPPool pdpPool[] = new PDPPool[PolicyEnum.values().length];
-    private final PIPChainInterface pipChain = new PIPChain();
-    private final DAL dal;
-    private boolean inited = false;
+    protected final PIPChainInterface pipChain = new PIPChain();
+    protected final DAL dal;
+    protected boolean inited = false;
 
     protected UCon(URL url) throws Exception {
         super(url, UConProtocolProxy.class);
@@ -116,12 +118,12 @@ public class UCon extends Server implements UConInterface, UConProtocol {
     public Node echo(Node node) throws TransformerConfigurationException, TransformerException {
         return node;
     }
-    
+
     @Override
     public Node tryAccess(Node accessRequest, String pepUrlString) throws Exception {
         return tryAccess(accessRequest, pepUrlString, null);
     }
-    
+
     @Override
     public Node tryAccess(Node accessRequest, String pepUrlString, String customId) throws Exception {
         log.info("pepUrl={}, customId={}", pepUrlString, customId);
@@ -163,7 +165,7 @@ public class UCon extends Server implements UConInterface, UConProtocol {
         session.setMs(System.currentTimeMillis() - start);
         return session.toXacml3Element();
     }
-    
+
     @Override
     public Node assignCustomId(String uuid, String oldCustomId, String newCustomId) throws Exception {
         log.info("uuid={}, oldCustomId={}, newCustomId={}", uuid, oldCustomId, newCustomId);
@@ -177,8 +179,8 @@ public class UCon extends Server implements UConInterface, UConProtocol {
         dal.save(uconSession);
         uconSession.setMessage("new customId assigned");
         return uconSession.toXacml3Element();
-    }    
-    
+    }
+
     @Override
     public Node startAccess(String uuid) throws Exception {
         return startAccess(uuid, null);
@@ -222,7 +224,7 @@ public class UCon extends Server implements UConInterface, UConProtocol {
     public Node endAccess(String uuid) throws Exception {
         return endAccess(uuid, null);
     }
-    
+
     @Override
     public Node endAccess(String uuid, String customId) throws Exception {
         log.info("uuid={}, customId={}", uuid, customId);
@@ -342,7 +344,7 @@ public class UCon extends Server implements UConInterface, UConProtocol {
         }
     }
 
-    private UconRequest rebuildUconRequest(UconSession uconSession) {
+    protected UconRequest rebuildUconRequest(UconSession uconSession) {
         log.debug("" + uconSession);
         UconRequest accessRequest = new UconRequest();
         for (UconAttribute a : uconSession.getAttributes()) {
@@ -400,7 +402,7 @@ public class UCon extends Server implements UConInterface, UConProtocol {
         return doc;
     }
 
-    private void reevaluateSessions(Collection<UconSession> involvedSessions) throws Exception {
+    protected void reevaluateSessions(Collection<UconSession> involvedSessions) throws Exception {
         Map<URL, Collection<UconSession>> revokedSessionsMap = new HashMap<>(involvedSessions.size());
         Map<URL, Collection<UconSession>> obligationSessionsMap = new HashMap<>(involvedSessions.size());
         for (UconSession involvedSession : involvedSessions) {
@@ -461,7 +463,7 @@ public class UCon extends Server implements UConInterface, UConProtocol {
         reevaluateSessions(involvedSessions);
         log.debug("done (total sessions: {})", dal.listSessions().size());
     }
-    
+
     @Override
     public Node applyChanges(Node xacmlRequest, String uuid) throws Exception {
         long start = System.currentTimeMillis();
@@ -470,72 +472,33 @@ public class UCon extends Server implements UConInterface, UConProtocol {
         UconRequest uconRequest = rebuildUconRequest(uconSession);
         // We create a fake PepRequest, which works just as a container for the
         // Attribute values and handles the grouping by category.
-        PepRequestInterface container = new PepRequest((Document)xacmlRequest);
+        PepRequestInterface container = new PepRequest((Document) xacmlRequest);
         // First send event to the PIPs
         pipChain.fireEvent(new Event(EventType.beforeApplyChanges, uconRequest, uconSession, container));
 
         // Ok we have a live container of attribute values grouped by 
         // category and id now. 
-        // We need to save them correctly to the database.
-
-        for(String category: container.getCategoryIds()) {
-            Map<String,Collection<PepAttributeInterface>> entries = container.getAttributes(category);
-            Map<String,Collection<PepAttributeInterface>> dbEntries = uconRequest.getAttributes(category);
-            for(Map.Entry<String,Collection<PepAttributeInterface>> entry: entries.entrySet()) {
-                // entry.key: the id of the attribute.
-                // entry.value: the bag of values for the attribute.
-                String id = entry.getKey();
-                Collection<PepAttributeInterface> bag = entry.getValue();
-                Collection<PepAttributeInterface> dbBag = dbEntries.get(id);
-
-                // Loop through the new values for this bag. If some value is
-                // found, it is kept in the db. If not, it is added to the db.
-                // Other values found in the db but not in the new bag are 
-                // removed from the db.
-                Map<String, PepAttributeInterface> toBeKept = new HashMap<>();
-                for(PepAttributeInterface a: bag) {
-                    boolean isNewValueAlreadyInTheDbBag = false;
-                    for(PepAttributeInterface dbA: dbBag) {
-                        isNewValueAlreadyInTheDbBag = dbA.getValue().equals(a.getValue());
-                        if(isNewValueAlreadyInTheDbBag) {
-                            toBeKept.put(dbA.getValue(), dbA);
-                            break;
-                        }
-                    }
-                    if(!isNewValueAlreadyInTheDbBag) {
-                        // must be added to the uconSession
-                        UconAttribute parent = null;
-                        UconAttribute uconAttribute = dal.newPrivateAttribute(a.getId(),a.getType(), a.getValue(), a.getIssuer(), parent, null);
-                        uconSession.addAttribute(uconAttribute);
-                    }
-                }
-                // now search values that are in the db, but not in the bag.
-                // These values must be removed.
-
-                for(PepAttributeInterface dbA: dbBag)
-                    if(!toBeKept.containsKey(dbA.getValue()))
-                        uconSession.removeAttribute((UconAttribute)dbA);
-            }
+        // Replace old values with new ones.
+        for (PepAttributeInterface a : container) {
+            UconAttribute uconA = dal.newSharedAttribute(a.getId(), a.getType(), a.getValue(), a.getIssuer(), a.getCategory(), "FAKENESS");
+            uconRequest.replace(uconA);
         }
+
+        // We need to save them to the database.
         UconSession uconSession2 = dal.saveSession(uconSession, uconRequest);
         pipChain.fireEvent(new Event(EventType.afterApplyChanges, uconRequest, uconSession2));
-        dal.saveSession(uconSession, uconRequest);
+        dal.saveSession(uconSession2, uconRequest);
         // New values are saved. It's time to reevaluate the involved sessions.
-        // Calculate sessions that may be revoked by this change.
-        Collection<UconSession> involvedSessions = new HashSet();
-        involvedSessions.add(uconSession);
-        for(UconAttribute a: uconSession.getAttributes()) 
-            involvedSessions.addAll(a.getSessions());
-        reevaluateSessions(involvedSessions);
+        wakeup();
         uconSession.setMs(System.currentTimeMillis() - start);
         return uconSession.toXacml3Element();
     }
-    
+
     @Override
     public Node applyChanges(Node xacmlRequest, String uuid, String customId) throws Exception {
         return applyChanges(xacmlRequest, getUuid(uuid, customId));
     }
-    
+
     @Override
     public void notifyChanges(PepAttributeInterface changedAttribute) throws Exception {
         log.info("changed {}, updating DAL", changedAttribute);
@@ -553,7 +516,7 @@ public class UCon extends Server implements UConInterface, UConProtocol {
         // We create a fake PepRequest, which works just as a container for the
         // Attribute values and handles the grouping by category.
         PepRequestInterface container = new PepRequest();
-        for(int i = 0; i < nl.getLength(); i++) {
+        for (int i = 0; i < nl.getLength(); i++) {
             Node n = nl.item(i);
             // Convert xacml attributevalue to live attribute instance
             PepAttributeInterface a = new PepAttribute((Element) n);
@@ -563,9 +526,9 @@ public class UCon extends Server implements UConInterface, UConProtocol {
         // category and id now. 
         // We need to save them correctly to the database.
 
-        for(String category: container.getCategoryIds()) {
-            Map<String,Collection<PepAttributeInterface>> entries = container.getAttributes(category);
-            for(Map.Entry<String,Collection<PepAttributeInterface>> entry: entries.entrySet()) {
+        for (String category : container.getCategoryIds()) {
+            Map<String, Collection<PepAttributeInterface>> entries = container.getAttributes(category);
+            for (Map.Entry<String, Collection<PepAttributeInterface>> entry : entries.entrySet()) {
                 // entry.key: the id of the attribute.
                 // entry.value: the bag of values for the attribute.
                 String id = entry.getKey();
@@ -577,20 +540,22 @@ public class UCon extends Server implements UConInterface, UConProtocol {
                 // new values that must be kept.
                 Map<String, UconAttribute> toBeRemoved = new HashMap<>();
                 Map<String, UconAttribute> toBeKept = new HashMap<>();
-                for(UconAttribute a: al) {
-                    if(bag.contains(a.getValue()))
+                for (UconAttribute a : al) {
+                    if (bag.contains(a.getValue())) {
                         toBeKept.put(a.getValue(), a);
-                    else
+                    } else {
                         toBeRemoved.put(a.getValue(), a);
+                    }
                 }
-                for(PepAttributeInterface a: bag) 
-                    if(!toBeKept.containsKey(a.getValue()));
-                        
+                for (PepAttributeInterface a : bag) {
+                    if (!toBeKept.containsKey(a.getValue()));
+                }
+
             }
         }
         return null;
     }
-    
+
     public String getUuid(String uuid, String customId) {
         if (uuid != null) {
             return uuid;
@@ -601,20 +566,23 @@ public class UCon extends Server implements UConInterface, UConProtocol {
     @Override
     protected void watchdog() {
         // List all sessions that were not heartbeaten since at least maxMissedHeartbeats+1 periods
-        Date now = new Date();
-        Date lastSeenBefore = new Date(now.getTime() - 1000 * (maxMissedHeartbeats + 1) * getWatchdogPeriod());
-        Collection<UconSession> expiredSessions = dal.listSessions(lastSeenBefore);
-        // Remove them
-        for (UconSession expiredSession : expiredSessions) {
-            try {
-                log.warn("removing stale " + expiredSession);
-                endAccess(expiredSession.getUuid(), null);
-            } catch (Exception ex) {
-                log.error("could not properly end stale {}: {}", expiredSession, ex.getMessage());
+        int period = getWatchdogPeriod();
+        if (period > 0) {
+            Date now = new Date();
+            Date lastSeenBefore = new Date(now.getTime() - 1000 * (maxMissedHeartbeats + 1) * period);
+            Collection<UconSession> expiredSessions = dal.listSessions(lastSeenBefore);
+            // Remove them
+            for (UconSession expiredSession : expiredSessions) {
+                try {
+                    log.warn("removing stale " + expiredSession);
+                    endAccess(expiredSession.getUuid(), null);
+                } catch (Exception ex) {
+                    log.error("could not properly end stale {}: {}", expiredSession, ex.getMessage());
+                }
             }
         }
         // Gather all the sessions that involve expired attributes
-        Collection<UconSession> outdatedSessions = dal.listOutdatedSessions();
+        Collection<UconSession> outdatedSessions = period > 0? dal.listOutdatedSessions() : dal.listSessions(Status.ONGOING);
         try {
             // Re-evaluating possible outdated sessions
             reevaluateSessions(outdatedSessions);
@@ -632,7 +600,7 @@ public class UCon extends Server implements UConInterface, UConProtocol {
 
     @Override
     public synchronized PIPInterface removePIP(PIPInterface p) {
-        return pipChain.remove(p)? p : null;
+        return pipChain.remove(p) ? p : null;
     }
 
     @Override

@@ -45,6 +45,58 @@ public abstract class PIP implements PIPInterface {
     }
 
     @Override
+    public void fireBeforeActionEvent(Event e) {
+        switch(e.action.getName()) {
+            case "tryAccess":
+                onBeforeTryAccess(e.request);
+                break;
+            case "startAccess":
+                onBeforeStartAccess(e.request, e.session);
+                break;
+            case "runObligations":
+                onBeforeRunObligations(e.request, e.session);
+                break;
+            case "applyChanges":
+                onBeforeApplyChanges(e.request, e.session);
+                break;
+            case "revokeAccess":
+                onBeforeRevokeAccess(e.request, e.session);
+                break;
+            case "endAccess":
+                onBeforeEndAccess(e.request, e.session);
+                break;
+            default:
+                throw new RuntimeException("while handling event "+e+": unknown action " + e.action);
+        }
+    }
+
+    @Override
+    public void fireAfterActionEvent(Event e) {
+        switch(e.action.getName()) {
+            case "tryAccess":
+                onAfterTryAccess(e.request, e.session);
+                break;
+            case "startAccess":
+                onAfterStartAccess(e.request, e.session);
+                break;
+            case "runObligations":
+                onAfterRunObligations(e.request, e.session, e.ack);
+                break;
+            case "applyChanges":
+                onAfterApplyChanges(e.request, e.session);
+                break;
+            case "revokeAccess":
+                onAfterRevokeAccess(e.request, e.session, e.ack);
+                break;
+            case "endAccess":
+                onAfterEndAccess(e.request, e.session);
+                break;
+            default:
+                throw new RuntimeException("while handling event "+e+": unknown action " + e.action);
+        } 
+    }
+
+    @Override
     public void fireEvent(Event e) {
         switch(e.type) {
             case beforeTryAccess:
@@ -64,6 +116,12 @@ public abstract class PIP implements PIPInterface {
                 break;
             case afterRunObligations:
                 onAfterRunObligations(e.request, e.session, e.ack);
+                break;
+            case beforeApplyChanges:
+                onBeforeApplyChanges(e.request, e.session);
+                break;
+            case afterApplyChanges:
+                onAfterApplyChanges(e.request, e.session);
                 break;
             case beforeRevokeAccess:
                 onBeforeRevokeAccess(e.request, e.session);
@@ -86,6 +144,11 @@ public abstract class PIP implements PIPInterface {
     public PepAttributeInterface newPrivateAttribute(String id, String type, String value, String issuer, PepAttributeInterface parent) {
         UconAttribute p = (UconAttribute) parent;
         return dal.newPrivateAttribute(id, type, value, issuer, p, uuid);
+    }
+    
+    @Override
+    public PepAttributeInterface newSharedAttribute(String id, String type, String value, String issuer, String category) {
+        return dal.newSharedAttribute(id, type, value, issuer, category, uuid);
     }
 
     @Override
@@ -254,38 +317,32 @@ public abstract class PIP implements PIPInterface {
     }
 
     /**
-     * newSharedAttribute() creates a new shared PEP attribute. The new
-     * attribute is shared, meaning that its value changes may affect all
-     * sessions that will be using it. If a shared attribute with the same id
-     * and category already exists, it will be overwritten by the new values.
-     * The PIP itself will be able to recover the created attribute later. An
-     * attribute may also be managed (handled by this PIP asynchronously), or
-     * unmanaged (handled automatically by the UCon itself, on a refresh
-     * technique basis). By default, all attributes are managed. To make them
-     * unmanaged, simply set the expires field to a valid timestamp.
+     * onBeforeApplyChanges()
      *
-     * @param id the id of the subject.
-     * @param type the type description of data this attribute is holding.
-     * @param value the value held by this attribute.
-     * @param issuer the issuer of the attribute.
-     * @param category the category (subject, resource, or action).
-     * @return the new PEP request attribute.
+     * is the event handler called by the UCon just before updating some
+     * attributes by the UCon side itself.
+     * The default implementation does nothing.
+     *
+     * @param request the request.
+     * @param session the current session.
      */
+    public void onBeforeApplyChanges(PepRequestInterface request, PepSessionInterface session)
+    {
+        log.debug("dummy PIP processor called, ignoring");
+    }
 
-    @Override
-    public PepAttributeInterface newSharedAttribute(String id, String type, String value, String issuer, String category) {
-        UconAttribute u = dal.getSharedAttribute(category, id);
-        if (u == null) {
-            PepAttribute a = new PepAttribute(id, type, value, issuer, category, uuid);
-            u = UconAttribute.newInstance(a);
-        } else {
-            u.setType(type);
-            u.setValue(value);
-            u.setIssuer(issuer);
-        }
-        assert (u.getFactory() != null);
-        //assert(u.getRowId() != null);
-        return u;
+    /**
+     * onAfterApplyChanges()
+     *
+     * is the event handler called by the UCon just after updating some
+     * attributes by the UCon side itself.
+     * The default implementation does nothing.
+     *
+     * @param request the request.
+     * @param session the current session.
+     */
+    public void onAfterApplyChanges(PepRequestInterface request, PepSessionInterface session) {
+        log.debug("dummy PIP processor called, ignoring");
     }
 
     protected void refresh(PepAttributeInterface pepAttribute, PepSessionInterface session) {

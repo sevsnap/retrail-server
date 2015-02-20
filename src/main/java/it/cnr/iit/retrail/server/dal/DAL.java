@@ -450,7 +450,7 @@ public class DAL implements DALInterface {
             u.setValue(value);
             u.setIssuer(issuer);
         }
-        assert (u.getFactory() != null);
+        //assert (u.getFactory() != null); FIXME
         //assert(u.getRowId() != null);
         return u;
     }

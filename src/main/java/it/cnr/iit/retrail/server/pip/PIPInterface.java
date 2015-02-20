@@ -40,8 +40,30 @@ public interface PIPInterface {
 
     boolean isInited();
     
+    @Deprecated
     void fireEvent(Event e);
     
+    void fireAfterActionEvent(Event e);
+    void fireBeforeActionEvent(Event e);
+    
+    /**
+     * newSharedAttribute() creates a new shared PEP attribute. The new
+     * attribute is shared, meaning that its value changes may affect all
+     * sessions that will be using it. If a shared attribute with the same id
+     * and category already exists, it will be overwritten by the new values.
+     * The PIP itself will be able to recover the created attribute later. An
+     * attribute may also be managed (handled by this PIP asynchronously), or
+     * unmanaged (handled automatically by the UCon itself, on a refresh
+     * technique basis). By default, all attributes are managed. To make them
+     * unmanaged, simply set the expires field to a valid timestamp.
+     *
+     * @param id the id of the subject.
+     * @param type the type description of data this attribute is holding.
+     * @param value the value held by this attribute.
+     * @param issuer the issuer of the attribute.
+     * @param category the category (subject, resource, or action).
+     * @return the new PEP request attribute.
+     */
     PepAttributeInterface newSharedAttribute(String id, String type, String value, String issuer, String category);
 
     /**

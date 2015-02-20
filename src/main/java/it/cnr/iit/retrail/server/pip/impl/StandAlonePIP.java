@@ -6,8 +6,6 @@ package it.cnr.iit.retrail.server.pip.impl;
 
 import it.cnr.iit.retrail.commons.PepAttributeInterface;
 import it.cnr.iit.retrail.server.UConInterface;
-import it.cnr.iit.retrail.server.impl.UCon;
-import it.cnr.iit.retrail.server.impl.UConFactory;
 import java.util.Collection;
 
 /**
@@ -32,7 +30,6 @@ public abstract class StandAlonePIP extends PIP implements Runnable {
     }
 
     protected void notifyChanges(PepAttributeInterface changedAttribute) throws Exception {
-        // FIXME should not use singleton instance!
         ucon.notifyChanges(changedAttribute);
     }
 
