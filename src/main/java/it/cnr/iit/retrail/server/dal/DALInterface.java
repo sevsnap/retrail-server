@@ -70,10 +70,14 @@ public interface DALInterface {
 
     UconSession saveSession(UconSession uconSession, UconRequest uconRequest);
 
+    UconSession startSession(UconSession uconSession) throws Exception;
+        
     UconSession startSession(UconSession uconSession, UconRequest uconRequest) throws Exception;
 
     UconSession endSession(UconSession uconSession);
 
     UconSession getSession(String uuid, URL uconUrl);
+    
+    UconRequest rebuildUconRequest(UconSession uconSession);
 
 }

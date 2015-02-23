@@ -213,8 +213,8 @@ public class DAL implements DALInterface {
     }
 
     @Override
-    public UconSession startSession(UconSession uconSession, UconRequest uconRequest) throws Exception {
-        // Store request's attributes to the database
+    public UconSession startSession(UconSession uconSession) throws Exception {
+        // Store session to the database
         EntityManager em = getEntityManager();
         //start transaction with method begin()
         em.getTransaction().begin();
@@ -231,7 +231,13 @@ public class DAL implements DALInterface {
             em.getTransaction().rollback();
             throw e;
         }
-        return saveSession(uconSession, uconRequest);
+        return uconSession;
+    }
+
+    @Override
+    public UconSession startSession(UconSession uconSession, UconRequest uconRequest) throws Exception {
+        // Store request's attributes to the database
+        return saveSession(startSession(uconSession), uconRequest);
     }
 
     @Override
@@ -453,6 +459,16 @@ public class DAL implements DALInterface {
         //assert (u.getFactory() != null); FIXME
         //assert(u.getRowId() != null);
         return u;
+    }
+
+    @Override
+    public UconRequest rebuildUconRequest(UconSession uconSession) {
+        log.debug("" + uconSession);
+        UconRequest accessRequest = new UconRequest();
+        for (UconAttribute a : uconSession.getAttributes()) {
+            accessRequest.add(a);
+        }
+        return accessRequest;
     }
 
 }

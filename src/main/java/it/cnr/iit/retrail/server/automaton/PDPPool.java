@@ -2,9 +2,10 @@
  * CNR - IIT
  * Coded by: 2014 Enrico "KMcC;) Carniani
  */
-package it.cnr.iit.retrail.server.impl;
+package it.cnr.iit.retrail.server.automaton;
 
 import it.cnr.iit.retrail.commons.DomUtils;
+import it.cnr.iit.retrail.commons.Pool;
 import it.cnr.iit.retrail.commons.impl.PepRequest;
 import java.io.ByteArrayInputStream;
 import java.io.IOException;
@@ -13,13 +14,9 @@ import java.net.URL;
 import java.text.DecimalFormat;
 import java.util.ArrayList;
 import java.util.HashSet;
-import java.util.LinkedList;
 import java.util.List;
 import java.util.Scanner;
 import java.util.Set;
-import org.eclipse.persistence.internal.helper.IdentityHashSet;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
 import org.w3c.dom.Document;
 import org.w3c.dom.Element;
 import org.wso2.balana.PDP;
@@ -41,33 +38,27 @@ import org.wso2.balana.finder.impl.URLBasedPolicyFinderModule;
  *
  * @author oneadmin
  */
-public final class PDPPool {
+public final class PDPPool extends Pool<PDP> {
 
-    protected static final Logger log = LoggerFactory.getLogger(PDPPool.class);
-    protected static final int maxPoolSize = 10;
     final private URL policyURL;
     final private String policyString;
-    private final IdentityHashSet busy;
-    private final LinkedList<PDP> available;
 
     public PDPPool(URL policyURL) {
+        super();
         log.debug("setting policy to {}", policyURL);
         this.policyURL = policyURL;
-        busy = new IdentityHashSet(maxPoolSize);
-        available = new LinkedList();
         policyString = null;
         // Allocate one PDP at least, in order to perform policy syntax checking on start.
-        returnPDP(obtainPDP());
+        release(obtain());
     }
 
     public PDPPool(InputStream stream) throws IOException {
+        super();
         log.debug("reading policy from stream");
         policyString = new Scanner(stream).useDelimiter("\\A").next();
         policyURL = null;
-        busy = new IdentityHashSet(maxPoolSize);
-        available = new LinkedList();
         // Allocate one PDP at least, in order to perform policy syntax checking on start.
-        returnPDP(obtainPDP());
+        release(obtain());
     }
 
     private PDP newPDP(PolicyFinderModule module) {
@@ -98,29 +89,16 @@ public final class PDPPool {
         return newPDP(streamBasedPolicyFinderModule);
     }
 
-    private synchronized PDP obtainPDP() {
+    @Override
+    protected PDP newObject() {
         PDP pdp = null;
-        if (available.isEmpty()) {
-            if (policyURL == null) {
-                InputStream stream = new ByteArrayInputStream(policyString.getBytes());
-                pdp = newPDP(stream);
-            } else {
-                pdp = newPDP(policyURL);
-            }
+        if (policyURL == null) {
+            InputStream stream = new ByteArrayInputStream(policyString.getBytes());
+            pdp = newPDP(stream);
         } else {
-            pdp = available.removeFirst();
-        }
-        busy.add(pdp);
-        if (busy.size() > maxPoolSize) {
-            log.warn("running PDPs > {}, consider enlarging PDPPool.maxPoolSize value (policy URL: {})", maxPoolSize, policyURL);
+            pdp = newPDP(policyURL);
         }
         return pdp;
-    }
-
-    private synchronized void returnPDP(PDP pdp) {
-        if (busy.remove(pdp) && available.size() < maxPoolSize) {
-            available.add(pdp);
-        }
     }
 
     private Document access(PepRequest accessRequest, PDP p) {
@@ -145,12 +123,12 @@ public final class PDPPool {
     }
 
     public Document access(PepRequest accessRequest) {
-        PDP pdp = obtainPDP();
+        PDP pdp = obtain();
         Document doc = null;
         try {
             doc = access(accessRequest, pdp);
         } finally {
-            returnPDP(pdp);
+            release(pdp);
         }
         return doc;
     }

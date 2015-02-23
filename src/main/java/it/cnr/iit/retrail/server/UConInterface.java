@@ -6,6 +6,11 @@ package it.cnr.iit.retrail.server;
 
 import it.cnr.iit.retrail.commons.PepAttributeInterface;
 import it.cnr.iit.retrail.commons.RecorderInterface;
+import it.cnr.iit.retrail.commons.automata.ActionInterface;
+import it.cnr.iit.retrail.commons.automata.State;
+import it.cnr.iit.retrail.commons.automata.StateInterface;
+import it.cnr.iit.retrail.server.dal.DALInterface;
+import it.cnr.iit.retrail.server.pip.PIPChainInterface;
 import it.cnr.iit.retrail.server.pip.PIPInterface;
 import java.io.InputStream;
 import java.net.URL;
@@ -33,28 +38,8 @@ public interface UConInterface extends RecorderInterface {
      */
     void init() throws Exception;
 
-    /**
-     * addPIP()
-     *
-     * adds a PIP to the PIP chain. The UCon may have 0 or more PIPs in order to
-     * add or alter attributes for each request (see the PIPInterface
-     * documentation for further information).
-     *
-     * @param p the PIP to be added to the chain.
-     */
-    void addPIP(PIPInterface p);
-
-    /**
-     * removePIP()
-     *
-     * removes a PIP from the PIP chain. The UCon may have 0 or more PIP in
-     * order to add or alter attributes for each request (see the PIPInterface
-     * documentation for further information).
-     *
-     * @param p the PIP to be removed from the chain.
-     * @return the removed PIP instance.
-     */
-    PIPInterface removePIP(PIPInterface p);
+    PIPChainInterface getPIPChain();
+    DALInterface getDAL();
 
     /**
      * notifyChanges()
@@ -96,36 +81,6 @@ public interface UConInterface extends RecorderInterface {
      */
     void term() throws InterruptedException;
 
-    /**
-     * setPolicy()
-     *
-     * changes the current policy by reading the new one from the URL. The input
-     * format must be xacml3. If the UCon service has already been started by
-     * init() and you are changing the ON policy, the current ongoing sessions
-     * are re-evaluated.
-     *
-     * @param p the policy to be set.
-     * @param url the url containing the new policy to be set, in xacml3 format.
-     * @throws java.lang.Exception
-     */
-    void setPolicy(PolicyEnum p, URL url) throws Exception;
-
-    /**
-     * setPolicy()
-     *
-     * changes the current policy by reading the new one from the stream. The
-     * input format must be xacml3. If the UCon service has already been started
-     * by init() and you are changing the ON policy, the current ongoing
-     * sessions are re-evaluated.
-     *
-     * @param p the policy to be set.
-     * @param stream the stream containing the new policy to be set, in xacml3
-     * format.
-     * @throws java.lang.Exception
-     */
-    void setPolicy(PolicyEnum p, InputStream stream) throws Exception;
-
-    
     void setWatchdogPeriod(int watchdogPeriod);
     int getWatchdogPeriod();
 }

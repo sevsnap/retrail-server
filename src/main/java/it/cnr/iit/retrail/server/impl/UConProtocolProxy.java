@@ -61,11 +61,6 @@ public class UConProtocolProxy implements UConProtocol {
     }
    
     @Override
-    public final Node applyChanges(Node xacmlAttributes) throws Exception {
-        return UConFactory.getProtocolInstance().applyChanges(xacmlAttributes);
-    }
-   
-    @Override
     public final Node heartbeat(String pepUrl, List<String> sessionsList) throws Exception {
         return UConFactory.getProtocolInstance().heartbeat(pepUrl, sessionsList);
     }
@@ -78,6 +73,11 @@ public class UConProtocolProxy implements UConProtocol {
     @Override
     public final Node assignCustomId(String uuid, String oldCustomId, String newCustomId) throws Exception {
         return UConFactory.getProtocolInstance().assignCustomId(uuid, oldCustomId, newCustomId);
+    }
+
+    @Override
+    public Node apply(String actionName, String uuid, String customId, Object... args) throws Exception {
+        return UConFactory.getProtocolInstance().apply(actionName, uuid, customId, args);
     }
 
 }
