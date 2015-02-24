@@ -522,5 +522,10 @@ public class UCon extends Server implements UConInterface, UConProtocol {
     public void loadBehaviour(InputStream is) throws Exception {
         automatonFactory = new Behaviour(this, is);
     }
-
+    
+    @Override
+    public void resetBehaviour() throws Exception {
+        InputStream uconConfigStream = getClass().getClassLoader().getResourceAsStream("ucon.xml");
+        automatonFactory = new Behaviour(this, uconConfigStream);
+    }
 }

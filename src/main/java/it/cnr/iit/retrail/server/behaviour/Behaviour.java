@@ -36,9 +36,8 @@ public final class Behaviour extends Pool<UConAutomaton> {
     
     public Behaviour(UCon ucon, InputStream uconConfigStream) throws Exception {
         super(64);
+        assert(uconConfigStream != null);
         this.ucon = ucon;
-        if(uconConfigStream == null)
-            uconConfigStream = getClass().getClassLoader().getResourceAsStream("ucon.xml");
         log.warn("loading behavioural automaton {}", uconConfigStream);
         behaviouralConfiguration = DomUtils.read(uconConfigStream);
         log.warn("building behavioural automaton with builtin policies (permit anything)");
