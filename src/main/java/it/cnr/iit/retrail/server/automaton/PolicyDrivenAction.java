@@ -28,8 +28,8 @@ public class PolicyDrivenAction extends UconAction {
     private final StateInterface targetFailState;
     private PepResponse.DecisionEnum lastDecision;
     
-    public PolicyDrivenAction(StateInterface targetState, StateInterface targetFailState, ActionEnum action) {
-        super(targetState, action);
+    public PolicyDrivenAction(StateInterface targetState, StateInterface targetFailState, String name) {
+        super(targetState, name);
         this.targetFailState = targetFailState;
     }
     

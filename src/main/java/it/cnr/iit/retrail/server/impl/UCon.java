@@ -4,7 +4,6 @@
  */
 package it.cnr.iit.retrail.server.impl;
 
-import it.cnr.iit.retrail.server.automaton.PDPPool;
 import it.cnr.iit.retrail.server.automaton.AutomatonFactory;
 import it.cnr.iit.retrail.server.UConInterface;
 import it.cnr.iit.retrail.server.UConProtocol;
@@ -16,11 +15,7 @@ import it.cnr.iit.retrail.commons.impl.PepResponse;
 import it.cnr.iit.retrail.commons.impl.PepSession;
 import it.cnr.iit.retrail.commons.Server;
 import it.cnr.iit.retrail.commons.Status;
-import it.cnr.iit.retrail.commons.automata.ActionInterface;
-import it.cnr.iit.retrail.commons.automata.StateInterface;
 import it.cnr.iit.retrail.commons.impl.PepRequest;
-import it.cnr.iit.retrail.server.automaton.UConAutomaton;
-import it.cnr.iit.retrail.server.automaton.UConState;
 import it.cnr.iit.retrail.server.dal.UconAttribute;
 import it.cnr.iit.retrail.server.dal.DAL;
 import it.cnr.iit.retrail.server.dal.DALInterface;
@@ -56,7 +51,7 @@ public class UCon extends Server implements UConInterface, UConProtocol {
     private boolean mustRecorderTrustAllPeers = false;
     private long recorderMillis = 0;
     public int maxMissedHeartbeats = 1;
-    private final AutomatonFactory automatonFactory = new AutomatonFactory(this);
+    private AutomatonFactory automatonFactory;
 
     protected final PIPChainInterface pipChain = new PIPChain();
     protected final DAL dal;
@@ -69,6 +64,8 @@ public class UCon extends Server implements UConInterface, UConProtocol {
     protected UCon(URL url) throws Exception {
         super(url, UConProtocolProxy.class);
         dal = DAL.getInstance();
+        InputStream is = getClass().getClassLoader().getResourceAsStream("/META-INF/ucon.xml");
+        loadBehaviour(is);
     }
 
     @Override
@@ -510,6 +507,11 @@ public class UCon extends Server implements UConInterface, UConProtocol {
     @Override
     public DALInterface getDAL() {
         return dal;
+    }
+
+    @Override
+    public void loadBehaviour(InputStream is) throws Exception {
+        automatonFactory = new AutomatonFactory(this, is);
     }
 
 }

@@ -60,7 +60,16 @@ public final class PDPPool extends Pool<PDP> {
         // Allocate one PDP at least, in order to perform policy syntax checking on start.
         release(obtain());
     }
-
+    
+    public PDPPool(String policyString) {
+        super();
+        log.debug("setting policy (passed by string)");
+        this.policyURL = null;
+        this.policyString = policyString;
+        // Allocate one PDP at least, in order to perform policy syntax checking on start.
+        release(obtain());
+    }
+    
     private PDP newPDP(PolicyFinderModule module) {
         PolicyFinder policyFinder = new PolicyFinder();
         Set<PolicyFinderModule> policyFinderModules = new HashSet<>();

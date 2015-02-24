@@ -5,35 +5,41 @@
 package it.cnr.iit.retrail.server.automaton;
 
 import it.cnr.iit.retrail.commons.ActionEnum;
+import it.cnr.iit.retrail.commons.DomUtils;
 import it.cnr.iit.retrail.commons.Pool;
 import it.cnr.iit.retrail.commons.Status;
 import it.cnr.iit.retrail.commons.automata.ActionInterface;
 import it.cnr.iit.retrail.commons.automata.StateInterface;
 import it.cnr.iit.retrail.server.dal.UconSession;
 import it.cnr.iit.retrail.server.impl.UCon;
+import java.io.InputStream;
 import java.util.ArrayList;
 import java.util.Collection;
+import org.w3c.dom.Document;
 import org.w3c.dom.Element;
+import org.w3c.dom.NodeList;
 
 /**
  *
  * @author oneadmin
  */
 public final class AutomatonFactory extends Pool<UConAutomaton> {
+    public final String uri = "http://security.iit.cnr.it/retrail/ucon";
     private final UCon ucon;
-    private final UConAutomaton defaultBehaviouralAutomaton;
     private final Collection<PolicyDrivenAction> policyDrivenActions = new ArrayList<>();
     private final Collection<UConState> ongoingStates = new ArrayList<>();
     private final Collection<PolicyDrivenAction> ongoingAccessActions = new ArrayList<>();
+    private final Document behaviouralConfiguration;
     
-    public AutomatonFactory(UCon ucon) throws Exception {
+    public AutomatonFactory(UCon ucon, InputStream uconConfigStream) throws Exception {
         super(64);
         this.ucon = ucon;
-        log.warn("creating default behavioural automaton");
-        defaultBehaviouralAutomaton = createDefault();
-        log.warn("linking automaton to builtin policies (permit anything)");
-        for (StateInterface state: defaultBehaviouralAutomaton.getStates()) {
-            if(state.getName().equals("ONGOING")) // FIXME
+        log.debug("loading behavioural automaton");
+        behaviouralConfiguration = DomUtils.read(uconConfigStream);
+        log.warn("building behavioural automaton with builtin policies (permit anything)");
+        for (StateInterface state: newObject().getStates()) {
+            
+            if(((UConState)state).getType() == Status.ONGOING)
                 ongoingStates.add((UConState)state);
             for(ActionInterface action: state.getNextActions())
                 if(action instanceof PolicyDrivenAction) {
@@ -59,49 +65,75 @@ public final class AutomatonFactory extends Pool<UConAutomaton> {
     public PDPPool getOngoingAccessPDPPool() {
         return ongoingAccessActions.iterator().next().getPDPPool();
     }
-    
-    protected UConAutomaton createDefault() {
-        // Create all states
-        UConAutomaton a = new UConAutomaton(ucon);
-        
-        UConState INIT = new UConState(Status.INIT, a);
-        UConState TRY = new UConState(Status.TRY, a);
-        UConState ONGOING = new UConState(Status.ONGOING, a);
-        UConState REVOKED = new UConState(Status.REVOKED, a);
-        UConState REJECTED = new UConState(Status.REJECTED, a);
-        UConState DELETED = new UConState(Status.DELETED, a);
 
-        // Create all actions and link them to targets
-        
-        INIT.setActions(new ActionInterface[]{
-            new PolicyDrivenAction(TRY, REJECTED, ActionEnum.tryAccess), 
-        });
-        TRY.setActions(new ActionInterface[]{
-            new PolicyDrivenAction(ONGOING, TRY, ActionEnum.startAccess), 
-            new PolicyDrivenAction(DELETED, TRY, ActionEnum.endAccess), 
-        });
-        ONGOING.setActions(new ActionInterface[]{
-            new PolicyDrivenAction(DELETED, ONGOING, ActionEnum.endAccess), 
-            new PolicyDrivenAction(ONGOING, REVOKED, ActionEnum.ongoingAccess),
-        });
-        REVOKED.setActions(new ActionInterface[]{
-            new UconAction(DELETED, ActionEnum.endAccess),
-        });
-
-        a.init(INIT,
-                new StateInterface[]{
-                    REJECTED, DELETED
-                },
-                new StateInterface[]{
-                    INIT, TRY, ONGOING, REVOKED, REJECTED, DELETED
-                }
-        );
-       return a;
-    }
-    
     @Override
     protected UConAutomaton newObject() {
-        return createDefault();
+        UConAutomaton a = new UConAutomaton(ucon);
+        // Create states
+        StateInterface begin = null;
+        Collection<StateInterface> end = new ArrayList<>();
+        NodeList stateNodes = behaviouralConfiguration.getElementsByTagNameNS(uri, "State");
+        for(int i = 0; i < stateNodes.getLength(); i++) {
+            Element stateElement = (Element) stateNodes.item(i);
+            String name = stateElement.getAttribute("name");
+            String type = stateElement.getAttribute("type");
+            UConState uconState = new UConState(name, Status.valueOf(type));
+            switch(uconState.getType()) {
+                case INIT:
+                    if(begin != null)
+                        throw new RuntimeException("too many initial states. exactly one must be the initial state.");
+                    begin = uconState;
+                    break;
+                case DELETED:
+                    end.add(uconState);
+                    break;
+                default:
+                    log.warn("state type {} ignored");
+            }
+            log.debug("created ", uconState);
+        }
+        if(begin == null)
+            throw new RuntimeException("no initial state defined; use attribute type=\"BEGIN\" to set it");
+        if(end.isEmpty())
+            throw new RuntimeException("no final states defined; use attribute type=\"END\" to set one or more final states");
+        a.setBegin(begin);
+        a.setEnd(end);
+
+        // Create actions
+        
+        NodeList actionNodes = behaviouralConfiguration.getElementsByTagNameNS(uri, "Action");
+        for(int i = 0; i < actionNodes.getLength(); i++) {
+            Element actionElement = (Element) actionNodes.item(i);
+            String name = actionElement.getAttribute("name");
+            String klass = actionElement.getAttribute("class");
+            String targetStateName = actionElement.getAttribute("target");
+            StateInterface target = a.getState(targetStateName);
+            String sourceStateName = actionElement.getAttribute("target");
+            StateInterface source = (UConState) a.getState(sourceStateName);
+            UconAction action;
+            switch(klass) {
+                case "UconAction":
+                    action = new UconAction(target, name);
+                    break;
+                case "PolicyDriveAction": {
+                    String failTargetStateName = actionElement.getAttribute("failTarget");
+                    StateInterface failTarget = a.getState(failTargetStateName);
+                    action = new PolicyDrivenAction(target, failTarget, name);
+                    break;
+                }
+                case "OngoingAccessAction": {
+                    String failTargetStateName = actionElement.getAttribute("failTarget");
+                    StateInterface failTarget = a.getState(failTargetStateName);
+                    action = new OngoingAccessAction(target, failTarget, name);
+                    break;
+                }
+                default:
+                    throw new RuntimeException("unknown action class "+klass);
+            }
+            source.addAction(action);
+        }
+        log.info("automaton {} created", a);
+        return a;
     }
 
     public final Element apply(UconSession session, String actionName, Object... args) {

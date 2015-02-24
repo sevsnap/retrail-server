@@ -21,10 +21,15 @@ public class UconAction extends Action {
     protected final UCon ucon;
     private final String name;
     
-    public UconAction(StateInterface targetState, ActionEnum action) {
+    public UconAction(StateInterface targetState, String name) {
         super(targetState);
         ucon = (UCon) targetState.getAutomaton();
-        this.name = action.name();
+        this.name = name;
+    }
+    
+    @Override
+    public String getName() {
+        return name;
     }
     
     public void execute(UconRequest uconRequest, UconSession uconSession, Object[] args) {

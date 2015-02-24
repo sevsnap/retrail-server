@@ -22,11 +22,6 @@ import java.util.Collection;
  */
 public interface UConInterface extends RecorderInterface {
 
-    public enum PolicyEnum {
-
-        PRE, TRYSTART, TRYEND, ON, POST
-    }
-
     /**
      * init()
      *
@@ -38,6 +33,8 @@ public interface UConInterface extends RecorderInterface {
      */
     void init() throws Exception;
 
+    void loadBehaviour(InputStream s) throws Exception;
+    
     PIPChainInterface getPIPChain();
     DALInterface getDAL();
 

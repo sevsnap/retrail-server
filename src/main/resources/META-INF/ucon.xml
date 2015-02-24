@@ -1,0 +1,72 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!--
+To change this license header, choose License Headers in Project Properties.
+To change this template file, choose Tools | Templates
+and open the template in the editor.
+-->
+<ucon:Automaton xmlns:ucon="http://security.iit.cnr.it/retrail/ucon">
+    <ucon:States>
+        <ucon:State name="INIT" type="BEGIN"/>
+        <ucon:State name="TRY" type="STANDARD"/>
+        <ucon:State name="ONGOING" type="ONGOING"/>
+        <ucon:State name="REVOKED" type="STANDARD"/>
+        <ucon:State name="REJECTED" type="END"/>
+        <ucon:State name="DELETED" type="END"/>
+    </ucon:States>
+    <ucon:Actions>
+        <ucon:Action name="tryAccess" class="PolicyDrivenAction" source="INIT" target="TRY" failTarget="REJECTED">
+            <Policy xmlns="urn:oasis:names:tc:xacml:3.0:core:schema:wd-17" PolicyId="INIT+tryAccess (PRE)"
+                    RuleCombiningAlgId="urn:oasis:names:tc:xacml:1.0:rule-combining-algorithm:first-applicable" 
+                    Version="1.0">
+                <Description>Default INIT+tryAccess (PRE) policy</Description>
+                <Target/>
+                <Rule Effect="Permit" RuleId="PRE default permit rule"><Target/></Rule>
+            </Policy>
+        </ucon:Action>
+        <ucon:Action name="startAccess" class="PolicyDrivenAction" source="TRY" target="ONGOING" failTarget="TRY">
+            <Policy xmlns="urn:oasis:names:tc:xacml:3.0:core:schema:wd-17" PolicyId="TRY+startAccess (TRYSTART)"
+                    RuleCombiningAlgId="urn:oasis:names:tc:xacml:1.0:rule-combining-algorithm:first-applicable" 
+                    Version="1.0">
+                <Description>Default TRY+startAccess (TRYSTART) policy</Description>
+                <Target/>
+                <Rule Effect="Permit" RuleId="TRYSTART default permit rule">
+                    <Target/>
+                </Rule>
+            </Policy>
+        </ucon:Action>
+        <ucon:Action name="endAccess" class="PolicyDrivenAction" source="TRY" target="DELETED" failTarget="TRY">
+            <Policy xmlns="urn:oasis:names:tc:xacml:3.0:core:schema:wd-17" PolicyId="TRY+endAccess (TRYEND)"
+                    RuleCombiningAlgId="urn:oasis:names:tc:xacml:1.0:rule-combining-algorithm:first-applicable" 
+                    Version="1.0">
+                <Description>Default TRY+endAccess (TRYEND) policy</Description>
+                <Target/>
+                <Rule Effect="Permit" RuleId="TRYEND default permit rule">
+                    <Target/>
+                </Rule>
+            </Policy>
+        </ucon:Action>
+        <ucon:Action name="ongoingAccess" class="OngoingAccessAction" source="ONGOING" target="ONGOING" failTarget="REVOKED">
+            <Policy xmlns="urn:oasis:names:tc:xacml:3.0:core:schema:wd-17" PolicyId="ON+ongoingAccess (ON)"
+                    RuleCombiningAlgId="urn:oasis:names:tc:xacml:1.0:rule-combining-algorithm:first-applicable" 
+                    Version="1.0">
+            <Description>Default ON+ongoingAccess (ON) policy</Description>
+            <Target/>
+            <Rule Effect="Permit" RuleId="ON default permit rule">
+                <Target/>
+            </Rule>
+            </Policy>
+        </ucon:Action>
+        <ucon:Action name="endAccess" class="PolicyDrivenAction" source="ONGOING" target="DELETED" failTarget="ONGOING">
+            <Policy xmlns="urn:oasis:names:tc:xacml:3.0:core:schema:wd-17" PolicyId="ON+endAccess (POST)"
+                    RuleCombiningAlgId="urn:oasis:names:tc:xacml:1.0:rule-combining-algorithm:first-applicable" 
+                    Version="1.0">
+                <Description>Default ON+endAccess (POST) policy</Description>
+                <Target/>
+                <Rule Effect="Permit" RuleId="POST default permit rule">
+                    <Target/>
+                </Rule>
+            </Policy>
+        </ucon:Action>
+        <UConAction name="endAccess" class="UConAction" source="REVOKED" target="DELETED"/>
+    </ucon:Actions>
+</ucon:Automaton>
