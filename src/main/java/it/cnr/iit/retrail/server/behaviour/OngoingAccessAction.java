@@ -3,9 +3,10 @@
  * To change this template file, choose Tools | Templates
  * and open the template in the editor.
  */
-package it.cnr.iit.retrail.server.automaton;
+package it.cnr.iit.retrail.server.behaviour;
 
 import it.cnr.iit.retrail.commons.automata.StateInterface;
+import it.cnr.iit.retrail.server.impl.UCon;
 
 /**
  *
@@ -13,8 +14,8 @@ import it.cnr.iit.retrail.commons.automata.StateInterface;
  */
 public class OngoingAccessAction extends PolicyDrivenAction {
 
-    public OngoingAccessAction(StateInterface targetState, StateInterface targetFailState, String name) {
-        super(targetState, targetFailState, name);
+    public OngoingAccessAction(StateInterface sourceState, StateInterface targetState, StateInterface targetFailState, String name, UCon ucon) {
+        super(sourceState, targetState, targetFailState, name, ucon);
     }
     
 }

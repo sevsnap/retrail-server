@@ -2,20 +2,20 @@
  * CNR - IIT
  * Coded by: 2014 Enrico "KMcC;) Carniani
  */
-package it.cnr.iit.retrail.server.automaton;
+package it.cnr.iit.retrail.server.behaviour;
 
-import it.cnr.iit.retrail.commons.ActionEnum;
+import it.cnr.iit.retrail.commons.DomUtils;
 import it.cnr.iit.retrail.commons.Status;
 import it.cnr.iit.retrail.commons.automata.StateInterface;
 import it.cnr.iit.retrail.commons.impl.PepResponse;
 import it.cnr.iit.retrail.server.dal.UconRequest;
 import it.cnr.iit.retrail.server.dal.UconSession;
 import it.cnr.iit.retrail.server.impl.UCon;
-import java.io.InputStream;
 import java.util.Collection;
 import java.util.HashMap;
 import java.util.Map;
 import org.w3c.dom.Document;
+import org.w3c.dom.Element;
 
 /**
  *
@@ -28,8 +28,8 @@ public class PolicyDrivenAction extends UconAction {
     private final StateInterface targetFailState;
     private PepResponse.DecisionEnum lastDecision;
     
-    public PolicyDrivenAction(StateInterface targetState, StateInterface targetFailState, String name) {
-        super(targetState, name);
+    public PolicyDrivenAction(StateInterface sourceState, StateInterface targetState, StateInterface targetFailState, String name, UCon ucon) {
+        super(sourceState, targetState, name, ucon);
         this.targetFailState = targetFailState;
     }
     
@@ -49,20 +49,15 @@ public class PolicyDrivenAction extends UconAction {
      * by init() and you are changing the ON policy, the current ongoing
      * sessions are re-evaluated.
      *
-     * @param stream the stream containing the new policy to be set, in xacml3
-     * format.
+     * @param policyElement  the element containing the new policy to be set, 
+     * in xacml3 format.
      * @throws java.lang.Exception
      */
 
-    public synchronized void setPolicy(InputStream stream) throws Exception {
-        if (stream == null) {
-            log.warn("creating pool with default policy {}", getPolicyName());
-            stream = UCon.class.getResourceAsStream(defaultPolicyPath + getPolicyName() + ".xml");
-            poolMap.put(getPolicyName(), new PDPPool(stream));
-        } else {
-            log.warn("creating pool policy {} from url: {}", getPolicyName(), stream);
-            poolMap.put(getPolicyName(), new PDPPool(stream));
-        }
+    public synchronized void setPolicy(Element policyElement) throws Exception {
+        log.warn("creating pool policy {}", getPolicyName());
+        String policyString = DomUtils.toString(policyElement);
+        poolMap.put(getPolicyName(), new PDPPool(policyString));
         if (getOriginState().getName().equals("ONGOING") && ucon.isInited()) { // FIXME
             Collection<UconSession> sessions = ucon.getDAL().listSessions(Status.ONGOING);
             if (sessions.size() > 0) {
@@ -79,7 +74,7 @@ public class PolicyDrivenAction extends UconAction {
     
     @Override
     public void execute(UconRequest uconRequest, UconSession uconSession, Object[] args) {
-        log.warn("executing action");
+        log.warn("executing action {} with {}, {}", getName(), uconRequest, uconSession);
         Document rv = getPDPPool().access(uconRequest);
         uconSession.setResponse(rv);
         lastDecision = uconSession.getDecision();

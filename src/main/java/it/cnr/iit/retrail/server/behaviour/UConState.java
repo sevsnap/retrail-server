@@ -2,7 +2,7 @@
  * CNR - IIT
  * Coded by: 2014 Enrico "KMcC;) Carniani
  */
-package it.cnr.iit.retrail.server.automaton;
+package it.cnr.iit.retrail.server.behaviour;
 
 import it.cnr.iit.retrail.commons.Status;
 import it.cnr.iit.retrail.commons.automata.ActionInterface;
@@ -30,4 +30,5 @@ public class UConState extends State {
     public Status getType() {
         return type;
     }
+    
 }

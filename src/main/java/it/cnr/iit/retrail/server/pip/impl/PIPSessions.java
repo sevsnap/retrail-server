@@ -69,7 +69,7 @@ public class PIPSessions extends PIP {
 
     @Override
     public void onBeforeEndAccess(PepRequestInterface request, PepSessionInterface session) {
-        if (session.getStatus() != Status.TRY) {
+        if (session.getStatus() != Status.STANDARD) { // FIXME was TRY
             sessions--;
             log.info("Number of open sessions decremented to {} because status = {}", sessions, session.getStatus());
             assert (sessions >= 0);

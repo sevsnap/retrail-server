@@ -2,7 +2,7 @@
  * CNR - IIT
  * Coded by: 2014 Enrico "KMcC;) Carniani
  */
-package it.cnr.iit.retrail.server.automaton;
+package it.cnr.iit.retrail.server.behaviour;
 
 import it.cnr.iit.retrail.commons.DomUtils;
 import it.cnr.iit.retrail.commons.Pool;

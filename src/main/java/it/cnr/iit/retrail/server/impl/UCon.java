@@ -4,7 +4,7 @@
  */
 package it.cnr.iit.retrail.server.impl;
 
-import it.cnr.iit.retrail.server.automaton.AutomatonFactory;
+import it.cnr.iit.retrail.server.behaviour.Behaviour;
 import it.cnr.iit.retrail.server.UConInterface;
 import it.cnr.iit.retrail.server.UConProtocol;
 import it.cnr.iit.retrail.commons.impl.Client;
@@ -51,7 +51,7 @@ public class UCon extends Server implements UConInterface, UConProtocol {
     private boolean mustRecorderTrustAllPeers = false;
     private long recorderMillis = 0;
     public int maxMissedHeartbeats = 1;
-    private AutomatonFactory automatonFactory;
+    private Behaviour automatonFactory;
 
     protected final PIPChainInterface pipChain = new PIPChain();
     protected final DAL dal;
@@ -64,8 +64,7 @@ public class UCon extends Server implements UConInterface, UConProtocol {
     protected UCon(URL url) throws Exception {
         super(url, UConProtocolProxy.class);
         dal = DAL.getInstance();
-        InputStream is = getClass().getClassLoader().getResourceAsStream("/META-INF/ucon.xml");
-        loadBehaviour(is);
+        loadBehaviour(null);
     }
 
     @Override
@@ -76,8 +75,11 @@ public class UCon extends Server implements UConInterface, UConProtocol {
     @Override
     public Node apply(String actionName, String uuid, String customId, Object... args) throws Exception {
         UconSession session = null;
-        if(uuid != null || customId != null)
+        if(uuid != null || customId != null) {
             session = dal.getSession(getUuid(uuid, customId), myUrl);
+            if(session == null)
+                throw new RuntimeException("session id "+getUuid(uuid, customId)+" is unknown");
+        }
         Element response = automatonFactory.apply(session, actionName, args);
         return response;
     } 
@@ -107,8 +109,12 @@ public class UCon extends Server implements UConInterface, UConProtocol {
         session.setCustomId(customId);
         session.setPepUrl(pepUrlString);
         session.setUconUrl(myUrl);
-        session.setStatus(Status.INIT);
-        session = dal.startSession(session);
+        session.setStatus(Status.BEGIN);
+        session.setStateName(automatonFactory.getBegin().getName());
+        // FIXME troppi passaggi, la req viene prima serializzata e dopo deserializzata
+        // dal database.
+        UconRequest request = new UconRequest((Document)accessRequest);
+        session = dal.startSession(session, request);
 
         // Obtain and use automaton instance.
         Element response = automatonFactory.apply(session, "tryAccess");
@@ -184,6 +190,7 @@ public class UCon extends Server implements UConInterface, UConProtocol {
             pipChain.fireEvent(new Event(EventType.beforeRevokeAccess, uconRequest, uconSession));
             UconSession uconSession2 = dal.revokeSession(uconSession);
             uconSession.setStatus(Status.REVOKED);
+            uconSession.setStateName("REVOKED"); // FIXME
             uconSession.setMs(System.currentTimeMillis() - start);
             Element sessionElement = uconSession.toXacml3Element();
             responses.add(sessionElement);
@@ -511,7 +518,7 @@ public class UCon extends Server implements UConInterface, UConProtocol {
 
     @Override
     public void loadBehaviour(InputStream is) throws Exception {
-        automatonFactory = new AutomatonFactory(this, is);
+        automatonFactory = new Behaviour(this, is);
     }
 
 }

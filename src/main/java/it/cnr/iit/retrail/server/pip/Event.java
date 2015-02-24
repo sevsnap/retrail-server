@@ -6,8 +6,8 @@ package it.cnr.iit.retrail.server.pip;
 
 import it.cnr.iit.retrail.commons.PepRequestInterface;
 import it.cnr.iit.retrail.commons.PepSessionInterface;
-import it.cnr.iit.retrail.server.automaton.PolicyDrivenAction;
-import it.cnr.iit.retrail.server.automaton.UConAutomaton;
+import it.cnr.iit.retrail.server.behaviour.PolicyDrivenAction;
+import it.cnr.iit.retrail.server.behaviour.UConAutomaton;
 
 /**
  *
