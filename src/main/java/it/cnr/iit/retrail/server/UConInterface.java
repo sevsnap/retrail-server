@@ -34,7 +34,7 @@ public interface UConInterface extends RecorderInterface {
     void init() throws Exception;
 
     void loadBehaviour(InputStream s) throws Exception;
-    void resetBehaviour() throws Exception;
+    void defaultBehaviour() throws Exception;
     
     PIPChainInterface getPIPChain();
     DALInterface getDAL();

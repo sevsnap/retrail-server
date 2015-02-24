@@ -65,7 +65,7 @@ public class UCon extends Server implements UConInterface, UConProtocol {
     protected UCon(URL url) throws Exception {
         super(url, UConProtocolProxy.class);
         dal = DAL.getInstance();
-        loadBehaviour(null);
+        defaultBehaviour();
     }
 
     @Override
@@ -524,7 +524,7 @@ public class UCon extends Server implements UConInterface, UConProtocol {
     }
     
     @Override
-    public void resetBehaviour() throws Exception {
+    public final void defaultBehaviour() throws Exception {
         InputStream uconConfigStream = getClass().getClassLoader().getResourceAsStream("ucon.xml");
         automatonFactory = new Behaviour(this, uconConfigStream);
     }
