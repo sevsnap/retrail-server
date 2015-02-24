@@ -119,6 +119,8 @@ public final class Behaviour extends Pool<UConAutomaton> {
                     if(firstTime) {
                         act.setPolicy(policyElement);
                         policyDrivenActions.add(act);
+                        if(klass.equals("OngoingAccessAction"))
+                            ongoingAccessActions.add(act);
                     }
                     action = act;
                     break;
@@ -130,7 +132,8 @@ public final class Behaviour extends Pool<UConAutomaton> {
         }
         // ready to go
         a.setCurrentState(a.getBegin());
-        log.info("automaton {} created", a);
+        if(firstTime)
+            a.printInfo();
         return a;
     }
 

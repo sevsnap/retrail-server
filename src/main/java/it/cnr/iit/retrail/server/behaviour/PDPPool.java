@@ -142,4 +142,8 @@ public final class PDPPool extends Pool<PDP> {
         return doc;
     }
 
+    @Override
+    public String toString() {
+        return getClass().getSimpleName();
+    }
 }

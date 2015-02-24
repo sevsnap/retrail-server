@@ -45,8 +45,8 @@ public class UConAutomaton extends Automaton {
         // rebuild pepAccessRequest for PIP's onBeforeStartAccess argument
         UconRequest uconRequest = ucon.getDAL().rebuildUconRequest(session);
         ucon.getPIPChain().refresh(uconRequest, session);
-        log.warn("current state = {}", getCurrentState());
-        log.warn("action name = {}", actionName);
+        //log.warn("current state = {}", getCurrentState());
+        //log.warn("action name = {}", actionName);
         PolicyDrivenAction action = (PolicyDrivenAction) getCurrentState().getAction(actionName);
         log.warn("action = {}", action);
         Event event = new Event(this, action, uconRequest, session, null);
@@ -57,15 +57,17 @@ public class UConAutomaton extends Automaton {
         session.setStateName(getCurrentState().getName());
         ucon.getDAL().saveSession(session, uconRequest);
         ucon.getPIPChain().fireAfterActionEvent(event);
+        session.setMs(System.currentTimeMillis() - start);
+        session.setUconUrl(ucon.myUrl);
+        Element response = session.toXacml3Element();
         if(isFinished()) {
             log.warn("TERMINATING, action {}, state {}", action.getName(), getCurrentState().getName());
+            // FIXME should not reload session!
+            session = ucon.getDAL().getSession(session.getUuid(), ucon.myUrl);
             ucon.getDAL().endSession(session);
         } else 
             ucon.getDAL().saveSession(session, uconRequest);
-        session.setMs(System.currentTimeMillis() - start);
-        session.setUconUrl(ucon.myUrl);
-
-        return session.toXacml3Element();
+        return response;
     }
 
 }

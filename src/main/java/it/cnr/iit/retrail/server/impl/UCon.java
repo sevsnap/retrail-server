@@ -16,6 +16,7 @@ import it.cnr.iit.retrail.commons.impl.PepSession;
 import it.cnr.iit.retrail.commons.Server;
 import it.cnr.iit.retrail.commons.Status;
 import it.cnr.iit.retrail.commons.impl.PepRequest;
+import it.cnr.iit.retrail.server.behaviour.PDPPool;
 import it.cnr.iit.retrail.server.dal.UconAttribute;
 import it.cnr.iit.retrail.server.dal.DAL;
 import it.cnr.iit.retrail.server.dal.DALInterface;
@@ -294,9 +295,10 @@ public class UCon extends Server implements UConInterface, UConProtocol {
                 UconRequest uconRequest = dal.rebuildUconRequest(involvedSession);
                 // refresh the request then re-evaluate.
                 pipChain.refresh(uconRequest, involvedSession);
-                // Now make PDP evaluate the request
-                log.debug("evaluating request");                
-                Document responseDocument = automatonFactory.getOngoingAccessPDPPool().access(uconRequest);
+                // Now make PDP evaluate the request    
+                PDPPool pdpPool = automatonFactory.getOngoingAccessPDPPool(); //FIXME
+                log.debug("evaluating request with {}", pdpPool);                
+                Document responseDocument = pdpPool.access(uconRequest);
                 involvedSession.setResponse(responseDocument);
                 boolean mustRevoke = involvedSession.getDecision() != PepResponse.DecisionEnum.Permit;
                 // Explicitly revoke access if anything went wrong
@@ -322,7 +324,7 @@ public class UCon extends Server implements UConInterface, UConProtocol {
                     dal.saveSession(involvedSession, uconRequest);
                 }
             } catch (Exception ex) {
-                log.error(ex.getMessage());
+                log.error("while reevaluating: {}", ex);
             }
         }
         for (URL pepUrl : revokedSessionsMap.keySet()) {

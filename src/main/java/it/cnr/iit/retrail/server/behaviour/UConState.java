@@ -31,4 +31,8 @@ public class UConState extends State {
         return type;
     }
     
+    @Override
+    public String toString() {
+        return name+"[type="+type+"]";
+    }
 }

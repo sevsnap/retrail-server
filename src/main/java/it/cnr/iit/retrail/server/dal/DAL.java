@@ -75,8 +75,10 @@ public class DAL implements DALInterface {
     }
 
     public void debugDumpAttributes(Collection<UconAttribute> al) {
+        log.info("debugging attributes");
         for (UconAttribute a : al) {
-            log.info("\t{} (parent: {})", a, ((UconAttribute) a.getParent()).getRowId());
+            UconAttribute parent = (UconAttribute) a.getParent();
+            log.info("\t{} (parent: {})", a, parent == null? null : parent.getRowId());
             for (UconSession s : a.getSessions()) {
                 log.info("\t\t{}", s);
             }
@@ -395,7 +397,10 @@ public class DAL implements DALInterface {
         try {
             if (uconSession != null) {
                 uconSession = em.merge(uconSession);
+                //log.info("Removing attributes...");
+                //debugDumpAttributes(uconSession.getAttributes());
                 removeAttributes(em, uconSession);
+                //log.info("Removing session...");
                 em.remove(uconSession);
             } else {
                 log.error("cannot find {}", uconSession);
