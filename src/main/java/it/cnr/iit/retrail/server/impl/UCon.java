@@ -23,8 +23,8 @@ import it.cnr.iit.retrail.server.dal.DALInterface;
 import it.cnr.iit.retrail.server.dal.UconRequest;
 import it.cnr.iit.retrail.server.dal.UconSession;
 import it.cnr.iit.retrail.server.pip.Event;
-import it.cnr.iit.retrail.server.pip.Event.EventType;
 import it.cnr.iit.retrail.server.pip.PIPChainInterface;
+import it.cnr.iit.retrail.server.pip.SystemEvent;
 import it.cnr.iit.retrail.server.pip.impl.PIPChain;
 import java.io.File;
 import java.io.InputStream;
@@ -81,8 +81,8 @@ public class UCon extends Server implements UConInterface, UConProtocol {
             if(session == null)
                 throw new RuntimeException("session id "+getUuid(uuid, customId)+" is unknown");
         }
-        Element response = automatonFactory.apply(session, actionName, args);
-        return response;
+        UconSession response = automatonFactory.apply(session, actionName, args);
+        return response.toXacml3Element();
     } 
 
     @Override
@@ -118,8 +118,8 @@ public class UCon extends Server implements UConInterface, UConProtocol {
         session = dal.startSession(session, request);
 
         // Obtain and use automaton instance.
-        Element response = automatonFactory.apply(session, "tryAccess");
-        return response;
+        UconSession response = automatonFactory.apply(session, "tryAccess");
+        return response.toXacml3Element();
     }
 
     @Override
@@ -188,7 +188,7 @@ public class UCon extends Server implements UConInterface, UConProtocol {
             long start = System.currentTimeMillis();
             UconRequest uconRequest = dal.rebuildUconRequest(uconSession);
             pipChain.refresh(uconRequest, uconSession);
-            pipChain.fireEvent(new Event(EventType.beforeRevokeAccess, uconRequest, uconSession));
+            pipChain.fireSystemEvent(new SystemEvent(SystemEvent.EventType.beforeRevokeAccess, uconRequest, uconSession));
             UconSession uconSession2 = dal.revokeSession(uconSession);
             uconSession.setStatus(Status.REVOKED);
             uconSession.setStateName("REVOKED"); // FIXME
@@ -204,7 +204,7 @@ public class UCon extends Server implements UConInterface, UConProtocol {
         Object ack = rpc(pepUrl, "PEP.revokeAccess", responses);
         for (UconSession uconSession : uconSessions2) {
             UconRequest uconRequest = dal.rebuildUconRequest(uconSession);
-            pipChain.fireEvent(new Event(EventType.afterRevokeAccess, uconRequest, uconSession, ack));
+            pipChain.fireSystemEvent(new SystemEvent(SystemEvent.EventType.afterRevokeAccess, uconRequest, uconSession, ack));
             uconSession = (UconSession) dal.save(uconSession);
         }
         return responses;
@@ -217,7 +217,7 @@ public class UCon extends Server implements UConInterface, UConProtocol {
             // revoke session on db
             UconRequest uconRequest = dal.rebuildUconRequest(uconSession);
             pipChain.refresh(uconRequest, uconSession);
-            pipChain.fireEvent(new Event(EventType.beforeRunObligations, uconRequest, uconSession));
+            pipChain.fireSystemEvent(new SystemEvent(SystemEvent.EventType.beforeRunObligations, uconRequest, uconSession));
             Element sessionElement = uconSession.toXacml3Element();
             responses.add(sessionElement);
             // save ucon session
@@ -230,7 +230,7 @@ public class UCon extends Server implements UConInterface, UConProtocol {
         Object ack = rpc(pepUrl, "PEP.runObligations", responses);
         for (UconSession uconSession : uconSessions2) {
             UconRequest uconRequest = dal.rebuildUconRequest(uconSession);
-            pipChain.fireEvent(new Event(EventType.afterRunObligations, uconRequest, uconSession, ack));
+            pipChain.fireSystemEvent(new SystemEvent(SystemEvent.EventType.afterRunObligations, uconRequest, uconSession, ack));
             uconSession = (UconSession) dal.save(uconSession);
         }
     }
@@ -291,15 +291,8 @@ public class UCon extends Server implements UConInterface, UConProtocol {
         for (UconSession involvedSession : involvedSessions) {
             try {
                 log.debug("involved session: {}", involvedSession);
-                // Rebuild PEP request without expired attributes 
-                UconRequest uconRequest = dal.rebuildUconRequest(involvedSession);
-                // refresh the request then re-evaluate.
-                pipChain.refresh(uconRequest, involvedSession);
                 // Now make PDP evaluate the request    
-                PDPPool pdpPool = automatonFactory.getOngoingAccessPDPPool(); //FIXME
-                log.debug("evaluating request with {}", pdpPool);                
-                Document responseDocument = pdpPool.access(uconRequest);
-                involvedSession.setResponse(responseDocument);
+                involvedSession =  automatonFactory.apply(involvedSession, "ongoingAccess");
                 boolean mustRevoke = involvedSession.getDecision() != PepResponse.DecisionEnum.Permit;
                 // Explicitly revoke access if anything went wrong
                 if (mustRevoke) {
@@ -311,7 +304,7 @@ public class UCon extends Server implements UConInterface, UConProtocol {
                         revokedSessionsMap.put(pepUrl, revokedSessions);
                     }
                     revokedSessions.add(involvedSession);
-                } else if (involvedSession.getObligations().size() > 0) {
+                } else if (!involvedSession.getObligations().isEmpty()) {
                     URL pepUrl = new URL(involvedSession.getPepUrl());
                     Collection<UconSession> obligationSessions = revokedSessionsMap.get(pepUrl);
                     if (obligationSessions == null) {
@@ -319,14 +312,15 @@ public class UCon extends Server implements UConInterface, UConProtocol {
                         obligationSessionsMap.put(pepUrl, obligationSessions);
                     }
                     obligationSessions.add(involvedSession);
-                } else {
-                    log.info("updating {}", involvedSession);
-                    dal.saveSession(involvedSession, uconRequest);
+                //} else {
+                    //log.info("updating {}", involvedSession);
+                    //dal.saveSession(involvedSession, uconRequest);
                 }
             } catch (Exception ex) {
-                log.error("while reevaluating: {}", ex);
+                log.error("while reevaluating: "+ ex.getMessage(), ex);
             }
         }
+        // Send obligations and revocations
         for (URL pepUrl : revokedSessionsMap.keySet()) {
             revokeAccess(pepUrl, revokedSessionsMap.get(pepUrl));
         }
@@ -358,7 +352,7 @@ public class UCon extends Server implements UConInterface, UConProtocol {
         // Attribute values and handles the grouping by category.
         PepRequestInterface container = new PepRequest((Document) xacmlRequest);
         // First send event to the PIPs
-        pipChain.fireEvent(new Event(EventType.beforeApplyChanges, uconRequest, uconSession, container));
+        pipChain.fireSystemEvent(new SystemEvent(SystemEvent.EventType.beforeApplyChanges, uconRequest, uconSession, container));
 
         // Ok we have a live container of attribute values grouped by 
         // category and id now. 
@@ -370,7 +364,7 @@ public class UCon extends Server implements UConInterface, UConProtocol {
 
         // We need to save them to the database.
         UconSession uconSession2 = dal.saveSession(uconSession, uconRequest);
-        pipChain.fireEvent(new Event(EventType.afterApplyChanges, uconRequest, uconSession2));
+        pipChain.fireSystemEvent(new SystemEvent(SystemEvent.EventType.afterApplyChanges, uconRequest, uconSession2));
         dal.saveSession(uconSession2, uconRequest);
         // New values are saved. It's time to reevaluate the involved sessions.
         wakeup();

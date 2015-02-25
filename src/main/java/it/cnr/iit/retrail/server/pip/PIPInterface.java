@@ -40,11 +40,9 @@ public interface PIPInterface {
 
     boolean isInited();
     
-    @Deprecated
-    void fireEvent(Event e);
-    
-    void fireAfterActionEvent(Event e);
-    void fireBeforeActionEvent(Event e);
+    void fireBeforeActionEvent(ActionEvent e);
+    void fireAfterActionEvent(ActionEvent e);
+    void fireSystemEvent(SystemEvent e);
     
     /**
      * newSharedAttribute() creates a new shared PEP attribute. The new

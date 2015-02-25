@@ -65,7 +65,7 @@
                     </Rule>
                 </Policy>
             </ucon:Action>
-            <UConAction name="endAccess" class="UConAction" source="REVOKED" target="DELETED"/>
+            <ucon:Action name="endAccess" class="UconAction" source="REVOKED" target="DELETED"/>
         </ucon:Actions>
     </ucon:Behaviour>
 </ucon:Config>

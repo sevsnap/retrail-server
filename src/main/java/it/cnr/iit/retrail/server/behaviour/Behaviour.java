@@ -113,7 +113,7 @@ public final class Behaviour extends Pool<UConAutomaton> {
                     StateInterface failTarget = a.getState(failTargetStateName);
                     Element policyElement = (Element) actionElement.getElementsByTagName("Policy").item(0);
                     PolicyDrivenAction act = klass.equals("OngoingAccessAction")?
-                            new OngoingAccessAction(source, target, failTarget, name, ucon) :
+                            new OngoingAccess(source, target, failTarget, name, ucon) :
                             new PolicyDrivenAction(source, target, failTarget, name, ucon);
                     if(firstTime) {
                         act.setPolicy(policyElement);
@@ -136,10 +136,10 @@ public final class Behaviour extends Pool<UConAutomaton> {
         return a;
     }
 
-    public final Element apply(UconSession session, String actionName, Object... args) {
+    public final UconSession apply(UconSession session, String actionName, Object... args) {
         UConAutomaton automaton = obtain();
         automaton.setSession(session);
-        Element response = null;
+        UconSession response = null;
         try {
             response = automaton.doThenMove(actionName, args);
         } catch (Exception e) {

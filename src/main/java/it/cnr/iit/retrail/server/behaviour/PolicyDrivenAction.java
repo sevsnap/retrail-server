@@ -27,7 +27,6 @@ public class PolicyDrivenAction extends UconAction {
     private static final Map<String, PDPPool> poolMap = new HashMap<>();
     private final StateInterface targetFailState;
     private PepResponse.DecisionEnum lastDecision;
-    private String policyId;
     
     public PolicyDrivenAction(StateInterface sourceState, StateInterface targetState, StateInterface targetFailState, String name, UCon ucon) {
         super(sourceState, targetState, name, ucon);
@@ -56,10 +55,8 @@ public class PolicyDrivenAction extends UconAction {
      */
 
     public synchronized void setPolicy(Element policyElement) throws Exception {
-        policyId = policyElement.getAttribute("PolicyId");
-        log.warn("creating pool policy {} (PolicyId: {})", getPolicyName(), policyId);
-        String policyString = DomUtils.toString(policyElement);
-        poolMap.put(getPolicyName(), new PDPPool(policyString));
+        assert(policyElement.getTagName().equals("Policy"));
+        poolMap.put(getPolicyName(), new PDPPool(policyElement));
         if (((UConState)getOriginState()).getType() == Status.ONGOING && ucon.isInited()) { 
             Collection<UconSession> sessions = ucon.getDAL().listSessions(Status.ONGOING);
             if (sessions.size() > 0) {
@@ -74,23 +71,32 @@ public class PolicyDrivenAction extends UconAction {
         return lastDecision == PepResponse.DecisionEnum.Permit? targetState : targetFailState;
     }
     
-    public void onFail(UconRequest uconRequest, UconSession uconSession, Object[] args) {
+    public UconSession onFail(UconRequest uconRequest, UconSession uconSession, Object[] args) {
         log.warn("doing nothing");
+        return uconSession;
+    }
+    
+    public UconSession onPermit(UconRequest uconRequest, UconSession uconSession, Object[] args) {
+        log.warn("doing nothing");
+        return uconSession;
     }
     
     @Override
-    public void execute(UconRequest uconRequest, UconSession uconSession, Object[] args) {
-        log.warn("executing action {} with {}, {}", getName(), uconRequest, uconSession);
+    public UconSession execute(UconRequest uconRequest, UconSession uconSession, Object[] args) {
+        log.warn("executing {} with {}, {}", this, uconRequest, uconSession);
         Document rv = getPDPPool().access(uconRequest);
         uconSession.setResponse(rv);
         lastDecision = uconSession.getDecision();
-        if(lastDecision != PepResponse.DecisionEnum.Permit)
-            onFail(uconRequest, uconSession, args);
+        if(lastDecision == PepResponse.DecisionEnum.Permit)
+            uconSession = onPermit(uconRequest, uconSession, args);
+        else
+            uconSession = onFail(uconRequest, uconSession, args);
+        return uconSession;
     }
     
     @Override 
     public String toString() {
-        return getName()+"() -> "+targetState+" (on fail: "+targetFailState+"; PolicyId: "+policyId+")";
+        return getName()+"() -> "+targetState+" (on fail: "+targetFailState+"; "+getPDPPool()+")";
     }
     
 }

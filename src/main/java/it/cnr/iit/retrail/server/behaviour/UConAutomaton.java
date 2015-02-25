@@ -11,6 +11,7 @@ import it.cnr.iit.retrail.commons.impl.PepResponse;
 import it.cnr.iit.retrail.server.dal.UconRequest;
 import it.cnr.iit.retrail.server.dal.UconSession;
 import it.cnr.iit.retrail.server.impl.UCon;
+import it.cnr.iit.retrail.server.pip.ActionEvent;
 import it.cnr.iit.retrail.server.pip.Event;
 import java.net.URL;
 import javax.persistence.NoResultException;
@@ -40,16 +41,16 @@ public class UConAutomaton extends Automaton {
         setCurrentState(session.getStateName());
     }
     
-    public Element doThenMove(String actionName, Object[] args) throws Exception {
+    public UconSession doThenMove(String actionName, Object[] args) throws Exception {
         long start = System.currentTimeMillis();
         // rebuild pepAccessRequest for PIP's onBeforeStartAccess argument
         UconRequest uconRequest = ucon.getDAL().rebuildUconRequest(session);
         ucon.getPIPChain().refresh(uconRequest, session);
         //log.warn("current state = {}", getCurrentState());
         //log.warn("action name = {}", actionName);
-        PolicyDrivenAction action = (PolicyDrivenAction) getCurrentState().getAction(actionName);
+        UconAction action = (UconAction) getCurrentState().getAction(actionName);
         log.warn("action = {}", action);
-        Event event = new Event(this, action, uconRequest, session, null);
+        ActionEvent event = new ActionEvent(this, action, uconRequest, session, null);
         ucon.getPIPChain().fireBeforeActionEvent(event);
         action.execute(uconRequest, session, args);
         move(actionName);
@@ -59,7 +60,7 @@ public class UConAutomaton extends Automaton {
         ucon.getPIPChain().fireAfterActionEvent(event);
         session.setMs(System.currentTimeMillis() - start);
         session.setUconUrl(ucon.myUrl);
-        Element response = session.toXacml3Element();
+        UconSession response = session;
         if(isFinished()) {
             log.warn("TERMINATING, action {}, state {}", action.getName(), getCurrentState().getName());
             // FIXME should not reload session!

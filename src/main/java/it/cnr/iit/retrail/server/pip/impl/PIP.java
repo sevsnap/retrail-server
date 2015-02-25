@@ -7,12 +7,12 @@ package it.cnr.iit.retrail.server.pip.impl;
 import it.cnr.iit.retrail.commons.PepAttributeInterface;
 import it.cnr.iit.retrail.commons.PepRequestInterface;
 import it.cnr.iit.retrail.commons.PepSessionInterface;
-import it.cnr.iit.retrail.commons.impl.PepAttribute;
 import it.cnr.iit.retrail.server.UConInterface;
 import it.cnr.iit.retrail.server.dal.UconAttribute;
 import it.cnr.iit.retrail.server.dal.DAL;
-import it.cnr.iit.retrail.server.pip.Event;
+import it.cnr.iit.retrail.server.pip.ActionEvent;
 import it.cnr.iit.retrail.server.pip.PIPInterface;
+import it.cnr.iit.retrail.server.pip.SystemEvent;
 import java.util.Collection;
 import java.util.Date;
 import org.slf4j.Logger;
@@ -27,34 +27,35 @@ public abstract class PIP implements PIPInterface {
     protected Logger log = LoggerFactory.getLogger(PIP.class);
     protected static final DAL dal = DAL.getInstance();
     protected UConInterface ucon;
-    
+
     private final String uuid = getUUID();
 
     @Override
     public void init(UConInterface ucon) {
-        if(ucon == null)
+        if (ucon == null) {
             log.warn("initializing {} with null UConInterface!", this);
-        else
+        } else {
             log.info("initializing {} with {}", this, ucon);
+        }
         this.ucon = ucon;
     }
-    
+
     @Override
     public boolean isInited() {
         return ucon != null;
     }
 
     @Override
-    public void fireBeforeActionEvent(Event e) {
-        switch(e.action.getName()) {
+    public void fireBeforeActionEvent(ActionEvent e) {
+        switch (e.action.getName()) {
             case "tryAccess":
                 onBeforeTryAccess(e.request);
                 break;
             case "startAccess":
                 onBeforeStartAccess(e.request, e.session);
                 break;
-            case "runObligations":
-                onBeforeRunObligations(e.request, e.session);
+            case "ongoingAccess":
+                onBeforeOngoingAccess(e.request, e.session);
                 break;
             case "applyChanges":
                 onBeforeApplyChanges(e.request, e.session);
@@ -66,21 +67,21 @@ public abstract class PIP implements PIPInterface {
                 onBeforeEndAccess(e.request, e.session);
                 break;
             default:
-                throw new RuntimeException("while handling event "+e+": unknown action " + e.action);
+                throw new RuntimeException("while handling event " + e + ": unknown action " + e.action);
         }
     }
 
     @Override
-    public void fireAfterActionEvent(Event e) {
-        switch(e.action.getName()) {
+    public void fireAfterActionEvent(ActionEvent e) {
+        switch (e.action.getName()) {
             case "tryAccess":
                 onAfterTryAccess(e.request, e.session);
                 break;
             case "startAccess":
                 onAfterStartAccess(e.request, e.session);
                 break;
-            case "runObligations":
-                onAfterRunObligations(e.request, e.session, e.ack);
+            case "ongoingAccess":
+                onAfterOngoingAccess(e.request, e.session, e.ack);
                 break;
             case "applyChanges":
                 onAfterApplyChanges(e.request, e.session);
@@ -92,62 +93,40 @@ public abstract class PIP implements PIPInterface {
                 onAfterEndAccess(e.request, e.session);
                 break;
             default:
-                throw new RuntimeException("while handling event "+e+": unknown action " + e.action);
-        } 
+                throw new RuntimeException("while handling event " + e + ": unknown action " + e.action);
+        }
     }
 
     @Override
-    public void fireEvent(Event e) {
-        switch(e.type) {
-            case beforeTryAccess:
-                onBeforeTryAccess(e.request);
-                break;
-            case afterTryAccess:
-                onAfterTryAccess(e.request, e.session);
-                break;
-            case beforeStartAccess:
-                onBeforeStartAccess(e.request, e.session);
-                break;
-            case afterStartAccess:
-                onAfterStartAccess(e.request, e.session);
-                break;
-            case beforeRunObligations:
-                onBeforeRunObligations(e.request, e.session);
-                break;
-            case afterRunObligations:
-                onAfterRunObligations(e.request, e.session, e.ack);
-                break;
+    public void fireSystemEvent(SystemEvent e) {
+        switch (e.type) {
             case beforeApplyChanges:
                 onBeforeApplyChanges(e.request, e.session);
-                break;
-            case afterApplyChanges:
-                onAfterApplyChanges(e.request, e.session);
                 break;
             case beforeRevokeAccess:
                 onBeforeRevokeAccess(e.request, e.session);
                 break;
+            case afterApplyChanges:
+                onAfterApplyChanges(e.request, e.session);
+                break;
             case afterRevokeAccess:
                 onAfterRevokeAccess(e.request, e.session, e.ack);
                 break;
-            case beforeEndAccess:
-                onBeforeEndAccess(e.request, e.session);
-                break;
-            case afterEndAccess:
-                onAfterEndAccess(e.request, e.session);
-                break;
             default:
-                throw new RuntimeException("while handling event "+e+": unknown type " + e.type);
+                throw new RuntimeException("while firing " + e + ": type " + e.type + " is unknown!");
         }
     }
-    
+
     @Override
-    public PepAttributeInterface newPrivateAttribute(String id, String type, String value, String issuer, PepAttributeInterface parent) {
+    public PepAttributeInterface newPrivateAttribute(String id, String type, String value, String issuer, PepAttributeInterface parent
+    ) {
         UconAttribute p = (UconAttribute) parent;
         return dal.newPrivateAttribute(id, type, value, issuer, p, uuid);
     }
-    
+
     @Override
-    public PepAttributeInterface newSharedAttribute(String id, String type, String value, String issuer, String category) {
+    public PepAttributeInterface newSharedAttribute(String id, String type, String value, String issuer, String category
+    ) {
         return dal.newSharedAttribute(id, type, value, issuer, category, uuid);
     }
 
@@ -172,8 +151,7 @@ public abstract class PIP implements PIPInterface {
      *
      * @param request the request to be processed by the UCon.
      */
-    public void onBeforeTryAccess(PepRequestInterface request) 
-    {
+    public void onBeforeTryAccess(PepRequestInterface request) {
         log.debug("dummy PIP processor called, ignoring");
     }
 
@@ -190,8 +168,7 @@ public abstract class PIP implements PIPInterface {
      * @param session the answer from UCon. In particular, it holds the decision
      * made by the PDP and the consequent state of the session (i.e., ONGOING).
      */
-    public void onAfterTryAccess(PepRequestInterface request, PepSessionInterface session)
-    {
+    public void onAfterTryAccess(PepRequestInterface request, PepSessionInterface session) {
         log.debug("dummy PIP processor called, ignoring");
     }
 
@@ -205,9 +182,7 @@ public abstract class PIP implements PIPInterface {
      * @param request the request that is going to be processed.
      * @param session the current session.
      */
-    
-    public void onBeforeStartAccess(PepRequestInterface request, PepSessionInterface session)
-    {
+    public void onBeforeStartAccess(PepRequestInterface request, PepSessionInterface session) {
         log.debug("dummy PIP processor called, ignoring");
     }
 
@@ -222,12 +197,9 @@ public abstract class PIP implements PIPInterface {
      * @param session the current session holding the decision made by the PDP
      * and the consequent status.
      */
-    
-    public void onAfterStartAccess(PepRequestInterface request, PepSessionInterface session)
-                {
+    public void onAfterStartAccess(PepRequestInterface request, PepSessionInterface session) {
         log.debug("dummy PIP processor called, ignoring");
     }
-
 
     /**
      * onBeforeRevokeAccess()
@@ -238,8 +210,7 @@ public abstract class PIP implements PIPInterface {
      * @param request the request that is going to be revoked.
      * @param session the current session.
      */
-    public void onBeforeRevokeAccess(PepRequestInterface request, PepSessionInterface session)
-    {
+    public void onBeforeRevokeAccess(PepRequestInterface request, PepSessionInterface session) {
         log.debug("dummy PIP processor called, ignoring");
     }
 
@@ -254,8 +225,7 @@ public abstract class PIP implements PIPInterface {
      * @param session the current (revoked) session.
      * @param ack
      */
-    public void onAfterRevokeAccess(PepRequestInterface request, PepSessionInterface session, Object ack)
-    {
+    public void onAfterRevokeAccess(PepRequestInterface request, PepSessionInterface session, Object ack) {
         log.debug("dummy PIP processor called, ignoring");
     }
 
@@ -268,8 +238,7 @@ public abstract class PIP implements PIPInterface {
      * @param request the request to be ended.
      * @param session the current session.
      */
-    public void onBeforeEndAccess(PepRequestInterface request, PepSessionInterface session)
-    {
+    public void onBeforeEndAccess(PepRequestInterface request, PepSessionInterface session) {
         log.debug("dummy PIP processor called, ignoring");
     }
 
@@ -282,8 +251,20 @@ public abstract class PIP implements PIPInterface {
      * @param request the request just ended.
      * @param session the current (deleted) session.
      */
-    public void onAfterEndAccess(PepRequestInterface request, PepSessionInterface session)
-    {
+    public void onAfterEndAccess(PepRequestInterface request, PepSessionInterface session) {
+        log.debug("dummy PIP processor called, ignoring");
+    }
+
+    /**
+     * onBeforeOngoingAccess()
+     *
+     * is the event handler called by the UCon just before sending obligations
+     * during the evaluation runloop. The default implementation does nothing.
+     *
+     * @param request the request.
+     * @param session the current session.
+     */
+    public void onBeforeOngoingAccess(PepRequestInterface request, PepSessionInterface session) {
         log.debug("dummy PIP processor called, ignoring");
     }
 
@@ -296,13 +277,13 @@ public abstract class PIP implements PIPInterface {
      * @param request the request.
      * @param session the current session.
      */
-    public void onBeforeRunObligations(PepRequestInterface request, PepSessionInterface session)
-    {
+
+    public void onBeforeRunObligations(PepRequestInterface request, PepSessionInterface session) {
         log.debug("dummy PIP processor called, ignoring");
     }
 
     /**
-     * onAfterRunObligations()
+     * onAfterOngoingAccess()
      *
      * is the event handler invoked by the UCon just after having sent
      * obligations to the PEP. The default implementation does nothing.
@@ -311,8 +292,21 @@ public abstract class PIP implements PIPInterface {
      * @param session the current session.
      * @param ack the answer back from the pep. It's format is undefined.
      */
-    public void onAfterRunObligations(PepRequestInterface request, PepSessionInterface session, Object ack)
-                {
+    public void onAfterOngoingAccess(PepRequestInterface request, PepSessionInterface session, Object ack) {
+        log.debug("dummy PIP processor called, ignoring");
+    }
+
+    /**
+     * onAfterOngoingAccess()
+     *
+     * is the event handler invoked by the UCon just after having sent
+     * obligations to the PEP. The default implementation does nothing.
+     *
+     * @param request the request.
+     * @param session the current session.
+     * @param ack the answer back from the pep. It's format is undefined.
+     */
+    public void onAfterRunObligations(PepRequestInterface request, PepSessionInterface session, Object ack) {
         log.debug("dummy PIP processor called, ignoring");
     }
 
@@ -320,14 +314,13 @@ public abstract class PIP implements PIPInterface {
      * onBeforeApplyChanges()
      *
      * is the event handler called by the UCon just before updating some
-     * attributes by the UCon side itself.
-     * The default implementation does nothing.
+     * attributes by the UCon side itself. The default implementation does
+     * nothing.
      *
      * @param request the request.
      * @param session the current session.
      */
-    public void onBeforeApplyChanges(PepRequestInterface request, PepSessionInterface session)
-    {
+    public void onBeforeApplyChanges(PepRequestInterface request, PepSessionInterface session) {
         log.debug("dummy PIP processor called, ignoring");
     }
 
@@ -335,8 +328,8 @@ public abstract class PIP implements PIPInterface {
      * onAfterApplyChanges()
      *
      * is the event handler called by the UCon just after updating some
-     * attributes by the UCon side itself.
-     * The default implementation does nothing.
+     * attributes by the UCon side itself. The default implementation does
+     * nothing.
      *
      * @param request the request.
      * @param session the current session.
@@ -364,7 +357,7 @@ public abstract class PIP implements PIPInterface {
     public String getUUID() {
         return getClass().getCanonicalName();
     }
-    
+
     public UConInterface getUCon() {
         return ucon;
     }

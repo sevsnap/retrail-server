@@ -39,33 +39,14 @@ import org.wso2.balana.finder.impl.URLBasedPolicyFinderModule;
  * @author oneadmin
  */
 public final class PDPPool extends Pool<PDP> {
-
-    final private URL policyURL;
     final private String policyString;
+    final private String policyId;
 
-    public PDPPool(URL policyURL) {
+    public PDPPool(Element policyElement) {
         super();
-        log.debug("setting policy to {}", policyURL);
-        this.policyURL = policyURL;
-        policyString = null;
-        // Allocate one PDP at least, in order to perform policy syntax checking on start.
-        release(obtain());
-    }
-
-    public PDPPool(InputStream stream) throws IOException {
-        super();
-        log.debug("reading policy from stream");
-        policyString = new Scanner(stream).useDelimiter("\\A").next();
-        policyURL = null;
-        // Allocate one PDP at least, in order to perform policy syntax checking on start.
-        release(obtain());
-    }
-    
-    public PDPPool(String policyString) {
-        super();
-        log.debug("setting policy (passed by string)");
-        this.policyURL = null;
-        this.policyString = policyString;
+        this.policyId = policyElement.getAttribute("PolicyId");
+        this.policyString = DomUtils.toString(policyElement);
+        log.info("setting policy {}", policyId);
         // Allocate one PDP at least, in order to perform policy syntax checking on start.
         release(obtain());
     }
@@ -85,14 +66,14 @@ public final class PDPPool extends Pool<PDP> {
         PDPConfig pdpConfig = new PDPConfig(attributeFinder, policyFinder, null, false);
         return new PDP(pdpConfig);
     }
-
+/*
     private PDP newPDP(URL location) {
         Set<URL> locationSet = new HashSet<>();
         locationSet.add(location); //set the correct policy policyURL
         URLBasedPolicyFinderModule URLBasedPolicyFinderModule = new URLBasedPolicyFinderModule(locationSet);
         return newPDP(URLBasedPolicyFinderModule);
     }
-
+*/
     private PDP newPDP(InputStream stream) {
         StreamBasedPolicyFinderModule streamBasedPolicyFinderModule = new StreamBasedPolicyFinderModule(stream);
         return newPDP(streamBasedPolicyFinderModule);
@@ -101,12 +82,8 @@ public final class PDPPool extends Pool<PDP> {
     @Override
     protected PDP newObject() {
         PDP pdp = null;
-        if (policyURL == null) {
-            InputStream stream = new ByteArrayInputStream(policyString.getBytes());
-            pdp = newPDP(stream);
-        } else {
-            pdp = newPDP(policyURL);
-        }
+        InputStream stream = new ByteArrayInputStream(policyString.getBytes());
+        pdp = newPDP(stream);
         return pdp;
     }
 
@@ -144,6 +121,6 @@ public final class PDPPool extends Pool<PDP> {
 
     @Override
     public String toString() {
-        return getClass().getSimpleName();
+        return getClass().getSimpleName()+" [PolicyId="+policyId+"]";
     }
 }

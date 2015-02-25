@@ -30,8 +30,9 @@ public class UconAction extends Action {
         return name;
     }
     
-    public void execute(UconRequest uconRequest, UconSession uconSession, Object[] args) {
+    public UconSession execute(UconRequest uconRequest, UconSession uconSession, Object[] args) {
         log.warn("action executed");
+        return uconSession;
     }
 
 }
