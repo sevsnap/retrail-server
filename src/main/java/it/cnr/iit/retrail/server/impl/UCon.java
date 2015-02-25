@@ -16,13 +16,11 @@ import it.cnr.iit.retrail.commons.impl.PepSession;
 import it.cnr.iit.retrail.commons.Server;
 import it.cnr.iit.retrail.commons.Status;
 import it.cnr.iit.retrail.commons.impl.PepRequest;
-import it.cnr.iit.retrail.server.behaviour.PDPPool;
 import it.cnr.iit.retrail.server.dal.UconAttribute;
 import it.cnr.iit.retrail.server.dal.DAL;
 import it.cnr.iit.retrail.server.dal.DALInterface;
 import it.cnr.iit.retrail.server.dal.UconRequest;
 import it.cnr.iit.retrail.server.dal.UconSession;
-import it.cnr.iit.retrail.server.pip.Event;
 import it.cnr.iit.retrail.server.pip.PIPChainInterface;
 import it.cnr.iit.retrail.server.pip.SystemEvent;
 import it.cnr.iit.retrail.server.pip.impl.PIPChain;
@@ -37,6 +35,7 @@ import java.util.HashSet;
 import java.util.Iterator;
 import java.util.List;
 import java.util.Map;
+import javax.management.RuntimeErrorException;
 import javax.net.ssl.SSLContext;
 import javax.persistence.NoResultException;
 import javax.xml.transform.TransformerConfigurationException;
@@ -46,7 +45,7 @@ import org.w3c.dom.Element;
 import org.w3c.dom.Node;
 
 public class UCon extends Server implements UConInterface, UConProtocol {
-
+    public final static String uri = "http://security.iit.cnr.it/retrail/ucon";
     private File recorderFile = null;
     private boolean mustAppendToRecorderFile = false;
     private boolean mustRecorderTrustAllPeers = false;
@@ -54,7 +53,7 @@ public class UCon extends Server implements UConInterface, UConProtocol {
     public int maxMissedHeartbeats = 1;
     private Behaviour automatonFactory;
 
-    protected final PIPChainInterface pipChain = new PIPChain();
+    protected PIPChainInterface pipChain;
     protected final DAL dal;
     protected boolean inited = false;
 
@@ -65,9 +64,27 @@ public class UCon extends Server implements UConInterface, UConProtocol {
     protected UCon(URL url) throws Exception {
         super(url, UConProtocolProxy.class);
         dal = DAL.getInstance();
-        defaultBehaviour();
+        defaultConfiguration();
     }
 
+    @Override
+    public void loadConfiguration(InputStream is) throws Exception {
+        Document config = DomUtils.read(is);     
+        Element behaviourConfig = (Element) config.getElementsByTagNameNS(uri, "Behaviour").item(0);
+        if(behaviourConfig == null)
+            throw new RuntimeException("missing mandatory ucon:Behaviour element");
+        automatonFactory = new Behaviour(this, behaviourConfig);
+        pipChain = new PIPChain((Element) config.getElementsByTagNameNS(uri, "PIPChain").item(0));
+        if(isInited())
+            init();
+    }
+    
+    @Override
+    public final void defaultConfiguration() throws Exception {
+        InputStream uconConfigStream = getClass().getClassLoader().getResourceAsStream("ucon.xml");
+        loadConfiguration(uconConfigStream);
+    }
+    
     @Override
     public Node echo(Node node) throws TransformerConfigurationException, TransformerException {
         return node;
@@ -510,16 +527,5 @@ public class UCon extends Server implements UConInterface, UConProtocol {
     @Override
     public DALInterface getDAL() {
         return dal;
-    }
-
-    @Override
-    public void loadBehaviour(InputStream is) throws Exception {
-        automatonFactory = new Behaviour(this, is);
-    }
-    
-    @Override
-    public final void defaultBehaviour() throws Exception {
-        InputStream uconConfigStream = getClass().getClassLoader().getResourceAsStream("ucon.xml");
-        automatonFactory = new Behaviour(this, uconConfigStream);
     }
 }

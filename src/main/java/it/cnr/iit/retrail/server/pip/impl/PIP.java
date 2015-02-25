@@ -17,6 +17,7 @@ import java.util.Collection;
 import java.util.Date;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.w3c.dom.Element;
 
 /**
  *
@@ -30,6 +31,13 @@ public abstract class PIP implements PIPInterface {
 
     private final String uuid = getUUID();
 
+    public PIP()  { 
+    }
+    
+    public PIP(Element configElement) throws Exception {
+        throw new UnsupportedOperationException("not supported by this PIP");
+    }
+    
     @Override
     public void init(UConInterface ucon) {
         if (ucon == null) {

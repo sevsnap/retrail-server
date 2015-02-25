@@ -9,6 +9,7 @@ import it.cnr.iit.retrail.commons.PepAttributeInterface;
 import it.cnr.iit.retrail.commons.PepSessionInterface;
 import it.cnr.iit.retrail.server.UConInterface;
 import java.util.Collection;
+import org.w3c.dom.Element;
 
 /**
  *
@@ -139,5 +140,4 @@ public interface PIPInterface {
      * must be invoked by overloading implementation.
      */
     void term();
-
 }

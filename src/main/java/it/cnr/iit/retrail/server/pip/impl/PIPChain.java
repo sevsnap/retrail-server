@@ -8,6 +8,8 @@ import it.cnr.iit.retrail.commons.PepAttributeInterface;
 import it.cnr.iit.retrail.commons.PepRequestInterface;
 import it.cnr.iit.retrail.commons.PepSessionInterface;
 import it.cnr.iit.retrail.server.UConInterface;
+import it.cnr.iit.retrail.server.behaviour.Behaviour;
+import it.cnr.iit.retrail.server.impl.UCon;
 import it.cnr.iit.retrail.server.pip.ActionEvent;
 import it.cnr.iit.retrail.server.pip.Event;
 import it.cnr.iit.retrail.server.pip.PIPChainInterface;
@@ -18,6 +20,8 @@ import java.util.Collection;
 import java.util.HashMap;
 import java.util.Map;
 import org.slf4j.LoggerFactory;
+import org.w3c.dom.Element;
+import org.w3c.dom.NodeList;
 
 /**
  *
@@ -175,9 +179,23 @@ public class PIPChain extends ArrayList<PIPInterface> implements PIPChainInterfa
             remove(get(0));
         }
     }
+    
+    public PIPChain() {
+        super();
+    }
+    
+    public PIPChain(Element configElement) throws Exception {
+        if(configElement != null) {
+            NodeList nl = configElement.getElementsByTagNameNS(UCon.uri, "PIP");
+            for(int i = 0; i < nl.getLength(); i++) {
+            }
+            printInfo();
+        }
+    }
+    
 
     @Override
-    public void printInfo() {
+    public final void printInfo() {
         log.info("Current PIPs:");
         for (PIPInterface pip : this) {
             log.info("\t{}", pip);

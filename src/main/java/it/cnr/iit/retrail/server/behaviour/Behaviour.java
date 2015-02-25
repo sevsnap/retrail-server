@@ -26,20 +26,19 @@ import org.w3c.dom.NodeList;
  * @author oneadmin
  */
 public final class Behaviour extends Pool<UConAutomaton> {
-    public final String uri = "http://security.iit.cnr.it/retrail/ucon";
     private final UCon ucon;
     private final Collection<PolicyDrivenAction> policyDrivenActions = new ArrayList<>();
     private final Collection<UConState> ongoingStates = new ArrayList<>();
     private final Collection<PolicyDrivenAction> ongoingAccessActions = new ArrayList<>();
-    private final Document behaviouralConfiguration;
+    private final Element behaviouralConfiguration;
     private final UConAutomaton archetype;
     
-    public Behaviour(UCon ucon, InputStream uconConfigStream) throws Exception {
+    public Behaviour(UCon ucon, Element behaviouralConfiguration) throws Exception {
         super(64);
-        assert(uconConfigStream != null);
+        assert(behaviouralConfiguration != null);
         this.ucon = ucon;
-        log.warn("loading behavioural automaton {}", uconConfigStream);
-        behaviouralConfiguration = DomUtils.read(uconConfigStream);
+        log.warn("loading behavioural automaton {}", behaviouralConfiguration);
+        this.behaviouralConfiguration = behaviouralConfiguration;
         log.warn("building behavioural automaton with builtin policies (permit anything)");
         archetype = newObject(true);
     }
@@ -66,7 +65,7 @@ public final class Behaviour extends Pool<UConAutomaton> {
     private UConAutomaton newObject(boolean firstTime) throws Exception {
         UConAutomaton a = new UConAutomaton(ucon);
         // Create states
-        NodeList stateNodes = behaviouralConfiguration.getElementsByTagNameNS(uri, "State");
+        NodeList stateNodes = behaviouralConfiguration.getElementsByTagNameNS(UCon.uri, "State");
         for(int i = 0; i < stateNodes.getLength(); i++) {
             Element stateElement = (Element) stateNodes.item(i);
             String name = stateElement.getAttribute("name");
@@ -93,7 +92,7 @@ public final class Behaviour extends Pool<UConAutomaton> {
 
         // Create actions
         
-        NodeList actionNodes = behaviouralConfiguration.getElementsByTagNameNS(uri, "Action");
+        NodeList actionNodes = behaviouralConfiguration.getElementsByTagNameNS(UCon.uri, "Action");
         for(int i = 0; i < actionNodes.getLength(); i++) {
             Element actionElement = (Element) actionNodes.item(i);
             String name = actionElement.getAttribute("name");

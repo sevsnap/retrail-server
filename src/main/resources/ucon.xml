@@ -1,5 +1,6 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <ucon:Config xmlns:ucon="http://security.iit.cnr.it/retrail/ucon">
+    <ucon:PIPChain/>
     <ucon:Behaviour>
         <ucon:States>
             <ucon:State name="INIT" type="BEGIN"/>
