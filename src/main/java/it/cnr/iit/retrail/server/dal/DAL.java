@@ -12,6 +12,7 @@ import java.util.ArrayList;
 import java.util.Collection;
 import java.util.Date;
 import java.util.HashMap;
+import java.util.Iterator;
 import java.util.LinkedList;
 import java.util.Map;
 import javax.persistence.EntityManager;
@@ -68,7 +69,7 @@ public class DAL implements DALInterface {
         Collection<UconSession> q = listSessions();
         for (UconSession s : q) {
             log.info("\t" + s);
-            for (UconAttribute a : s.getAttributes()) {
+            for (UconAttribute a : s.attributes) {
                 log.info("\t\t" + a);
             }
         }
@@ -94,7 +95,13 @@ public class DAL implements DALInterface {
         this.entityManager = new ThreadLocal() {
             @Override
             protected synchronized Object initialValue() {
-                return factory.createEntityManager();
+                try {
+                    return factory.createEntityManager();
+                }
+                catch(Exception e) {
+                    log.error("while creating thread local entity manager: {}", e);
+                    throw e;
+                }
             }
         };
         debugDump();
@@ -232,7 +239,7 @@ public class DAL implements DALInterface {
             // Then, process all attributes (persist, or merge).
         // Also, keep merged the original uconRequest for consistency.
         uconSession = em.merge(uconSession);
-        uconSession.getAttributes().clear();
+        uconSession.attributes.clear();
         for (UconAttribute uconAttribute : rootsFirst) {
             if (uconAttribute.getRowId() == null) {
                 em.persist(uconAttribute);
@@ -243,10 +250,11 @@ public class DAL implements DALInterface {
             }
             uconAttribute = em.merge(uconAttribute);
             uconRequest.set(index, uconAttribute);
-
-            uconAttribute.getSessions().remove(uconSession);
-            uconSession.addAttribute(uconAttribute);
+            uconAttribute.sessions.remove(uconSession);
+            uconAttribute.sessions.add(uconSession);
+            uconSession.attributes.add(uconAttribute);
         }
+        uconSession = em.merge(uconSession);
         return uconSession;
     }
 
@@ -258,10 +266,6 @@ public class DAL implements DALInterface {
         em.getTransaction().begin();
         try {
             em.persist(uconSession);
-            //uconSession = em.merge(uconSession);
-            //if (uconSession.getCustomId() == null || uconSession.getCustomId().length() == 0) {
-            //    uconSession.setCustomId(uconSession.getUuid());
-            //}
             uconSession = saveSession(em, uconSession, uconRequest);
             em.getTransaction().commit();
         } catch (Exception e) {
@@ -279,34 +283,7 @@ public class DAL implements DALInterface {
         //start transaction with method begin()
         em.getTransaction().begin();
         try {
-            // put parents to front since we have a CASCADE towards children
-            LinkedList<UconAttribute> rootsFirst = new LinkedList<>();
-            for (PepAttributeInterface pepAttribute : uconRequest) {
-                UconAttribute uconAttribute = (UconAttribute) pepAttribute;
-                if (uconAttribute.getParent() == null) {
-                    rootsFirst.addFirst((UconAttribute) pepAttribute);
-                } else {
-                    rootsFirst.addLast((UconAttribute) pepAttribute);
-                }
-            }
-            // Then, process all attributes (persist, or merge).
-            // Also, keep merged the original uconRequest for consistency.
-            uconSession = em.merge(uconSession);
-            uconSession.getAttributes().clear();
-            for (UconAttribute uconAttribute : rootsFirst) {
-                if (uconAttribute.getRowId() == null) {
-                    em.persist(uconAttribute);
-                }
-                int index = 0;
-                while (uconAttribute != uconRequest.get(index)) {
-                    index++;
-                }
-                uconAttribute = em.merge(uconAttribute);
-                uconRequest.set(index, uconAttribute);
-
-                uconAttribute.getSessions().remove(uconSession);
-                uconSession.addAttribute(uconAttribute);
-            }
+            uconSession = saveSession(em, uconSession, uconRequest);
             em.getTransaction().commit();
         } catch (Exception e) {
             log.error("*** Unexpected exception: {}", e.getMessage());
@@ -359,16 +336,19 @@ public class DAL implements DALInterface {
 
     private void removeAttributes(EntityManager em, UconSession uconSession) {
         log.debug("removing all attributes for " + uconSession);
-        while (uconSession.getAttributes().size() > 0) {
-            UconAttribute a = uconSession.getAttributes().iterator().next();
+        for(Iterator<UconAttribute> i = uconSession.attributes.iterator(); i.hasNext(); ) {
+            UconAttribute a = i.next();
             log.debug("removing " + a);
-            a.setParent(null);
-            uconSession.removeAttribute(a);
-            if (a.getSessions().isEmpty()) {
+            if(a.parent != null)
+                a.parent.children.remove(a);
+            a.parent = null;
+            i.remove();
+            a.sessions.remove(uconSession);
+            if (a.sessions.isEmpty()) {
+                //log.debug("removing attribute from db: {}", a);
                 em.remove(a);
             }
         }
-        uconSession.getAttributes().clear();
     }
 
     @Override
@@ -382,10 +362,12 @@ public class DAL implements DALInterface {
                     UconAttribute.class)
                     .setParameter("factory", factory);
             for (UconAttribute a : q.getResultList()) {
-                Collection<UconSession> l = new ArrayList<>(a.getSessions());
-                a.setParent(null);
+                Collection<UconSession> l = new ArrayList<>(a.sessions);
+                if(a.parent != null)
+                    a.parent.children.remove(a);
+                a.parent = null;
                 for (UconSession s : l) {
-                    s.removeAttribute(a);
+                    s.attributes.remove(a);
                 }
                 em.remove(a);
             }
@@ -406,17 +388,14 @@ public class DAL implements DALInterface {
         try {
             if (uconSession != null) {
                 uconSession = em.merge(uconSession);
-                //log.info("Removing attributes...");
-                //debugDumpAttributes(uconSession.getAttributes());
                 removeAttributes(em, uconSession);
-                //log.info("Removing session...");
                 em.remove(uconSession);
             } else {
                 log.error("cannot find {}", uconSession);
             }
             em.getTransaction().commit();
         } catch (Exception e) {
-            log.error("unexpected exception when ending {} ({} attributes): {}", uconSession, uconSession.getAttributes().size(), e);
+            log.error("unexpected exception when ending {} ({} attributes): {}", uconSession, uconSession.attributes.size(), e);
             em.getTransaction().rollback();
             throw e;
         }
@@ -475,7 +454,8 @@ public class DAL implements DALInterface {
         UconAttribute u = UconAttribute.newInstance(a);
         u = (UconAttribute) save(u);
         // DON'T SAVE ME!
-        u.setParent(parent);
+        u.parent = parent;
+        parent.children.add(u);
         return u;
     }
 
@@ -499,7 +479,7 @@ public class DAL implements DALInterface {
     public UconRequest rebuildUconRequest(UconSession uconSession) {
         log.debug("" + uconSession);
         UconRequest accessRequest = new UconRequest();
-        for (UconAttribute a : uconSession.getAttributes()) {
+        for (UconAttribute a : uconSession.attributes) {
             accessRequest.add(a);
         }
         return accessRequest;

@@ -33,13 +33,13 @@ public class UconAttribute implements PepAttributeInterface {
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long rowId;
     @ManyToMany(mappedBy = "attributes", fetch=FetchType.LAZY)
-    private final Collection<UconSession> sessions = new ArrayList<>();
+    protected final Collection<UconSession> sessions = new ArrayList<>();
 
     @ManyToOne//(fetch=FetchType.LAZY)
-    private UconAttribute parent;
+    protected UconAttribute parent;
 
     @OneToMany(mappedBy = "parent", fetch=FetchType.LAZY)//, cascade = {CascadeType.PERSIST,CascadeType.MERGE})
-    private final Collection<UconAttribute> children = new ArrayList<>();
+    protected final Collection<UconAttribute> children = new ArrayList<>();
 
     @Index
     private String id;
@@ -155,18 +155,6 @@ public class UconAttribute implements PepAttributeInterface {
 
     public UconAttribute getParent() {
         return parent;
-    }
-
-    public void setParent(UconAttribute parent) {
-        if (this.parent != null) {
-            this.parent.children.remove(this);
-        }
-        if (parent != null) {
-            this.parent = parent;
-            parent.children.add(this);
-        } else {
-            this.parent = null;
-        }
     }
 
     public Collection<UconAttribute> getChildren() {

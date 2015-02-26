@@ -29,7 +29,16 @@ public class UconRequest extends PepRequest {
         assert (a instanceof UconAttribute);
         return super.add(a);
     }
-
+/*
+    @Override
+    public boolean replace(PepAttributeInterface a) {
+        assert (a instanceof UconAttribute);
+        if(((UconAttribute)a).getRowId() == null)
+            add(a);
+        //else FIXME
+        return true;
+    }
+  */  
     @Override
     protected PepAttributeInterface newAttribute(Element e) {
         PepAttribute a = new PepAttribute(e);

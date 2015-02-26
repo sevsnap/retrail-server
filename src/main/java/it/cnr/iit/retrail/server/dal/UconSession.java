@@ -61,7 +61,7 @@ public class UconSession extends PepSession {
     private Date lastSeen = new Date();
 
     @ManyToMany(fetch=FetchType.LAZY)
-    private Collection<UconAttribute> attributes = new ArrayList<>();
+    protected Collection<UconAttribute> attributes = new ArrayList<>();
 
     @Transient
     private URL uconUrl;
@@ -87,16 +87,6 @@ public class UconSession extends PepSession {
 
     public Collection<UconAttribute> getAttributes() {
         return attributes;
-    }
-
-    public void addAttribute(UconAttribute attribute) {
-        attributes.add(attribute);
-        attribute.getSessions().add(this);
-    }
-
-    public void removeAttribute(UconAttribute attribute) {
-        attributes.remove(attribute);
-        attribute.getSessions().remove(this);
     }
 
     @Override
