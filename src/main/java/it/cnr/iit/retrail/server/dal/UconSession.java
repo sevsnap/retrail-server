@@ -13,6 +13,7 @@ import java.util.Date;
 import java.util.Objects;
 import javax.persistence.Column;
 import javax.persistence.Entity;
+import javax.persistence.FetchType;
 import javax.persistence.GeneratedValue;
 import javax.persistence.Id;
 import javax.persistence.ManyToMany;
@@ -38,7 +39,7 @@ public class UconSession extends PepSession {
     @GeneratedValue(generator = "system-uuid")
     private String uuid;
 
-    @Index(unique = true)
+    @Index(unique = false)
     private String customId;
 
     private String pepUrl;
@@ -59,7 +60,7 @@ public class UconSession extends PepSession {
     @Temporal(javax.persistence.TemporalType.TIMESTAMP)
     private Date lastSeen = new Date();
 
-    @ManyToMany
+    @ManyToMany(fetch=FetchType.LAZY)
     private Collection<UconAttribute> attributes = new ArrayList<>();
 
     @Transient

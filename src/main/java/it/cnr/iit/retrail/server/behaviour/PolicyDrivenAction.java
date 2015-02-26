@@ -72,18 +72,18 @@ public class PolicyDrivenAction extends UconAction {
     }
     
     public UconSession onFail(UconRequest uconRequest, UconSession uconSession, Object[] args) {
-        log.warn("doing nothing");
+        log.debug("doing nothing");
         return uconSession;
     }
     
     public UconSession onPermit(UconRequest uconRequest, UconSession uconSession, Object[] args) {
-        log.warn("doing nothing");
+        log.debug("doing nothing");
         return uconSession;
     }
     
     @Override
     public UconSession execute(UconRequest uconRequest, UconSession uconSession, Object[] args) {
-        log.warn("executing {} with {}, {}", this, uconRequest, uconSession);
+        log.debug("executing {} with {}, {}", this, uconRequest, uconSession);
         Document rv = getPDPPool().access(uconRequest);
         uconSession.setResponse(rv);
         lastDecision = uconSession.getDecision();

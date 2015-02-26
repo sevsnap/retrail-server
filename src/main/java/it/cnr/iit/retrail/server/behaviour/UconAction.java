@@ -31,7 +31,7 @@ public class UconAction extends Action {
     }
     
     public UconSession execute(UconRequest uconRequest, UconSession uconSession, Object[] args) {
-        log.warn("action executed");
+        log.debug("idle call");
         return uconSession;
     }
 

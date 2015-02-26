@@ -37,6 +37,7 @@ import java.util.List;
 import java.util.Map;
 import javax.net.ssl.SSLContext;
 import javax.persistence.NoResultException;
+import javax.persistence.NonUniqueResultException;
 import javax.xml.transform.TransformerConfigurationException;
 import javax.xml.transform.TransformerException;
 import org.w3c.dom.Document;
@@ -44,6 +45,7 @@ import org.w3c.dom.Element;
 import org.w3c.dom.Node;
 
 public class UCon extends Server implements UConInterface, UConProtocol {
+
     public final static String uri = "http://security.iit.cnr.it/retrail/ucon";
     private File recorderFile = null;
     private boolean mustAppendToRecorderFile = false;
@@ -68,22 +70,27 @@ public class UCon extends Server implements UConInterface, UConProtocol {
 
     @Override
     public void loadConfiguration(InputStream is) throws Exception {
-        Document config = DomUtils.read(is);     
+        Document config = DomUtils.read(is);
         Element behaviourConfig = (Element) config.getElementsByTagNameNS(uri, "Behaviour").item(0);
-        if(behaviourConfig == null)
+        if (behaviourConfig == null) {
             throw new RuntimeException("missing mandatory ucon:Behaviour element");
+        }
         automatonFactory = new Behaviour(this, behaviourConfig);
-        pipChain = new PIPChain((Element) config.getElementsByTagNameNS(uri, "PIPChain").item(0));
-        if(isInited())
-            init();
+        Element pipChainConfig = (Element) config.getElementsByTagNameNS(uri, "PIPChain").item(0);
+        if (pipChainConfig != null) {
+            pipChain = new PIPChain(pipChainConfig);
+            if (isInited()) {
+                pipChain.init(this);
+            }
+        }
     }
-    
+
     @Override
     public final void defaultConfiguration() throws Exception {
         InputStream uconConfigStream = getClass().getClassLoader().getResourceAsStream("ucon.xml");
         loadConfiguration(uconConfigStream);
     }
-    
+
     @Override
     public Node echo(Node node) throws TransformerConfigurationException, TransformerException {
         return node;
@@ -92,14 +99,15 @@ public class UCon extends Server implements UConInterface, UConProtocol {
     @Override
     public Node apply(String actionName, String uuid, String customId, Object... args) throws Exception {
         UconSession session = null;
-        if(uuid != null || customId != null) {
+        if (uuid != null || customId != null) {
             session = dal.getSession(getUuid(uuid, customId), myUrl);
-            if(session == null)
-                throw new RuntimeException("session id "+getUuid(uuid, customId)+" is unknown");
+            if (session == null) {
+                throw new RuntimeException("session id " + getUuid(uuid, customId) + " is unknown");
+            }
         }
         UconSession response = automatonFactory.apply(session, actionName, args);
         return response.toXacml3Element();
-    } 
+    }
 
     @Override
     public Node tryAccess(Node accessRequest, String pepUrlString) throws Exception {
@@ -130,7 +138,7 @@ public class UCon extends Server implements UConInterface, UConProtocol {
         session.setStateName(automatonFactory.getBegin().getName());
         // FIXME troppi passaggi, la req viene prima serializzata e dopo deserializzata
         // dal database.
-        UconRequest request = new UconRequest((Document)accessRequest);
+        UconRequest request = new UconRequest((Document) accessRequest);
         session = dal.startSession(session, request);
 
         // Obtain and use automaton instance.
@@ -143,7 +151,13 @@ public class UCon extends Server implements UConInterface, UConProtocol {
         log.info("uuid={}, oldCustomId={}, newCustomId={}", uuid, oldCustomId, newCustomId);
         uuid = getUuid(uuid, oldCustomId);
         if (newCustomId == null || newCustomId.length() == 0) {
-            throw new RuntimeException("invalid customId: " + uuid);
+            throw new RuntimeException("null or empty customId for: " + uuid);
+        }
+        try {
+            dal.getSessionByCustomId(newCustomId);
+            throw new RuntimeException("customId "+newCustomId + "already exists");
+        } 
+        catch(NoResultException e) {
         }
         UconSession uconSession = dal.getSession(uuid, myUrl);
         uconSession.setCustomId(newCustomId);
@@ -198,31 +212,26 @@ public class UCon extends Server implements UConInterface, UConProtocol {
 
     private List<Element> revokeAccess(URL pepUrl, Collection<UconSession> sessions) throws Exception {
         List<Element> responses = new ArrayList<>(sessions.size());
-        Collection<UconSession> uconSessions2 = new ArrayList<>(sessions.size());
-        // revoke sessions on db
+
         for (UconSession uconSession : sessions) {
             long start = System.currentTimeMillis();
-            UconRequest uconRequest = dal.rebuildUconRequest(uconSession);
-            pipChain.refresh(uconRequest, uconSession);
-            pipChain.fireSystemEvent(new SystemEvent(SystemEvent.EventType.beforeRevokeAccess, uconRequest, uconSession));
-            UconSession uconSession2 = dal.revokeSession(uconSession);
-            uconSession.setStatus(Status.REVOKED);
-            uconSession.setStateName("REVOKED"); // FIXME
+            // XXX Rebuilding the request may be too heavy. 
+            // We should provide a way to dynamically get it if the PIP needs it.
+            pipChain.fireSystemEvent(new SystemEvent(SystemEvent.EventType.beforeRevokeAccess, null, uconSession));
             uconSession.setMs(System.currentTimeMillis() - start);
             Element sessionElement = uconSession.toXacml3Element();
             responses.add(sessionElement);
-            uconSessions2.add(uconSession2);
         }
+
         // TODO: check error
-        // TODO: returned docs are currently ignored. 
-        // should use them for some back ack
 
         Object ack = rpc(pepUrl, "PEP.revokeAccess", responses);
-        for (UconSession uconSession : uconSessions2) {
-            UconRequest uconRequest = dal.rebuildUconRequest(uconSession);
-            pipChain.fireSystemEvent(new SystemEvent(SystemEvent.EventType.afterRevokeAccess, uconRequest, uconSession, ack));
-            uconSession = (UconSession) dal.save(uconSession);
+        
+        for (UconSession uconSession : sessions) {
+            pipChain.fireSystemEvent(new SystemEvent(SystemEvent.EventType.afterRevokeAccess, null, uconSession, ack));
         }
+        // bulk save
+        dal.saveCollection(sessions);
         return responses;
     }
 
@@ -250,7 +259,6 @@ public class UCon extends Server implements UConInterface, UConProtocol {
             uconSession = (UconSession) dal.save(uconSession);
         }
     }
-
 
     protected Document heartbeat(URL pepUrl, List<String> sessionsList) throws Exception {
         Collection<UconSession> sessions = dal.listSessions(pepUrl);
@@ -301,18 +309,36 @@ public class UCon extends Server implements UConInterface, UConProtocol {
         return doc;
     }
 
+    private void flushRevocations(Map<URL, Collection<UconSession>> revokedSessionsMap) throws Exception {
+        // Send  revocations
+        for (URL pepUrl : revokedSessionsMap.keySet()) {
+            revokeAccess(pepUrl, revokedSessionsMap.get(pepUrl));
+        }
+        revokedSessionsMap.clear();
+    }
+
+    private void flushObligations(Map<URL, Collection<UconSession>> obligationSessionsMap) throws Exception {
+        // Send obligations 
+        for (URL pepUrl : obligationSessionsMap.keySet()) {
+            runObligations(pepUrl, obligationSessionsMap.get(pepUrl));
+        }
+        obligationSessionsMap.clear();
+    }
+
     public void reevaluateSessions(Collection<UconSession> involvedSessions) throws Exception {
         Map<URL, Collection<UconSession>> revokedSessionsMap = new HashMap<>(involvedSessions.size());
         Map<URL, Collection<UconSession>> obligationSessionsMap = new HashMap<>(involvedSessions.size());
+        int revoked = 0;
+        int run = 0;
         for (UconSession involvedSession : involvedSessions) {
             try {
                 log.debug("involved session: {}", involvedSession);
                 // Now make PDP evaluate the request    
-                involvedSession =  automatonFactory.apply(involvedSession, "ongoingAccess");
+                involvedSession = automatonFactory.apply(involvedSession, "ongoingAccess");
                 boolean mustRevoke = involvedSession.getDecision() != PepResponse.DecisionEnum.Permit;
                 // Explicitly revoke access if anything went wrong
                 if (mustRevoke) {
-                    log.warn("revoking {}", involvedSession);
+                    log.info("revoking {}", involvedSession);
                     URL pepUrl = new URL(involvedSession.getPepUrl());
                     Collection<UconSession> revokedSessions = revokedSessionsMap.get(pepUrl);
                     if (revokedSessions == null) {
@@ -320,6 +346,7 @@ public class UCon extends Server implements UConInterface, UConProtocol {
                         revokedSessionsMap.put(pepUrl, revokedSessions);
                     }
                     revokedSessions.add(involvedSession);
+                    revoked++;
                 } else if (!involvedSession.getObligations().isEmpty()) {
                     URL pepUrl = new URL(involvedSession.getPepUrl());
                     Collection<UconSession> obligationSessions = revokedSessionsMap.get(pepUrl);
@@ -328,21 +355,27 @@ public class UCon extends Server implements UConInterface, UConProtocol {
                         obligationSessionsMap.put(pepUrl, obligationSessions);
                     }
                     obligationSessions.add(involvedSession);
-                //} else {
+                    run++;
+                    //} else {
                     //log.info("updating {}", involvedSession);
                     //dal.saveSession(involvedSession, uconRequest);
                 }
+
             } catch (Exception ex) {
-                log.error("while reevaluating: "+ ex.getMessage(), ex);
+                log.error("while reevaluating: " + ex.getMessage(), ex);
+            }
+            // send partial data
+            if (revoked > 9) {
+                flushRevocations(revokedSessionsMap);
+                revoked = 0;
+            }
+            if (run > 9) {
+                flushObligations(obligationSessionsMap);
+                run = 0;
             }
         }
-        // Send obligations and revocations
-        for (URL pepUrl : revokedSessionsMap.keySet()) {
-            revokeAccess(pepUrl, revokedSessionsMap.get(pepUrl));
-        }
-        for (URL pepUrl : obligationSessionsMap.keySet()) {
-            runObligations(pepUrl, obligationSessionsMap.get(pepUrl));
-        }
+        flushRevocations(revokedSessionsMap);
+        flushObligations(obligationSessionsMap);
     }
 
     @Override

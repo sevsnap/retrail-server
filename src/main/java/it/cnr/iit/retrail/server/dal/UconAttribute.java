@@ -9,6 +9,7 @@ import java.util.ArrayList;
 import java.util.Collection;
 import java.util.Date;
 import javax.persistence.Entity;
+import javax.persistence.FetchType;
 import javax.persistence.GeneratedValue;
 import javax.persistence.GenerationType;
 import javax.persistence.Id;
@@ -31,13 +32,13 @@ public class UconAttribute implements PepAttributeInterface {
     //@GeneratedValue(strategy = GenerationType.AUTO)
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long rowId;
-    @ManyToMany(mappedBy = "attributes")
+    @ManyToMany(mappedBy = "attributes", fetch=FetchType.LAZY)
     private final Collection<UconSession> sessions = new ArrayList<>();
 
-    @ManyToOne
+    @ManyToOne//(fetch=FetchType.LAZY)
     private UconAttribute parent;
 
-    @OneToMany(mappedBy = "parent")//, cascade = {CascadeType.PERSIST,CascadeType.MERGE})
+    @OneToMany(mappedBy = "parent", fetch=FetchType.LAZY)//, cascade = {CascadeType.PERSIST,CascadeType.MERGE})
     private final Collection<UconAttribute> children = new ArrayList<>();
 
     @Index

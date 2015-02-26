@@ -64,13 +64,11 @@ public interface DALInterface {
 
     Collection<UconSession> listSessions(URL pepUrl);
 
-    UconSession revokeSession(UconSession uconSession);
-
     Object save(Object o);
+    
+    Collection<?> saveCollection(Collection<?> o);
 
     UconSession saveSession(UconSession uconSession, UconRequest uconRequest);
-
-    UconSession startSession(UconSession uconSession) throws Exception;
         
     UconSession startSession(UconSession uconSession, UconRequest uconRequest) throws Exception;
 

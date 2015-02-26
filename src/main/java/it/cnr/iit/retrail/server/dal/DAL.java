@@ -51,7 +51,10 @@ public class DAL implements DALInterface {
         if (instance == null) {
             if (factory == null) {
                 Map<String, String> properties = new HashMap<>();
+                properties.put(PersistenceUnitProperties.WEAVING, "dynamic");
+                properties.put(PersistenceUnitProperties.DDL_GENERATION, "create-tables");
                 properties.put(PersistenceUnitProperties.DDL_GENERATION_MODE, "database");
+                properties.put(PersistenceUnitProperties.DDL_GENERATION_INDEX_FOREIGN_KEYS, "true");
                 properties.put(PersistenceUnitProperties.SESSION_CUSTOMIZER, UUIDSequence.class.getCanonicalName());
                 factory = Persistence.createEntityManagerFactory(PERSISTENCE_UNIT_NAME, properties);
             }
@@ -78,7 +81,7 @@ public class DAL implements DALInterface {
         log.info("debugging attributes");
         for (UconAttribute a : al) {
             UconAttribute parent = (UconAttribute) a.getParent();
-            log.info("\t{} (parent: {})", a, parent == null? null : parent.getRowId());
+            log.info("\t{} (parent: {})", a, parent == null ? null : parent.getRowId());
             for (UconSession s : a.getSessions()) {
                 log.info("\t\t{}", s);
             }
@@ -214,24 +217,35 @@ public class DAL implements DALInterface {
         return attributes;
     }
 
-    @Override
-    public UconSession startSession(UconSession uconSession) throws Exception {
-        // Store session to the database
-        EntityManager em = getEntityManager();
-        //start transaction with method begin()
-        em.getTransaction().begin();
-        try {
-            em.persist(uconSession);
-            uconSession = em.merge(uconSession);
-            if (uconSession.getCustomId() == null || uconSession.getCustomId().length() == 0) {
-                uconSession.setCustomId(uconSession.getUuid());
-                uconSession = em.merge(uconSession);
-
+    private UconSession saveSession(EntityManager em, UconSession uconSession, UconRequest uconRequest) {
+        // Store request's attributes to the database
+        // put parents to front since we have a CASCADE towards children
+        LinkedList<UconAttribute> rootsFirst = new LinkedList<>();
+        for (PepAttributeInterface pepAttribute : uconRequest) {
+            UconAttribute uconAttribute = (UconAttribute) pepAttribute;
+            if (uconAttribute.getParent() == null) {
+                rootsFirst.addFirst((UconAttribute) pepAttribute);
+            } else {
+                rootsFirst.addLast((UconAttribute) pepAttribute);
             }
-            em.getTransaction().commit();
-        } catch (Exception e) {
-            em.getTransaction().rollback();
-            throw e;
+        }
+            // Then, process all attributes (persist, or merge).
+        // Also, keep merged the original uconRequest for consistency.
+        uconSession = em.merge(uconSession);
+        uconSession.getAttributes().clear();
+        for (UconAttribute uconAttribute : rootsFirst) {
+            if (uconAttribute.getRowId() == null) {
+                em.persist(uconAttribute);
+            }
+            int index = 0;
+            while (uconAttribute != uconRequest.get(index)) {
+                index++;
+            }
+            uconAttribute = em.merge(uconAttribute);
+            uconRequest.set(index, uconAttribute);
+
+            uconAttribute.getSessions().remove(uconSession);
+            uconSession.addAttribute(uconAttribute);
         }
         return uconSession;
     }
@@ -239,7 +253,22 @@ public class DAL implements DALInterface {
     @Override
     public UconSession startSession(UconSession uconSession, UconRequest uconRequest) throws Exception {
         // Store request's attributes to the database
-        return saveSession(startSession(uconSession), uconRequest);
+        EntityManager em = getEntityManager();
+        //start transaction with method begin()
+        em.getTransaction().begin();
+        try {
+            em.persist(uconSession);
+            //uconSession = em.merge(uconSession);
+            //if (uconSession.getCustomId() == null || uconSession.getCustomId().length() == 0) {
+            //    uconSession.setCustomId(uconSession.getUuid());
+            //}
+            uconSession = saveSession(em, uconSession, uconRequest);
+            em.getTransaction().commit();
+        } catch (Exception e) {
+            em.getTransaction().rollback();
+            throw e;
+        }
+        return uconSession;
     }
 
     @Override
@@ -369,26 +398,6 @@ public class DAL implements DALInterface {
     }
 
     @Override
-    public UconSession revokeSession(UconSession uconSession) {
-        log.info("revoking " + uconSession);
-        EntityManager em = getEntityManager();
-        //start transaction with method begin()
-        em.getTransaction().begin();
-        try {
-            uconSession = em.merge(uconSession);
-            removeAttributes(em, uconSession);
-            uconSession.setStatus(Status.REVOKED);
-            uconSession = em.merge(uconSession);
-            em.getTransaction().commit();
-        } catch (Exception e) {
-            em.getTransaction().rollback();
-            throw e;
-        }
-        //debugDump();
-        return uconSession;
-    }
-
-    @Override
     public UconSession endSession(UconSession uconSession) {
         log.info("ending " + uconSession);
         EntityManager em = getEntityManager();
@@ -431,7 +440,27 @@ public class DAL implements DALInterface {
         // warning: returned object returned has transients reset.
         return o;
     }
-    
+
+    @Override
+    public Collection<?> saveCollection(Collection<?> lo) {
+        Collection<Object> lo2 = new ArrayList<>(lo.size());
+        EntityManager em = getEntityManager();
+        em.getTransaction().begin();
+        try {
+            for (Object o : lo) {
+                o = em.merge(o);
+                lo2.add(o);
+            }
+            em.getTransaction().commit();
+        } catch (Exception e) {
+            log.error(e.getMessage());
+            em.getTransaction().rollback();
+            throw e;
+        }
+        // warning: returned object returned has transients reset.
+        return lo2;
+    }
+
     @Override
     public UconAttribute newPrivateAttribute(String id, String type, String value, String issuer, UconAttribute parent, String uuid) {
         for (UconAttribute child : parent.getChildren()) {
@@ -449,7 +478,7 @@ public class DAL implements DALInterface {
         u.setParent(parent);
         return u;
     }
-    
+
     @Override
     public UconAttribute newSharedAttribute(String id, String type, String value, String issuer, String category, String uuid) {
         UconAttribute u = getSharedAttribute(category, id);

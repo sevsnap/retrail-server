@@ -4,20 +4,11 @@
  */
 package it.cnr.iit.retrail.server.behaviour;
 
-import it.cnr.iit.retrail.commons.DomUtils;
-import it.cnr.iit.retrail.commons.Status;
 import it.cnr.iit.retrail.commons.automata.Automaton;
-import it.cnr.iit.retrail.commons.impl.PepResponse;
 import it.cnr.iit.retrail.server.dal.UconRequest;
 import it.cnr.iit.retrail.server.dal.UconSession;
 import it.cnr.iit.retrail.server.impl.UCon;
 import it.cnr.iit.retrail.server.pip.ActionEvent;
-import it.cnr.iit.retrail.server.pip.Event;
-import java.net.URL;
-import javax.persistence.NoResultException;
-import org.w3c.dom.Document;
-import org.w3c.dom.Element;
-import org.w3c.dom.Node;
 
 /**
  *
@@ -49,7 +40,7 @@ public class UConAutomaton extends Automaton {
         //log.warn("current state = {}", getCurrentState());
         //log.warn("action name = {}", actionName);
         UconAction action = (UconAction) getCurrentState().getAction(actionName);
-        log.warn("action = {}", action);
+        log.info("action = {}", action);
         ActionEvent event = new ActionEvent(this, action, uconRequest, session, null);
         ucon.getPIPChain().fireBeforeActionEvent(event);
         action.execute(uconRequest, session, args);
@@ -67,7 +58,7 @@ public class UConAutomaton extends Automaton {
             session = ucon.getDAL().getSession(session.getUuid(), ucon.myUrl);
             ucon.getDAL().endSession(session);
         } else 
-            ucon.getDAL().saveSession(session, uconRequest);
+            ucon.getDAL().saveSession(session, uconRequest); // FIXME SLOW
         return response;
     }
 
