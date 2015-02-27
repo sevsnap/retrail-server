@@ -39,7 +39,9 @@ public interface DALInterface {
     UconAttribute newSharedAttribute(String id, String type, String value, String issuer, String category, String uuid);
 
     UconAttribute getSharedAttribute(String category, String id);
-
+   
+    Collection<UconAttribute> listSharedAttributes();
+    
     Collection<UconAttribute> listAttributes(URL pepUrl);
 
     Collection<UconAttribute> listAttributes();

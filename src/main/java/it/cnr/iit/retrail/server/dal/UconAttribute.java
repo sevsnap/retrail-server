@@ -8,6 +8,7 @@ import it.cnr.iit.retrail.commons.PepAttributeInterface;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.Date;
+import java.util.Objects;
 import javax.persistence.Entity;
 import javax.persistence.FetchType;
 import javax.persistence.GeneratedValue;
@@ -33,8 +34,8 @@ public class UconAttribute implements PepAttributeInterface {
     //@GeneratedValue(strategy = GenerationType.AUTO)
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long rowId;
-    @ManyToMany(mappedBy = "attributes", fetch=FetchType.LAZY)
-    protected final Collection<UconSession> sessions = new ArrayList<>();
+    @ManyToOne(fetch=FetchType.LAZY)
+    protected UconSession session = null;
 
     @ManyToOne//(fetch=FetchType.LAZY)
     protected UconAttribute parent;
@@ -48,6 +49,12 @@ public class UconAttribute implements PepAttributeInterface {
     private String category;
 
     private String type, value, issuer;
+    
+    protected boolean shared = false;
+
+    public boolean isShared() {
+        return shared;
+    }
 
     @Temporal(javax.persistence.TemporalType.TIMESTAMP)
     private Date expires;
@@ -81,8 +88,8 @@ public class UconAttribute implements PepAttributeInterface {
         factory = pepAttribute.getFactory();
     }
 
-    public Collection<UconSession> getSessions() {
-        return sessions;
+    public UconSession getSession() {
+        return session;
     }
 
     @Override
@@ -165,7 +172,7 @@ public class UconAttribute implements PepAttributeInterface {
     //this is optional, just for print out into console
     @Override
     public String toString() {
-        String s = getClass().getSimpleName() + " [rowId=" + rowId + ", id=" + id + "; value=" + value + ", #sessions=" + getSessions().size() + ", #children=" + getChildren().size() + ", factory=" + factory + "]";
+        String s = getClass().getSimpleName() + " [rowId=" + rowId + ", id=" + id + "; value=" + value + ", session=" + getSession() + ", #children=" + getChildren().size() + ", factory=" + factory + "]";
         if (getParent() != null) {
             s += " *** with parent: " + getParent().toString();
         }
@@ -177,10 +184,10 @@ public class UconAttribute implements PepAttributeInterface {
         if (!(o instanceof UconAttribute)) {
             return false;
         }
-        if (rowId == null || ((UconAttribute) o).rowId == null) {
-            throw new RuntimeException("cannot compare " + this + " to " + o + " since they have no rowId");
-        }
-        return ((UconAttribute) o).rowId.equals(rowId);
+        UconAttribute other = (UconAttribute) o;
+        if(rowId != null && other.rowId != null)
+            return other.rowId.equals(rowId);
+        return Objects.equals(id, other.id) && Objects.equals(category, other.category); 
     }
 
 }

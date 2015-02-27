@@ -18,6 +18,7 @@ import javax.persistence.FetchType;
 import javax.persistence.GeneratedValue;
 import javax.persistence.Id;
 import javax.persistence.ManyToMany;
+import javax.persistence.OneToMany;
 import javax.persistence.Temporal;
 import javax.persistence.Transient;
 import org.apache.commons.beanutils.BeanUtils;
@@ -62,8 +63,7 @@ public class UconSession extends PepSession {
     @Temporal(javax.persistence.TemporalType.TIMESTAMP)
     private Date lastSeen = new Date();
 
-    @ManyToMany(fetch=FetchType.LAZY, cascade=CascadeType.ALL)
-    @CascadeOnDelete
+    @OneToMany(fetch=FetchType.LAZY, mappedBy = "session", cascade = CascadeType.REMOVE)
     protected Collection<UconAttribute> attributes = new ArrayList<>();
 
     @Transient

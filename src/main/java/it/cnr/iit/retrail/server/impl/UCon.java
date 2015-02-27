@@ -185,7 +185,7 @@ public class UCon extends Server implements UConInterface, UConProtocol {
             dal.rollback();
             throw e;
         }
-        log.error("XXXX: {}", DomUtils.toString(uconSession.toXacml3Element()));
+        //log.error("XXXX: {}", DomUtils.toString(uconSession.toXacml3Element()));
         return uconSession.toXacml3Element();
     }
 
@@ -346,56 +346,64 @@ public class UCon extends Server implements UConInterface, UConProtocol {
     }
 
     public void reevaluateSessions(Collection<UconSession> involvedSessions) throws Exception {
-        Map<URL, Collection<UconSession>> revokedSessionsMap = new HashMap<>(involvedSessions.size());
-        Map<URL, Collection<UconSession>> obligationSessionsMap = new HashMap<>(involvedSessions.size());
-        int revoked = 0;
-        int run = 0;
-        for (UconSession involvedSession : involvedSessions) {
-            try {
-                log.debug("involved session: {}", involvedSession);
-                // Now make PDP evaluate the request    
-                involvedSession = automatonFactory.apply(involvedSession, OngoingAccess.name);
-                boolean mustRevoke = involvedSession.getDecision() != PepResponse.DecisionEnum.Permit;
-                // Explicitly revoke access if anything went wrong
-                if (mustRevoke) {
-                    log.info("revoking {}", involvedSession);
-                    URL pepUrl = new URL(involvedSession.getPepUrl());
-                    Collection<UconSession> revokedSessions = revokedSessionsMap.get(pepUrl);
-                    if (revokedSessions == null) {
-                        revokedSessions = new ArrayList<>();
-                        revokedSessionsMap.put(pepUrl, revokedSessions);
-                    }
-                    revokedSessions.add(involvedSession);
-                    revoked++;
-                } else if (!involvedSession.getObligations().isEmpty()) {
-                    URL pepUrl = new URL(involvedSession.getPepUrl());
-                    Collection<UconSession> obligationSessions = revokedSessionsMap.get(pepUrl);
-                    if (obligationSessions == null) {
-                        obligationSessions = new ArrayList<>();
-                        obligationSessionsMap.put(pepUrl, obligationSessions);
-                    }
-                    obligationSessions.add(involvedSession);
-                    run++;
+        dal.begin();
+        try {
+            Map<URL, Collection<UconSession>> revokedSessionsMap = new HashMap<>(involvedSessions.size());
+            Map<URL, Collection<UconSession>> obligationSessionsMap = new HashMap<>(involvedSessions.size());
+            int revoked = 0;
+            int run = 0;
+            for (UconSession involvedSession : involvedSessions) {
+                try {
+                    log.debug("involved session: {}", involvedSession);
+                    // Now make PDP evaluate the request    
+                    involvedSession = automatonFactory.apply(involvedSession, OngoingAccess.name);
+                    boolean mustRevoke = involvedSession.getDecision() != PepResponse.DecisionEnum.Permit;
+                    // Explicitly revoke access if anything went wrong
+                    if (mustRevoke) {
+                        log.info("revoking {}", involvedSession);
+                        URL pepUrl = new URL(involvedSession.getPepUrl());
+                        Collection<UconSession> revokedSessions = revokedSessionsMap.get(pepUrl);
+                        if (revokedSessions == null) {
+                            revokedSessions = new ArrayList<>();
+                            revokedSessionsMap.put(pepUrl, revokedSessions);
+                        }
+                        revokedSessions.add(involvedSession);
+                        revoked++;
+                    } else if (!involvedSession.getObligations().isEmpty()) {
+                        URL pepUrl = new URL(involvedSession.getPepUrl());
+                        Collection<UconSession> obligationSessions = revokedSessionsMap.get(pepUrl);
+                        if (obligationSessions == null) {
+                            obligationSessions = new ArrayList<>();
+                            obligationSessionsMap.put(pepUrl, obligationSessions);
+                        }
+                        obligationSessions.add(involvedSession);
+                        run++;
                     //} else {
-                    //log.info("updating {}", involvedSession);
-                    //dal.saveSession(involvedSession, uconRequest);
-                }
+                        //log.info("updating {}", involvedSession);
+                        //dal.saveSession(involvedSession, uconRequest);
+                    }
 
-            } catch (Exception ex) {
-                log.error("while reevaluating: " + ex.getMessage(), ex);
+                } catch (Exception ex) {
+                    log.error("while reevaluating  " + involvedSession + ": " + ex.getMessage(), ex);
+                }
+                // send partial data
+                if (revoked > 9) {
+                    flushRevocations(revokedSessionsMap);
+                    revoked = 0;
+                }
+                if (run > 9) {
+                    flushObligations(obligationSessionsMap);
+                    run = 0;
+                }
             }
-            // send partial data
-            if (revoked > 9) {
-                flushRevocations(revokedSessionsMap);
-                revoked = 0;
-            }
-            if (run > 9) {
-                flushObligations(obligationSessionsMap);
-                run = 0;
-            }
+            flushRevocations(revokedSessionsMap);
+            flushObligations(obligationSessionsMap);
+            dal.commit();
+        } catch (Exception e) {
+            dal.rollback();
+            log.error("while reevaluating sessions: {}", e);
+            throw e;
         }
-        flushRevocations(revokedSessionsMap);
-        flushObligations(obligationSessionsMap);
     }
 
     @Override
@@ -404,13 +412,18 @@ public class UCon extends Server implements UConInterface, UConProtocol {
         log.info("{} attributes changed, updating DAL", changedAttributes.size());
         Collection<UconSession> involvedSessions = new HashSet<>();
         dal.begin();
+        boolean mustReevaluateAll = false;
         try {
             for (PepAttributeInterface a : changedAttributes) {
                 UconAttribute u = (UconAttribute) dal.save(a);
-                involvedSessions.addAll(u.getSessions());
+                if (u.isShared()) {
+                    involvedSessions = dal.listSessions(Status.ONGOING);
+                    break;
+                }
+                involvedSessions.add(u.getSession());
             }
-        }
-        catch(Exception e) {
+            dal.commit();
+        } catch (Exception e) {
             log.error("while notifying changes: {}", e);
             dal.rollback();
             throw e;
@@ -432,12 +445,12 @@ public class UCon extends Server implements UConInterface, UConProtocol {
         dal.begin();
         try {
             // First send event to the PIPs
-            pipChain.fireSystemEvent(new SystemEvent(SystemEvent.EventType.beforeApplyChanges, uconRequest, uconSession, container));    
+            pipChain.fireSystemEvent(new SystemEvent(SystemEvent.EventType.beforeApplyChanges, uconRequest, uconSession, container));
             // Ok we have a live container of attribute values grouped by 
             // category and id now. 
             // Replace old values with new ones.
             for (PepAttributeInterface a : container) {
-                UconAttribute uconA = dal.newSharedAttribute(a.getId(), a.getType(), a.getValue(), a.getIssuer(), a.getCategory(), "FAKENESS");
+                UconAttribute uconA = dal.newPrivateAttribute(a.getId(), a.getType(), a.getValue(), a.getIssuer(), a.getCategory(), uconSession, null);
                 uconRequest.replace(uconA);
             }
             // We need to save them to the database.
@@ -471,10 +484,14 @@ public class UCon extends Server implements UConInterface, UConProtocol {
         dal.begin();
         try {
             UconAttribute u = (UconAttribute) dal.save(changedAttribute);
-            involvedSessions = u.getSessions();
+            if (u.isShared()) {
+                involvedSessions = dal.listSessions(Status.ONGOING);
+            } else {
+                involvedSessions = new ArrayList<>(1);
+                involvedSessions.add((UconSession) u.getSession());
+            }
             dal.commit();
-        }
-        catch(Exception e) {
+        } catch (Exception e) {
             log.error("while saving changes: {}", e);
             dal.rollback();
             throw e;

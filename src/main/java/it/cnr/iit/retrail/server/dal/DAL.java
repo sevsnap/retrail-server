@@ -8,7 +8,6 @@ import it.cnr.iit.retrail.commons.PepAttributeInterface;
 import it.cnr.iit.retrail.commons.Status;
 import it.cnr.iit.retrail.commons.impl.PepAttribute;
 import java.net.URL;
-import java.util.ArrayList;
 import java.util.Collection;
 import java.util.Date;
 import java.util.HashMap;
@@ -37,6 +36,7 @@ public class DAL implements DALInterface {
 
     protected static final Logger log = LoggerFactory.getLogger(DAL.class);
     final private ThreadLocal entityManager;
+    final private ThreadLocal entityManagerCount;
 
     private static DAL instance;
 
@@ -56,22 +56,41 @@ public class DAL implements DALInterface {
         return instance;
     }
 
+    private EntityManager getEm() {
+        EntityManager em = (EntityManager) entityManager.get();
+        // clearing the entity manager with no transaction is fundamental to 
+        // avoid stale objects that may have been updated earlier!
+        if(!em.isJoinedToTransaction())
+            em.clear();
+        return em;
+    }
+    
     public void begin() {
         EntityManager em = (EntityManager) entityManager.get();
+        int count = (int) entityManagerCount.get();
         // clearing the entity manager is fundamental to avoid stale objects that
         // may have been updated by other threads!
-        em.clear();
-        em.getTransaction().begin();
+        if(count == 0) {
+            em.clear();
+            em.getTransaction().begin();    
+            entityManagerCount.set(count+1);
+        }
+        
     }
 
     public void commit() {
         EntityManager em = (EntityManager) entityManager.get();
+        int count = (int) entityManagerCount.get()-1;
+        entityManagerCount.set(count);
         em.getTransaction().commit();
+        if(count > 0)
+            em.getTransaction().begin();
     }
 
     public void rollback() {
         EntityManager em = (EntityManager) entityManager.get();
         em.getTransaction().rollback();
+        entityManagerCount.set(0);
     }
 
     public void debugDump() {
@@ -93,9 +112,7 @@ public class DAL implements DALInterface {
         for (UconAttribute a : al) {
             UconAttribute parent = (UconAttribute) a.getParent();
             log.info("\t{} (parent: {})", a, parent == null ? null : parent.getRowId());
-            for (UconSession s : a.getSessions()) {
-                log.info("\t\t{}", s);
-            }
+            log.info("\t\t{}", a.session);
         }
     }
 
@@ -113,12 +130,23 @@ public class DAL implements DALInterface {
                 }
             }
         };
+        this.entityManagerCount = new ThreadLocal() {
+            @Override
+            protected synchronized Object initialValue() {
+                try {
+                    return 0;
+                } catch (Exception e) {
+                    log.error("while creating thread local entity manager count: {}", e);
+                    throw e;
+                }
+            }
+        };        
         debugDump();
     }
 
     @Override
     public Collection<UconSession> listSessions() {
-        EntityManager em = (EntityManager) entityManager.get();
+        EntityManager em = getEm();
         TypedQuery<UconSession> q = em.createQuery(
                 "select s from UconSession s",
                 UconSession.class);
@@ -128,7 +156,7 @@ public class DAL implements DALInterface {
 
     @Override
     public Collection<UconSession> listSessions(Status status) {
-        EntityManager em = (EntityManager) entityManager.get();
+        EntityManager em = getEm();
         TypedQuery<UconSession> q = em.createQuery(
                 "select s from UconSession s where s.status = :status",
                 UconSession.class)
@@ -139,7 +167,7 @@ public class DAL implements DALInterface {
 
     @Override
     public Collection<UconSession> listSessions(Date lastSeenBefore) {
-        EntityManager em = (EntityManager) entityManager.get();
+        EntityManager em = getEm();
         TypedQuery<UconSession> q = em.createQuery(
                 "select s from UconSession s where s.lastSeen < :lastSeen",
                 UconSession.class)
@@ -150,7 +178,7 @@ public class DAL implements DALInterface {
 
     @Override
     public Collection<UconSession> listSessions(URL pepUrl) {
-        EntityManager em = (EntityManager) entityManager.get();
+        EntityManager em = getEm();
         String url = pepUrl.toString();
         TypedQuery<UconSession> q = em.createQuery(
                 "select s from UconSession s where s.pepUrl = :pepUrl",
@@ -162,9 +190,9 @@ public class DAL implements DALInterface {
 
     @Override
     public Collection<UconSession> listOutdatedSessions() {
-        EntityManager em = (EntityManager) entityManager.get();
+        EntityManager em = getEm();
         TypedQuery<UconSession> q = em.createQuery(
-                "select distinct s from UconSession s, UconAttribute a where s.status = :status and s member of a.sessions and a.expires < :now",
+                "select distinct s from UconSession s, UconAttribute a where s.status = :status and s = a.session and a.expires < :now",
                 UconSession.class)
                 .setParameter("status", Status.ONGOING)
                 .setParameter("now", new Date());
@@ -174,9 +202,9 @@ public class DAL implements DALInterface {
 
     @Override
     public Collection<UconAttribute> listAttributes(URL pepUrl) {
-        EntityManager em = (EntityManager) entityManager.get();
+        EntityManager em = getEm();
         TypedQuery<UconAttribute> q = em.createQuery(
-                "select distinct a from UconAttribute a, UconSession s where s.pepUrl = :pepUrl and s member of a.sessions",
+                "select distinct a from UconAttribute a, UconSession s where s.pepUrl = :pepUrl and s = a.session",
                 UconAttribute.class)
                 .setParameter("pepUrl", pepUrl.toString());
         Collection<UconAttribute> attributes = q.getResultList();
@@ -185,7 +213,7 @@ public class DAL implements DALInterface {
 
     @Override
     public Collection<UconAttribute> listAttributes() {
-        EntityManager em = (EntityManager) entityManager.get();
+        EntityManager em = getEm();
         TypedQuery<UconAttribute> q = em.createQuery(
                 "select a from UconAttribute a",
                 UconAttribute.class);
@@ -195,7 +223,7 @@ public class DAL implements DALInterface {
 
     @Override
     public Collection<UconAttribute> listAttributes(String category, String id) {
-        EntityManager em = (EntityManager) entityManager.get();
+        EntityManager em = getEm();
         TypedQuery<UconAttribute> q = em.createQuery(
                 "select a from UconAttribute a where a.category = :category and a.id = :id",
                 UconAttribute.class)
@@ -207,7 +235,7 @@ public class DAL implements DALInterface {
 
     @Override
     public Collection<PepAttributeInterface> listManagedAttributes(String factory) {
-        EntityManager em = (EntityManager) entityManager.get();
+        EntityManager em = getEm();
         TypedQuery<PepAttributeInterface> q = em.createQuery(
                 "select a from UconAttribute a where a.factory = :factory and a.expires is null",
                 PepAttributeInterface.class)
@@ -218,7 +246,7 @@ public class DAL implements DALInterface {
 
     @Override
     public Collection<PepAttributeInterface> listUnmanagedAttributes(String factory) {
-        EntityManager em = (EntityManager) entityManager.get();
+        EntityManager em = getEm();
         TypedQuery<PepAttributeInterface> q = em.createQuery(
                 "select a from UconAttribute a where a.factory = :factory and a.expires is not null",
                 PepAttributeInterface.class)
@@ -251,11 +279,16 @@ public class DAL implements DALInterface {
             while (uconAttribute != uconRequest.get(index)) {
                 index++;
             }
-            uconAttribute = em.merge(uconAttribute);
             uconRequest.set(index, uconAttribute);
-            uconAttribute.sessions.remove(uconSession);
-            uconAttribute.sessions.add(uconSession);
-            uconSession.attributes.add(uconAttribute);
+            uconAttribute = em.merge(uconAttribute);
+            // XXX FLUSH IS VERY SLOW!!
+            //em.flush();
+            //assert(uconAttribute.getRowId() != null);
+            // keep shared attributes out
+            if (!uconAttribute.shared && !uconSession.attributes.contains(uconAttribute)) {
+                uconAttribute.session = uconSession;
+                uconSession.attributes.add(uconAttribute);
+            }
         }
         uconSession = em.merge(uconSession);
         return uconSession;
@@ -264,7 +297,7 @@ public class DAL implements DALInterface {
     @Override
     public UconSession startSession(UconSession uconSession, UconRequest uconRequest) throws Exception {
         // Store request's attributes to the database
-        EntityManager em = (EntityManager) entityManager.get();
+        EntityManager em = getEm();
         try {
             em.persist(uconSession);
             uconSession = saveSession(em, uconSession, uconRequest);
@@ -279,7 +312,7 @@ public class DAL implements DALInterface {
     public UconSession saveSession(UconSession uconSession, UconRequest uconRequest) {
         // Store request's attributes to the database
         log.debug("saving " + uconSession);
-        EntityManager em = (EntityManager) entityManager.get();
+        EntityManager em = getEm();
         try {
             uconSession = saveSession(em, uconSession, uconRequest);
         } catch (Exception e) {
@@ -292,7 +325,7 @@ public class DAL implements DALInterface {
     @Override
     public UconSession getSession(String uuid, URL uconUrl) {
         // TODO use custom generated value
-        EntityManager em = (EntityManager) entityManager.get();
+        EntityManager em = getEm();
         UconSession uconSession = em.find(UconSession.class, uuid);
         if (uconSession == null) {
             throw new RuntimeException("Session with uuid=" + uuid + " is unknown");
@@ -304,7 +337,7 @@ public class DAL implements DALInterface {
     @Deprecated
     @Override
     public UconSession getSessionByCustomId(String customId) {
-        EntityManager em = (EntityManager) entityManager.get();
+        EntityManager em = getEm();
         TypedQuery<UconSession> q = em.createQuery(
                 "select s from UconSession s where s.customId = :id",
                 UconSession.class)
@@ -315,11 +348,11 @@ public class DAL implements DALInterface {
 
     @Override
     public UconAttribute getSharedAttribute(String category, String id) {
-        EntityManager em = (EntityManager) entityManager.get();
+        EntityManager em = getEm();
         UconAttribute uconAttribute;
         try {
             TypedQuery<UconAttribute> q = em.createQuery(
-                    "select a from UconAttribute a where a.category = :category and a.id = :id and a.parent is null",
+                    "select a from UconAttribute a where a.category = :category and a.id = :id and a.shared = true",
                     UconAttribute.class)
                     .setParameter("category", category)
                     .setParameter("id", id);
@@ -331,23 +364,32 @@ public class DAL implements DALInterface {
     }
 
     @Override
+    public Collection<UconAttribute> listSharedAttributes() {
+        EntityManager em = getEm();
+        Collection<UconAttribute> uconAttributes;
+        TypedQuery<UconAttribute> q = em.createQuery(
+                "select a from UconAttribute a where a.shared = true",
+                UconAttribute.class);
+        uconAttributes = q.getResultList();
+        return uconAttributes;
+    }
+
+    @Override
     public void removeAttributesByFactory(String factory) {
         log.debug("removing all attributes for " + factory);
-        EntityManager em = (EntityManager) entityManager.get();
+        EntityManager em = getEm();
         try {
             TypedQuery<UconAttribute> q = em.createQuery(
                     "select a from UconAttribute a where a.factory = :factory",
                     UconAttribute.class)
                     .setParameter("factory", factory);
             for (UconAttribute a : q.getResultList()) {
-                Collection<UconSession> l = new ArrayList<>(a.sessions);
                 if (a.parent != null) {
                     a.parent.children.remove(a);
+                    a.parent = null;
                 }
-                a.parent = null;
-                for (UconSession s : l) {
-                    s.attributes.remove(a);
-                }
+                if(a.session != null)
+                    a.session.attributes.remove(a);
                 em.remove(a);
             }
         } catch (Exception e) {
@@ -359,18 +401,20 @@ public class DAL implements DALInterface {
     @Override
     public UconSession endSession(UconSession uconSession) {
         log.info("ending " + uconSession);
-        EntityManager em = (EntityManager) entityManager.get();
+        EntityManager em = getEm();
         try {
             uconSession = em.merge(uconSession);
             // first remove possible parent links to avoid constraint
             // problems on session removal.
             Iterator<UconAttribute> i = uconSession.attributes.iterator();
-            while(i.hasNext()) {
+            while (i.hasNext()) {
                 UconAttribute a = i.next();
-                if(a.parent != null) {
-                    a.parent = null;
-                    em.merge(a);
-                }
+                a = em.merge(a);
+                a.parent = null;
+                //a.children.clear();
+                a.session = null;
+                a = em.merge(a);
+                //em.remove(a);
                 //i.remove();
             }
             //uconSession.attributes.clear();
@@ -386,7 +430,7 @@ public class DAL implements DALInterface {
 
     @Override
     public Object save(Object o) {
-        EntityManager em = (EntityManager) entityManager.get();
+        EntityManager em = getEm();
         try {
             o = em.merge(o);
         } catch (Exception e) {
@@ -416,12 +460,30 @@ public class DAL implements DALInterface {
         return u;
     }
 
+    public UconAttribute newPrivateAttribute(String id, String type, String value, String issuer, String category, UconSession session, String uuid) {
+        for (UconAttribute child : session.getAttributes()) {
+            if (child.getId().equals(id)) {
+                child.setType(type);
+                child.setValue(value);
+                child.setIssuer(issuer);
+                return child;
+            }
+        }
+        PepAttribute a = new PepAttribute(id, type, value, issuer, category, uuid);
+        UconAttribute u = UconAttribute.newInstance(a);
+        u = (UconAttribute) save(u);
+        // DON'T SAVE ME!
+        session.attributes.add(u);
+        return u;
+    }
+    
     @Override
     public UconAttribute newSharedAttribute(String id, String type, String value, String issuer, String category, String uuid) {
         UconAttribute u = getSharedAttribute(category, id);
         if (u == null) {
             PepAttribute a = new PepAttribute(id, type, value, issuer, category, uuid);
             u = UconAttribute.newInstance(a);
+            u.shared = true;
         } else {
             u.setType(type);
             u.setValue(value);
@@ -436,7 +498,12 @@ public class DAL implements DALInterface {
     public UconRequest rebuildUconRequest(UconSession uconSession) {
         log.debug("" + uconSession);
         UconRequest accessRequest = new UconRequest();
+        // Add private attributes
         for (UconAttribute a : uconSession.attributes) {
+            accessRequest.add(a);
+        }
+        // Add shared attributes
+        for (UconAttribute a : listSharedAttributes()) {
             accessRequest.add(a);
         }
         return accessRequest;
