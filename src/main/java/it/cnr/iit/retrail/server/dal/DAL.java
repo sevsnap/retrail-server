@@ -63,11 +63,12 @@ public class DAL implements DALInterface {
         em.clear();
         em.getTransaction().begin();
     }
-    
+
     public void commit() {
         EntityManager em = (EntityManager) entityManager.get();
         em.getTransaction().commit();
     }
+
     public void rollback() {
         EntityManager em = (EntityManager) entityManager.get();
         em.getTransaction().rollback();
@@ -106,8 +107,7 @@ public class DAL implements DALInterface {
             protected synchronized Object initialValue() {
                 try {
                     return factory.createEntityManager();
-                }
-                catch(Exception e) {
+                } catch (Exception e) {
                     log.error("while creating thread local entity manager: {}", e);
                     throw e;
                 }
@@ -239,7 +239,7 @@ public class DAL implements DALInterface {
                 rootsFirst.addLast((UconAttribute) pepAttribute);
             }
         }
-            // Then, process all attributes (persist, or merge).
+        // Then, process all attributes (persist, or merge).
         // Also, keep merged the original uconRequest for consistency.
         uconSession = em.merge(uconSession);
         uconSession.attributes.clear();
@@ -295,7 +295,7 @@ public class DAL implements DALInterface {
         EntityManager em = (EntityManager) entityManager.get();
         UconSession uconSession = em.find(UconSession.class, uuid);
         if (uconSession == null) {
-            throw new RuntimeException("Session with uuid="+uuid+" is unknown");
+            throw new RuntimeException("Session with uuid=" + uuid + " is unknown");
         }
         uconSession.setUconUrl(uconUrl);
         return uconSession;
@@ -341,8 +341,9 @@ public class DAL implements DALInterface {
                     .setParameter("factory", factory);
             for (UconAttribute a : q.getResultList()) {
                 Collection<UconSession> l = new ArrayList<>(a.sessions);
-                if(a.parent != null)
+                if (a.parent != null) {
                     a.parent.children.remove(a);
+                }
                 a.parent = null;
                 for (UconSession s : l) {
                     s.attributes.remove(a);
@@ -360,14 +361,22 @@ public class DAL implements DALInterface {
         log.info("ending " + uconSession);
         EntityManager em = (EntityManager) entityManager.get();
         try {
-            if (uconSession != null) {
-                uconSession = em.merge(uconSession);
-                em.remove(uconSession);
-                em.flush();
-                em.clear();
-            } else {
-                log.error("cannot find {}", uconSession);
+            uconSession = em.merge(uconSession);
+            // first remove possible parent links to avoid constraint
+            // problems on session removal.
+            Iterator<UconAttribute> i = uconSession.attributes.iterator();
+            while(i.hasNext()) {
+                UconAttribute a = i.next();
+                if(a.parent != null) {
+                    a.parent = null;
+                    em.merge(a);
+                }
+                //i.remove();
             }
+            //uconSession.attributes.clear();
+            em.remove(uconSession);
+            em.flush();
+            em.clear();
         } catch (Exception e) {
             log.error("while ending session {} with {} attributes: {}", uconSession, uconSession.attributes.size(), e);
             throw e;
@@ -386,24 +395,6 @@ public class DAL implements DALInterface {
         }
         // warning: returned object returned has transients reset.
         return o;
-    }
-
-    @Override
-    public Collection<?> saveCollection(Collection<?> lo) {
-        Collection<Object> lo2 = new ArrayList<>(lo.size());
-        EntityManager em = (EntityManager) entityManager.get();
-        em.getTransaction().begin();
-        try {
-            for (Object o : lo) {
-                o = em.merge(o);
-                lo2.add(o);
-            }
-        } catch (Exception e) {
-            log.error("while saving collection: {}", e.getMessage());
-            throw e;
-        }
-        // warning: returned object returned has transients reset.
-        return lo2;
     }
 
     @Override

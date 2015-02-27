@@ -169,7 +169,7 @@ public class UCon extends Server implements UConInterface, UConProtocol {
         }
         try {
             dal.getSessionByCustomId(newCustomId);
-            throw new RuntimeException("customId " + newCustomId + "already exists");
+            throw new RuntimeException("customId " + newCustomId + " already exists");
         } catch (NoResultException e) {
         }
         UconSession uconSession = getSession(uuid, oldCustomId);
@@ -250,9 +250,8 @@ public class UCon extends Server implements UConInterface, UConProtocol {
 
         for (UconSession uconSession : sessions) {
             pipChain.fireSystemEvent(new SystemEvent(SystemEvent.EventType.afterRevokeAccess, null, uconSession, ack));
+            dal.save(uconSession);
         }
-        // bulk save
-        dal.saveCollection(sessions);
         return responses;
     }
 

@@ -64,11 +64,9 @@ public interface DALInterface {
     Collection<UconSession> listSessions(Date lastSeenBefore);
 
     Collection<UconSession> listSessions(URL pepUrl);
-
+    
     Object save(Object o);
     
-    Collection<?> saveCollection(Collection<?> o);
-
     UconSession saveSession(UconSession uconSession, UconRequest uconRequest);
         
     UconSession startSession(UconSession uconSession, UconRequest uconRequest) throws Exception;
