@@ -11,6 +11,7 @@ import java.util.ArrayList;
 import java.util.Collection;
 import java.util.Date;
 import java.util.Objects;
+import javax.persistence.CascadeType;
 import javax.persistence.Column;
 import javax.persistence.Entity;
 import javax.persistence.FetchType;
@@ -60,7 +61,7 @@ public class UconSession extends PepSession {
     @Temporal(javax.persistence.TemporalType.TIMESTAMP)
     private Date lastSeen = new Date();
 
-    @ManyToMany(fetch=FetchType.LAZY)
+    @ManyToMany(fetch=FetchType.LAZY, cascade=CascadeType.REMOVE)
     protected Collection<UconAttribute> attributes = new ArrayList<>();
 
     @Transient

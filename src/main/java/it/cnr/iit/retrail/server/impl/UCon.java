@@ -101,12 +101,18 @@ public class UCon extends Server implements UConInterface, UConProtocol {
     public Node apply(String actionName, String uuid, String customId, Object... args) throws Exception {
         UconSession session = null;
         if (uuid != null || customId != null) {
-            session = dal.getSession(getUuid(uuid, customId), myUrl);
-            if (session == null) {
-                throw new RuntimeException("session id " + getUuid(uuid, customId) + " is unknown");
-            }
+            session = getSession(uuid, customId);
         }
-        UconSession response = automatonFactory.apply(session, actionName, args);
+        UconSession response = null;
+        dal.begin();
+        try {
+            response = automatonFactory.apply(session, actionName, args);
+            dal.commit();
+        } catch (Exception e) {
+            log.error("while applying {} to {}: {}", actionName, session, e);
+            dal.rollback();
+            throw e;
+        }
         return response.toXacml3Element();
     }
 
@@ -140,31 +146,46 @@ public class UCon extends Server implements UConInterface, UConProtocol {
         // FIXME troppi passaggi, la req viene prima serializzata e dopo deserializzata
         // dal database.
         UconRequest request = new UconRequest((Document) accessRequest);
-        session = dal.startSession(session, request);
 
-        // Obtain and use automaton instance.
-        UconSession response = automatonFactory.apply(session, "tryAccess");
+        UconSession response = null;
+        dal.begin();
+        try {
+            session = dal.startSession(session, request);
+            response = automatonFactory.apply(session, "tryAccess");
+            dal.commit();
+        } catch (Exception e) {
+            log.error("while applying {} to {}: {}", "tryAccess", session, e);
+            dal.rollback();
+            throw e;
+        }
         return response.toXacml3Element();
     }
 
     @Override
     public Node assignCustomId(String uuid, String oldCustomId, String newCustomId) throws Exception {
         log.info("uuid={}, oldCustomId={}, newCustomId={}", uuid, oldCustomId, newCustomId);
-        uuid = getUuid(uuid, oldCustomId);
         if (newCustomId == null || newCustomId.length() == 0) {
             throw new RuntimeException("null or empty customId for: " + uuid);
         }
         try {
             dal.getSessionByCustomId(newCustomId);
-            throw new RuntimeException("customId "+newCustomId + "already exists");
-        } 
-        catch(NoResultException e) {
+            throw new RuntimeException("customId " + newCustomId + "already exists");
+        } catch (NoResultException e) {
         }
-        UconSession uconSession = dal.getSession(uuid, myUrl);
-        uconSession.setCustomId(newCustomId);
-        // save, but don't recover new saved object (transients are reset)
-        dal.save(uconSession);
-        uconSession.setMessage("new customId assigned");
+        UconSession uconSession = getSession(uuid, oldCustomId);
+        dal.begin();
+        try {
+            uconSession.setCustomId(newCustomId);
+            uconSession = (UconSession) dal.save(uconSession);
+            uconSession.setMessage("new customId assigned");
+            uconSession.setUconUrl(myUrl);
+            dal.commit();
+        } catch (Exception e) {
+            log.error("while assigning custom id {} to {}: {}", newCustomId, uconSession, e);
+            dal.rollback();
+            throw e;
+        }
+        log.error("XXXX: {}", DomUtils.toString(uconSession.toXacml3Element()));
         return uconSession.toXacml3Element();
     }
 
@@ -225,9 +246,8 @@ public class UCon extends Server implements UConInterface, UConProtocol {
         }
 
         // TODO: check error
-
         Object ack = rpc(pepUrl, "PEP.revokeAccess", responses);
-        
+
         for (UconSession uconSession : sessions) {
             pipChain.fireSystemEvent(new SystemEvent(SystemEvent.EventType.afterRevokeAccess, null, uconSession, ack));
         }
@@ -384,9 +404,17 @@ public class UCon extends Server implements UConInterface, UConProtocol {
         // Gather all the sessions that involve the changed attributes
         log.info("{} attributes changed, updating DAL", changedAttributes.size());
         Collection<UconSession> involvedSessions = new HashSet<>();
-        for (PepAttributeInterface a : changedAttributes) {
-            UconAttribute u = (UconAttribute) dal.save(a);
-            involvedSessions.addAll(u.getSessions());
+        dal.begin();
+        try {
+            for (PepAttributeInterface a : changedAttributes) {
+                UconAttribute u = (UconAttribute) dal.save(a);
+                involvedSessions.addAll(u.getSessions());
+            }
+        }
+        catch(Exception e) {
+            log.error("while notifying changes: {}", e);
+            dal.rollback();
+            throw e;
         }
         reevaluateSessions(involvedSessions);
         log.debug("done (total sessions: {})", dal.listSessions().size());
@@ -401,46 +429,66 @@ public class UCon extends Server implements UConInterface, UConProtocol {
         // We create a fake PepRequest, which works just as a container for the
         // Attribute values and handles the grouping by category.
         PepRequestInterface container = new PepRequest((Document) xacmlRequest);
-        // First send event to the PIPs
-        pipChain.fireSystemEvent(new SystemEvent(SystemEvent.EventType.beforeApplyChanges, uconRequest, uconSession, container));
 
-        // Ok we have a live container of attribute values grouped by 
-        // category and id now. 
-        // Replace old values with new ones.
-        for (PepAttributeInterface a : container) {
-            UconAttribute uconA = dal.newSharedAttribute(a.getId(), a.getType(), a.getValue(), a.getIssuer(), a.getCategory(), "FAKENESS");
-            uconRequest.replace(uconA);
+        dal.begin();
+        try {
+            // First send event to the PIPs
+            pipChain.fireSystemEvent(new SystemEvent(SystemEvent.EventType.beforeApplyChanges, uconRequest, uconSession, container));    
+            // Ok we have a live container of attribute values grouped by 
+            // category and id now. 
+            // Replace old values with new ones.
+            for (PepAttributeInterface a : container) {
+                UconAttribute uconA = dal.newSharedAttribute(a.getId(), a.getType(), a.getValue(), a.getIssuer(), a.getCategory(), "FAKENESS");
+                uconRequest.replace(uconA);
+            }
+            // We need to save them to the database.
+            UconSession uconSession2 = dal.saveSession(uconSession, uconRequest);
+            pipChain.fireSystemEvent(new SystemEvent(SystemEvent.EventType.afterApplyChanges, uconRequest, uconSession2));
+            dal.saveSession(uconSession2, uconRequest);
+            dal.commit();
+        } catch (Exception e) {
+            log.error("while applying changes to {}: {}", uconSession, e);
+            dal.rollback();
+            throw e;
         }
 
-        // We need to save them to the database.
-        UconSession uconSession2 = dal.saveSession(uconSession, uconRequest);
-        pipChain.fireSystemEvent(new SystemEvent(SystemEvent.EventType.afterApplyChanges, uconRequest, uconSession2));
-        dal.saveSession(uconSession2, uconRequest);
         // New values are saved. It's time to reevaluate the involved sessions.
+        // To do this, we awake the watchdog thread.
         wakeup();
         uconSession.setMs(System.currentTimeMillis() - start);
+
         return uconSession.toXacml3Element();
     }
 
     @Override
     public Node applyChanges(Node xacmlRequest, String uuid, String customId) throws Exception {
-        return applyChanges(xacmlRequest, getUuid(uuid, customId));
+        return applyChanges(xacmlRequest, getSession(uuid, customId).getUuid());
     }
 
     @Override
     public void notifyChanges(PepAttributeInterface changedAttribute) throws Exception {
         log.info("changed {}, updating DAL", changedAttribute);
-        UconAttribute u = (UconAttribute) dal.save(changedAttribute);
-        Collection<UconSession> involvedSessions = u.getSessions();
+        Collection<UconSession> involvedSessions;
+        dal.begin();
+        try {
+            UconAttribute u = (UconAttribute) dal.save(changedAttribute);
+            involvedSessions = u.getSessions();
+            dal.commit();
+        }
+        catch(Exception e) {
+            log.error("while saving changes: {}", e);
+            dal.rollback();
+            throw e;
+        }
         reevaluateSessions(involvedSessions);
         log.debug("done (total sessions: {})", dal.listSessions().size());
     }
 
-    public String getUuid(String uuid, String customId) {
+    private UconSession getSession(String uuid, String customId) {
         if (uuid != null) {
-            return uuid;
+            return dal.getSession(uuid, myUrl);
         }
-        return dal.getSessionByCustomId(customId).getUuid();
+        return dal.getSessionByCustomId(customId);
     }
 
     @Override
