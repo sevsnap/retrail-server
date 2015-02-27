@@ -16,6 +16,7 @@ import it.cnr.iit.retrail.commons.impl.PepSession;
 import it.cnr.iit.retrail.commons.Server;
 import it.cnr.iit.retrail.commons.Status;
 import it.cnr.iit.retrail.commons.impl.PepRequest;
+import it.cnr.iit.retrail.server.behaviour.OngoingAccess;
 import it.cnr.iit.retrail.server.dal.UconAttribute;
 import it.cnr.iit.retrail.server.dal.DAL;
 import it.cnr.iit.retrail.server.dal.DALInterface;
@@ -334,7 +335,7 @@ public class UCon extends Server implements UConInterface, UConProtocol {
             try {
                 log.debug("involved session: {}", involvedSession);
                 // Now make PDP evaluate the request    
-                involvedSession = automatonFactory.apply(involvedSession, "ongoingAccess");
+                involvedSession = automatonFactory.apply(involvedSession, OngoingAccess.name);
                 boolean mustRevoke = involvedSession.getDecision() != PepResponse.DecisionEnum.Permit;
                 // Explicitly revoke access if anything went wrong
                 if (mustRevoke) {

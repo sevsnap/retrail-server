@@ -9,7 +9,6 @@ import it.cnr.iit.retrail.commons.PepAttributeInterface;
 import it.cnr.iit.retrail.commons.PepSessionInterface;
 import it.cnr.iit.retrail.server.UConInterface;
 import java.util.Collection;
-import org.w3c.dom.Element;
 
 /**
  *
@@ -41,9 +40,50 @@ public interface PIPInterface {
 
     boolean isInited();
     
-    void fireBeforeActionEvent(ActionEvent e);
-    void fireAfterActionEvent(ActionEvent e);
-    void fireSystemEvent(SystemEvent e);
+    // if an exception is thrown by the PIP before an action is taken, the
+    /// action itself throws an exception
+    /**
+     * fireBeforeActionEvent()
+     *
+     * is called by the UCon to allow the PIP to gather information and/or
+     * perform housekeeping just before the action is taken. 
+     * The default implementation does nothing.
+     * Important: If an exception is thrown by this call before the action
+     * is taken, it is canceled and no other PIP will be called. In this case
+     * all modifications made to the session are automatically discarded
+     * (rolled back).
+     * @param event holding the action that is going to be executed.
+     */
+    void fireBeforeActionEvent(ActionEvent event) throws Exception;
+
+    /**
+     * fireAfterActionEvent()
+     *
+     * is called by the UCon to allow the PIP to gather information and/or
+     * perform housekeeping just after the action is taken.
+     * The default implementation does nothing.
+     * Important: the PIP must be able to handle its own exceptions and in
+     * case it should rollback the possible modifications made to the 
+     * environment on its own. 
+     * Any exception occurring at this time is ignored since the action has
+     * been irreversibly done. All PIPs are called anyway as nothing has
+     * happened.
+     * @param event holding the action that has been executed.
+     */    
+    void fireAfterActionEvent(ActionEvent event);
+
+    /**
+     * fireAfterActionEvent()
+     *
+     * is called by the UCon to inform the PIP about a system event.
+     * Any exception thrown is ignored; before-like events, differently from
+     * the fireBeforeActionEvent() call, are simply informational and cannot
+     * cancel the action that is going to be taken.
+     * All the PIPs will receive the event.
+     * The default implementation does nothing.
+     * @param event the system event that has happened.
+     */    
+    void fireSystemEvent(SystemEvent event);
     
     /**
      * newSharedAttribute() creates a new shared PEP attribute. The new

@@ -64,6 +64,23 @@ public class DAL implements DALInterface {
         return instance;
     }
 
+    public void begin() {
+        EntityManager em = (EntityManager) entityManager.get();
+        // clearing the entity manager is fundamental to avoid stale objects that
+        // may have been updated by other threads!
+        em.clear();
+        em.getTransaction().begin();
+    }
+    
+    public void commit() {
+        EntityManager em = (EntityManager) entityManager.get();
+        em.getTransaction().commit();
+    }
+    public void rollback() {
+        EntityManager em = (EntityManager) entityManager.get();
+        em.getTransaction().rollback();
+    }
+
     public void debugDump() {
         log.info("current open sessions:");
         Collection<UconSession> q = listSessions();

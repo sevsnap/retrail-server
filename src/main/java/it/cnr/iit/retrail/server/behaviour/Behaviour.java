@@ -4,20 +4,11 @@
  */
 package it.cnr.iit.retrail.server.behaviour;
 
-import it.cnr.iit.retrail.commons.DomUtils;
 import it.cnr.iit.retrail.commons.Pool;
 import it.cnr.iit.retrail.commons.Status;
-import it.cnr.iit.retrail.commons.automata.ActionInterface;
 import it.cnr.iit.retrail.commons.automata.StateInterface;
-import it.cnr.iit.retrail.server.dal.UconRequest;
 import it.cnr.iit.retrail.server.dal.UconSession;
 import it.cnr.iit.retrail.server.impl.UCon;
-import java.io.InputStream;
-import java.util.ArrayList;
-import java.util.Collection;
-import java.util.logging.Level;
-import java.util.logging.Logger;
-import org.w3c.dom.Document;
 import org.w3c.dom.Element;
 import org.w3c.dom.NodeList;
 
@@ -27,9 +18,6 @@ import org.w3c.dom.NodeList;
  */
 public final class Behaviour extends Pool<UConAutomaton> {
     private final UCon ucon;
-    private final Collection<PolicyDrivenAction> policyDrivenActions = new ArrayList<>();
-    private final Collection<UConState> ongoingStates = new ArrayList<>();
-    private final Collection<PolicyDrivenAction> ongoingAccessActions = new ArrayList<>();
     private final Element behaviouralConfiguration;
     private final UConAutomaton archetype;
     
@@ -37,9 +25,8 @@ public final class Behaviour extends Pool<UConAutomaton> {
         super(64);
         assert(behaviouralConfiguration != null);
         this.ucon = ucon;
-        log.warn("loading behavioural automaton {}", behaviouralConfiguration);
         this.behaviouralConfiguration = behaviouralConfiguration;
-        log.warn("building behavioural automaton with builtin policies (permit anything)");
+        log.warn("building archetype with configured behaviour");
         archetype = newObject(true);
     }
     
@@ -48,20 +35,6 @@ public final class Behaviour extends Pool<UConAutomaton> {
         return archetype.getBegin();
     }
     
-    public Collection<PolicyDrivenAction> getPolicyDrivenActions() {
-        return policyDrivenActions;
-    }
-    
-    @Deprecated
-    public UConState getOngoingState() {
-        return ongoingStates.iterator().next();
-    }
-    
-    @Deprecated
-    public PDPPool getOngoingAccessPDPPool() {
-        return ongoingAccessActions.iterator().next().getPDPPool();
-    }
-
     private UConAutomaton newObject(boolean firstTime) throws Exception {
         UConAutomaton a = new UConAutomaton(ucon);
         // Create states
@@ -77,8 +50,6 @@ public final class Behaviour extends Pool<UConAutomaton> {
                     a.setBegin(uconState);
                     break;
                 case ONGOING:
-                    if(firstTime)
-                        ongoingStates.add(uconState);
                     break;
                 case END:
                     a.addEnd(uconState);
@@ -103,22 +74,22 @@ public final class Behaviour extends Pool<UConAutomaton> {
             StateInterface source = (UConState) a.getState(sourceStateName);
             UconAction action;
             switch(klass) {
+                case "":
                 case "UconAction":
                     action = new UconAction(source, target, name, ucon);
                     break;
-                case "OngoingAccessAction":
+                case "OngoingAccess":
+                    if(name != null && name.length() > 0 && !name.equals(OngoingAccess.name))
+                        throw new RuntimeException("action name cannot be specified for OngoingAccess");
                 case "PolicyDrivenAction": {
                     String failTargetStateName = actionElement.getAttribute("failTarget");
                     StateInterface failTarget = a.getState(failTargetStateName);
-                    Element policyElement = (Element) actionElement.getElementsByTagName("Policy").item(0);
-                    PolicyDrivenAction act = klass.equals("OngoingAccessAction")?
-                            new OngoingAccess(source, target, failTarget, name, ucon) :
+                    PolicyDrivenAction act = klass.equals("OngoingAccess")?
+                            new OngoingAccess(source, target, failTarget, ucon) :
                             new PolicyDrivenAction(source, target, failTarget, name, ucon);
                     if(firstTime) {
+                        Element policyElement = (Element) actionElement.getElementsByTagName("Policy").item(0);
                         act.setPolicy(policyElement);
-                        policyDrivenActions.add(act);
-                        if(klass.equals("OngoingAccessAction"))
-                            ongoingAccessActions.add(act);
                     }
                     action = act;
                     break;
@@ -142,6 +113,7 @@ public final class Behaviour extends Pool<UConAutomaton> {
         try {
             response = automaton.doThenMove(actionName, args);
         } catch (Exception e) {
+            log.error("while executing action {}: {}", actionName, e);
             throw new RuntimeException("while executing action " + actionName, e);
         } finally {
             release(automaton);
@@ -154,7 +126,7 @@ public final class Behaviour extends Pool<UConAutomaton> {
         try {
             return newObject(false);
         } catch (Exception ex) {
-            log.error("while creating new automaton: {}", ex);
+            log.error("while creating new behavioural automaton: {}", ex);
         }
         return null;
     }

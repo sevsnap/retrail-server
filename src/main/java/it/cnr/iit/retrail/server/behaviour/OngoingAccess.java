@@ -15,9 +15,9 @@ import it.cnr.iit.retrail.server.impl.UCon;
  * @author kicco
  */
 public class OngoingAccess extends PolicyDrivenAction {
-    
+    public static final String name = "ongoingAccess";
 
-    public OngoingAccess(StateInterface sourceState, StateInterface targetState, StateInterface targetFailState, String name, UCon ucon) {
+    public OngoingAccess(StateInterface sourceState, StateInterface targetState, StateInterface targetFailState, UCon ucon) {
         super(sourceState, targetState, targetFailState, name, ucon);
     }
     

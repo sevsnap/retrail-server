@@ -94,22 +94,30 @@ public class PIPChain extends ArrayList<PIPInterface> implements PIPChainInterfa
     }
 
     @Override
-    public void fireBeforeActionEvent(ActionEvent e) {
+    public void fireBeforeActionEvent(ActionEvent e) throws Exception {
         lockIfNeeded();
         for (PIPInterface p : this) {
-            p.fireBeforeActionEvent(e);
+            try {
+                p.fireBeforeActionEvent(e);
+            }
+            catch(Exception ex) {
+                log.error("PIP {} canceled {} by throwing exception: {}", p, e, ex);
+                unlockIfNeeded();
+                throw ex;
+            }
         }
     }
 
     @Override
     public void fireAfterActionEvent(ActionEvent e) {
-        try {
-            for (PIPInterface p : this) {
-                p.fireAfterActionEvent(e);
-            }
-        } finally {
-            unlockIfNeeded();
-        }
+            for (PIPInterface p : this)
+                try {
+                    p.fireAfterActionEvent(e);
+                } 
+                catch(Exception ex)  {
+                    log.error("PIP {}, ignoring exception: {}", p, ex);
+                }
+        unlockIfNeeded();
     }
 
     @Override

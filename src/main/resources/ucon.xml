@@ -44,7 +44,7 @@
                     </Rule>
                 </Policy>
             </ucon:Action>
-            <ucon:Action name="ongoingAccess" class="OngoingAccessAction" source="ONGOING" target="ONGOING" failTarget="REVOKED">
+            <ucon:Action name="ongoingAccess" class="OngoingAccess" source="ONGOING" target="ONGOING" failTarget="REVOKED">
                 <Policy xmlns="urn:oasis:names:tc:xacml:3.0:core:schema:wd-17" PolicyId="ON"
                     RuleCombiningAlgId="urn:oasis:names:tc:xacml:1.0:rule-combining-algorithm:first-applicable" 
                     Version="1.0">

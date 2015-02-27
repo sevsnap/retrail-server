@@ -8,6 +8,7 @@ import it.cnr.iit.retrail.commons.PepAttributeInterface;
 import it.cnr.iit.retrail.commons.PepRequestInterface;
 import it.cnr.iit.retrail.commons.PepSessionInterface;
 import it.cnr.iit.retrail.server.UConInterface;
+import it.cnr.iit.retrail.server.behaviour.OngoingAccess;
 import it.cnr.iit.retrail.server.dal.UconAttribute;
 import it.cnr.iit.retrail.server.dal.DAL;
 import it.cnr.iit.retrail.server.pip.ActionEvent;
@@ -62,7 +63,7 @@ public abstract class PIP implements PIPInterface {
             case "startAccess":
                 onBeforeStartAccess(e.request, e.session);
                 break;
-            case "ongoingAccess":
+            case OngoingAccess.name:
                 onBeforeOngoingAccess(e.request, e.session);
                 break;
             case "applyChanges":
@@ -88,7 +89,7 @@ public abstract class PIP implements PIPInterface {
             case "startAccess":
                 onAfterStartAccess(e.request, e.session);
                 break;
-            case "ongoingAccess":
+            case OngoingAccess.name:
                 onAfterOngoingAccess(e.request, e.session, e.ack);
                 break;
             case "applyChanges":

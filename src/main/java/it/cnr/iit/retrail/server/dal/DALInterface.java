@@ -15,6 +15,7 @@ import java.util.Date;
  * @author oneadmin
  */
 public interface DALInterface {
+    
     UconAttribute newPrivateAttribute(String id, String type, String value, String issuer, UconAttribute parent, String uuid);
     /**
      * newSharedAttribute() creates a new shared PEP attribute. The new
