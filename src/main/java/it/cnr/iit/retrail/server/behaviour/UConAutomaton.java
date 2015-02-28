@@ -45,8 +45,7 @@ public class UConAutomaton extends Automaton {
         ucon.getPIPChain().fireBeforeActionEvent(event);
         action.execute(uconRequest, session, args);
         move(actionName);
-        session.setStatus(((UConState)getCurrentState()).getType());
-        session.setStateName(getCurrentState().getName());
+        session.setState((UConState) getCurrentState());
         ucon.getDAL().saveSession(session, uconRequest);
         ucon.getPIPChain().fireAfterActionEvent(event);
         session.setMs(System.currentTimeMillis() - start);

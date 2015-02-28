@@ -14,9 +14,10 @@ import it.cnr.iit.retrail.commons.PepRequestInterface;
 import it.cnr.iit.retrail.commons.impl.PepResponse;
 import it.cnr.iit.retrail.commons.impl.PepSession;
 import it.cnr.iit.retrail.commons.Server;
-import it.cnr.iit.retrail.commons.Status;
+import it.cnr.iit.retrail.commons.StateType;
 import it.cnr.iit.retrail.commons.impl.PepRequest;
 import it.cnr.iit.retrail.server.behaviour.OngoingAccess;
+import it.cnr.iit.retrail.server.behaviour.UConState;
 import it.cnr.iit.retrail.server.dal.UconAttribute;
 import it.cnr.iit.retrail.server.dal.DAL;
 import it.cnr.iit.retrail.server.dal.DALInterface;
@@ -141,10 +142,8 @@ public class UCon extends Server implements UConInterface, UConProtocol {
         session.setCustomId(customId);
         session.setPepUrl(pepUrlString);
         session.setUconUrl(myUrl);
-        session.setStatus(Status.BEGIN);
-        session.setStateName(automatonFactory.getBegin().getName());
-        // FIXME troppi passaggi, la req viene prima serializzata e dopo deserializzata
-        // dal database.
+        session.setState((UConState) automatonFactory.getBegin());
+
         UconRequest request = new UconRequest((Document) accessRequest);
 
         UconSession response = null;
@@ -320,7 +319,7 @@ public class UCon extends Server implements UConInterface, UConProtocol {
         for (String uuid : sessionsList) {
             PepSession pepSession = new PepSession(PepResponse.DecisionEnum.NotApplicable, "Unexistent session");
             pepSession.setUuid(uuid);
-            pepSession.setStatus(Status.UNKNOWN);
+            pepSession.setStateType(StateType.UNKNOWN);
             log.error("PEP at {} told it has {}, that is unknown to me: replying with UNKNOWN status", pepUrl, pepSession);
             pepSession.setUconUrl(myUrl);
             Node n = doc.adoptNode(pepSession.toXacml3Element());
@@ -417,7 +416,7 @@ public class UCon extends Server implements UConInterface, UConProtocol {
             for (PepAttributeInterface a : changedAttributes) {
                 UconAttribute u = (UconAttribute) dal.save(a);
                 if (u.isShared()) {
-                    involvedSessions = dal.listSessions(Status.ONGOING);
+                    involvedSessions = dal.listSessions(StateType.ONGOING);
                     break;
                 }
                 involvedSessions.add(u.getSession());
@@ -485,7 +484,7 @@ public class UCon extends Server implements UConInterface, UConProtocol {
         try {
             UconAttribute u = (UconAttribute) dal.save(changedAttribute);
             if (u.isShared()) {
-                involvedSessions = dal.listSessions(Status.ONGOING);
+                involvedSessions = dal.listSessions(StateType.ONGOING);
             } else {
                 involvedSessions = new ArrayList<>(1);
                 involvedSessions.add((UconSession) u.getSession());
@@ -526,7 +525,7 @@ public class UCon extends Server implements UConInterface, UConProtocol {
             }
         }
         // Gather all the sessions that involve expired attributes
-        Collection<UconSession> outdatedSessions = period > 0 ? dal.listOutdatedSessions() : dal.listSessions(Status.ONGOING);
+        Collection<UconSession> outdatedSessions = period > 0 ? dal.listOutdatedSessions() : dal.listSessions(StateType.ONGOING);
         try {
             // Re-evaluating possible outdated sessions
             reevaluateSessions(outdatedSessions);
@@ -541,7 +540,7 @@ public class UCon extends Server implements UConInterface, UConProtocol {
     public void init() throws Exception {
         super.init();
         pipChain.init(this);
-        Collection<UconSession> sessions = dal.listSessions(Status.ONGOING);
+        Collection<UconSession> sessions = dal.listSessions(StateType.ONGOING);
         if (sessions.size() > 0) {
             log.warn("reevaluating {} previously opened sessions", sessions.size());
             reevaluateSessions(sessions);

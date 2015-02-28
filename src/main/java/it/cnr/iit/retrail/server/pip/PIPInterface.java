@@ -20,12 +20,20 @@ public interface PIPInterface {
      * getUUID()
      *
      * returns the universal unique identifier for this PIP instance. The
-     * default implementation generates the identifier randomly. This behavior
-     * may be overridden.
+     * default implementation should set the identifier as the basic
+     * canonical name of the class.
      *
      * @return
      */
     String getUUID();
+    
+    /**
+     * setUUID()
+     *
+     * sets the universal unique identifier for this PIP instance. 
+     *
+     */
+    void setUUID(String uuid);
 
     /**
      * init()

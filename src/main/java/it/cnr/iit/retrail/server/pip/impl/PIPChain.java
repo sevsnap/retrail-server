@@ -1,6 +1,6 @@
 /*
  * CNR - IIT
- * Coded by: 2014 Enrico "KMcC;) Carniani
+ * Coded by: 2015 Enrico "KMcC;) Carniani
  */
 package it.cnr.iit.retrail.server.pip.impl;
 
@@ -8,14 +8,15 @@ import it.cnr.iit.retrail.commons.PepAttributeInterface;
 import it.cnr.iit.retrail.commons.PepRequestInterface;
 import it.cnr.iit.retrail.commons.PepSessionInterface;
 import it.cnr.iit.retrail.server.UConInterface;
-import it.cnr.iit.retrail.server.behaviour.Behaviour;
 import it.cnr.iit.retrail.server.impl.UCon;
 import it.cnr.iit.retrail.server.pip.ActionEvent;
-import it.cnr.iit.retrail.server.pip.Event;
 import it.cnr.iit.retrail.server.pip.PIPChainInterface;
 import it.cnr.iit.retrail.server.pip.PIPInterface;
 import it.cnr.iit.retrail.server.pip.SystemEvent;
+import java.lang.reflect.Constructor;
+import java.lang.reflect.Method;
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.Collection;
 import java.util.HashMap;
 import java.util.Map;
@@ -39,7 +40,7 @@ public class PIPChain extends ArrayList<PIPInterface> implements PIPChainInterfa
     }
 
     @Override
-    public synchronized boolean add(PIPInterface p) {
+    public final synchronized boolean add(PIPInterface p) {
         String uuid = p.getUUID();
         if (!pipNameToInstanceMap.containsKey(uuid)) {
             if (isInited()) {
@@ -72,6 +73,11 @@ public class PIPChain extends ArrayList<PIPInterface> implements PIPChainInterfa
 
     @Override
     public String getUUID() {
+        throw new UnsupportedOperationException("Not supported for a chain.");
+    }
+
+    @Override
+    public void setUUID(String uuid) {
         throw new UnsupportedOperationException("Not supported for a chain.");
     }
 
@@ -183,7 +189,7 @@ public class PIPChain extends ArrayList<PIPInterface> implements PIPChainInterfa
 
     @Override
     public synchronized void term() {
-        while (size() > 0) {
+        while (!isEmpty()) {
             remove(get(0));
         }
     }
@@ -196,6 +202,41 @@ public class PIPChain extends ArrayList<PIPInterface> implements PIPChainInterfa
         if(configElement != null) {
             NodeList nl = configElement.getElementsByTagNameNS(UCon.uri, "PIP");
             for(int i = 0; i < nl.getLength(); i++) {
+                Element pipElement = (Element) nl.item(i);
+                String className = pipElement.getAttributeNS(null, "class");
+                log.warn("loading PIP with class: {}", className);
+                Class<?> clazz = Class.forName(className);
+                if(!PIPInterface.class.isAssignableFrom(clazz))
+                    throw new RuntimeException("class "+className+" has no PIP interface and cannot be used in a PIPChain");
+                Constructor<?> ctor;                
+                try {
+                    ctor = clazz.getConstructor();                
+                } catch(NoSuchMethodException e) {
+                    throw new RuntimeException("PIP class "+className+" does not implement a default constructor with no parameters and cannot be instanced");
+                }
+                PIPInterface pip = (PIPInterface) ctor.newInstance(new Object[] {});
+                String id = pipElement.getAttributeNS(null, "uuid");
+                if(id.length() > 0)
+                    pip.setUUID(id);
+                NodeList pl = pipElement.getElementsByTagNameNS(UCon.uri, "Property");
+                for(int j = 0; j < pl.getLength(); j++) {
+                    Element propertyElement = (Element) pl.item(j);
+                    String propertyName = propertyElement.getAttributeNS(null, "name");
+                    String propertyValue = propertyElement.getTextContent();
+                    String methodName = "set" + propertyName.substring(0,1).toUpperCase() + propertyName.substring(1);
+                    Method method;
+                    try {
+                        method = pip.getClass().getMethod(methodName, int.class); // FIXME convert class
+                    } catch (NoSuchMethodException e) {
+                        throw new RuntimeException("PIP "+pip+" has no property named "+propertyName);
+                    }
+                    try {
+                        method.invoke(pip, (int)Integer.getInteger(propertyValue));
+                    } catch (Exception e) {
+                        throw new RuntimeException("cannot set property "+propertyName+" for PIP "+pip+": "+e);
+                    }
+                }
+                add(pip);
             }
             printInfo();
         }

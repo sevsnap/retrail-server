@@ -5,7 +5,7 @@
 package it.cnr.iit.retrail.server.dal;
 
 import it.cnr.iit.retrail.commons.PepAttributeInterface;
-import it.cnr.iit.retrail.commons.Status;
+import it.cnr.iit.retrail.commons.StateType;
 import it.cnr.iit.retrail.commons.impl.PepAttribute;
 import java.net.URL;
 import java.util.Collection;
@@ -155,12 +155,12 @@ public class DAL implements DALInterface {
     }
 
     @Override
-    public Collection<UconSession> listSessions(Status status) {
+    public Collection<UconSession> listSessions(StateType stateType) {
         EntityManager em = getEm();
         TypedQuery<UconSession> q = em.createQuery(
-                "select s from UconSession s where s.status = :status",
+                "select s from UconSession s where s.stateType = :stateType",
                 UconSession.class)
-                .setParameter("status", status);
+                .setParameter("stateType", stateType);
         Collection<UconSession> sessions = q.getResultList();
         return sessions;
     }
@@ -192,9 +192,9 @@ public class DAL implements DALInterface {
     public Collection<UconSession> listOutdatedSessions() {
         EntityManager em = getEm();
         TypedQuery<UconSession> q = em.createQuery(
-                "select distinct s from UconSession s, UconAttribute a where s.status = :status and s = a.session and a.expires < :now",
+                "select distinct s from UconSession s, UconAttribute a where s.stateType = :stateType and s = a.session and a.expires < :now",
                 UconSession.class)
-                .setParameter("status", Status.ONGOING)
+                .setParameter("stateType", StateType.ONGOING)
                 .setParameter("now", new Date());
         Collection<UconSession> involvedSessions = q.getResultList();
         return involvedSessions;

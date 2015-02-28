@@ -5,7 +5,7 @@
 package it.cnr.iit.retrail.server.behaviour;
 
 import it.cnr.iit.retrail.commons.DomUtils;
-import it.cnr.iit.retrail.commons.Status;
+import it.cnr.iit.retrail.commons.StateType;
 import it.cnr.iit.retrail.commons.automata.StateInterface;
 import it.cnr.iit.retrail.commons.impl.PepResponse;
 import it.cnr.iit.retrail.server.dal.UconRequest;
@@ -57,8 +57,8 @@ public class PolicyDrivenAction extends UconAction {
     public synchronized void setPolicy(Element policyElement) throws Exception {
         assert(policyElement.getTagName().equals("Policy"));
         poolMap.put(getPolicyName(), new PDPPool(policyElement));
-        if (((UConState)getOriginState()).getType() == Status.ONGOING && ucon.isInited()) { 
-            Collection<UconSession> sessions = ucon.getDAL().listSessions(Status.ONGOING);
+        if (((UConState)getOriginState()).getType() == StateType.ONGOING && ucon.isInited()) { 
+            Collection<UconSession> sessions = ucon.getDAL().listSessions(StateType.ONGOING);
             if (sessions.size() > 0) {
                 log.warn("UCon already running, reevaluating {} currently opened sessions", sessions.size());
                 ucon.reevaluateSessions(sessions);

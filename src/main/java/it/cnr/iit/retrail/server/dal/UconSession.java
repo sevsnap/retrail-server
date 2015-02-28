@@ -4,8 +4,9 @@
  */
 package it.cnr.iit.retrail.server.dal;
 
-import it.cnr.iit.retrail.commons.Status;
+import it.cnr.iit.retrail.commons.StateType;
 import it.cnr.iit.retrail.commons.impl.PepSession;
+import it.cnr.iit.retrail.server.behaviour.UConState;
 import java.net.URL;
 import java.util.ArrayList;
 import java.util.Collection;
@@ -17,12 +18,10 @@ import javax.persistence.Entity;
 import javax.persistence.FetchType;
 import javax.persistence.GeneratedValue;
 import javax.persistence.Id;
-import javax.persistence.ManyToMany;
 import javax.persistence.OneToMany;
 import javax.persistence.Temporal;
 import javax.persistence.Transient;
 import org.apache.commons.beanutils.BeanUtils;
-import org.eclipse.persistence.annotations.CascadeOnDelete;
 
 import org.eclipse.persistence.annotations.Index;
 import org.w3c.dom.Document;
@@ -47,18 +46,10 @@ public class UconSession extends PepSession {
 
     private String pepUrl;
 
-    private Status status = Status.BEGIN;
+    private StateType stateType = StateType.BEGIN;
 
     @Column(nullable = false)
     private String stateName;
-
-    public String getStateName() {
-        return stateName;
-    }
-
-    public void setStateName(String stateName) {
-        this.stateName = stateName;
-    }
 
     @Temporal(javax.persistence.TemporalType.TIMESTAMP)
     private Date lastSeen = new Date();
@@ -119,17 +110,28 @@ public class UconSession extends PepSession {
     }
 
     @Override
-    public Status getStatus() {
-        return status;
+    public StateType getStateType() {
+        return stateType;
     }
 
     @Override
-    public void setStatus(Status status) {
-        this.status = status;
+    public void setStateType(StateType stateType) {
+        this.stateType = stateType;
+    }
+    
+    @Override
+    public String getStateName() {
+        return stateName;
     }
 
-    public void setStatus(String statusString) { // FIXME
-        this.status = Status.valueOf(statusString);
+    @Override
+    public void setStateName(String stateName) {
+        this.stateName = stateName;
+    }
+
+    public void setState(UConState state) {
+        this.stateType = state.getType();
+        this.stateName = state.getName();
     }
 
     @Override
@@ -177,6 +179,6 @@ public class UconSession extends PepSession {
     //this is optional, just for print out into console
     @Override
     public String toString() {
-        return "UconSession [uuid=" + uuid + ", customId=" + customId + ", status=" + status + ", pepUrl=" + pepUrl + ", lastSeen=" + lastSeen + "]";
+        return "UconSession [uuid=" + uuid + ", customId=" + customId + ", stateType=" + stateType + ", stateName="+ stateName + ", pepUrl=" + pepUrl + ", lastSeen=" + lastSeen + "]";
     }
 }

@@ -30,7 +30,7 @@ public abstract class PIP implements PIPInterface {
     protected static final DAL dal = DAL.getInstance();
     protected UConInterface ucon;
 
-    private final String uuid = getUUID();
+    private String uuid = getClass().getCanonicalName();
 
     public PIP()  { 
     }
@@ -364,7 +364,14 @@ public abstract class PIP implements PIPInterface {
 
     @Override
     public String getUUID() {
-        return getClass().getCanonicalName();
+        return uuid;
+    }
+
+    @Override
+    public void setUUID(String uuid) {
+        if(isInited())
+            throw new RuntimeException(this+" already inited and cannot change its uuid to "+uuid);
+        this.uuid = uuid;
     }
 
     public UConInterface getUCon() {

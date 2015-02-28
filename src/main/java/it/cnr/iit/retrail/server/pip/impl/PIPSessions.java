@@ -1,13 +1,13 @@
 /*
  * CNR - IIT
- * Coded by: 2014 Enrico "KMcC;) Carniani
+ * Coded by: 2014-2015 Enrico "KMcC;) Carniani
  */
 package it.cnr.iit.retrail.server.pip.impl;
 
 import it.cnr.iit.retrail.commons.PepAttributeInterface;
 import it.cnr.iit.retrail.commons.PepRequestInterface;
 import it.cnr.iit.retrail.commons.PepSessionInterface;
-import it.cnr.iit.retrail.commons.Status;
+import it.cnr.iit.retrail.commons.StateType;
 import it.cnr.iit.retrail.server.UConInterface;
 import org.slf4j.LoggerFactory;
 
@@ -15,7 +15,7 @@ import org.slf4j.LoggerFactory;
  *
  * @author kicco
  */
-// Expiring attribute handler
+
 public class PIPSessions extends PIP {
 
     protected int sessions = 0;
@@ -32,8 +32,8 @@ public class PIPSessions extends PIP {
     public void init(UConInterface ucon) {
         super.init(ucon);
         sessions = 
-                dal.listSessions(Status.ONGOING).size()+
-                dal.listSessions(Status.REVOKED).size();
+                dal.listSessions(StateType.ONGOING).size()+
+                dal.listSessions(StateType.REVOKED).size();
     }
 
     public int getSessions() {
@@ -57,26 +57,26 @@ public class PIPSessions extends PIP {
 
     @Override
     public void onAfterStartAccess(PepRequestInterface request, PepSessionInterface session) {
-        if (session.getStatus() != Status.ONGOING) {
+        if (session.getStateType() != StateType.ONGOING) {
             sessions--;
             assert (sessions >= 0);
-            log.warn("Number of open sessions decremented to {} because session status = {}", sessions, session.getStatus());
+            log.warn("Number of open sessions decremented to {} because session status = {}", sessions, session.getStateType());
             PepAttributeInterface test = newSharedAttribute(id, "http://www.w3.org/2001/XMLSchema#integer", Integer.toString(sessions), "http://localhost:8080/federation-id-prov/saml", category);
             request.replace(test);
         }
-        log.info("Number of open sessions: {}, status = {}", sessions, session.getStatus());
+        log.info("Number of open sessions: {}, status = {}", sessions, session.getStateType());
     }
 
     @Override
     public void onBeforeEndAccess(PepRequestInterface request, PepSessionInterface session) {
-        if (session.getStatus() != Status.STANDARD) { // FIXME was TRY
+        if (session.getStateType() != StateType.PASSIVE) { // FIXME was TRY
             sessions--;
-            log.info("Number of open sessions decremented to {} because status = {}", sessions, session.getStatus());
+            log.info("Number of open sessions decremented to {} because status = {}", sessions, session.getStateType());
             assert (sessions >= 0);
             PepAttributeInterface test = newSharedAttribute(id, "http://www.w3.org/2001/XMLSchema#integer", Integer.toString(sessions), "http://localhost:8080/federation-id-prov/saml", category);
             request.replace(test);
         }
-        log.info("Number of open sessions: {}, status = {}", sessions, session.getStatus());
+        log.info("Number of open sessions: {}, status = {}", sessions, session.getStateType());
     }
 
 }

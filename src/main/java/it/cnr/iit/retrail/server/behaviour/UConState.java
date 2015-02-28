@@ -4,7 +4,7 @@
  */
 package it.cnr.iit.retrail.server.behaviour;
 
-import it.cnr.iit.retrail.commons.Status;
+import it.cnr.iit.retrail.commons.StateType;
 import it.cnr.iit.retrail.commons.automata.ActionInterface;
 import it.cnr.iit.retrail.commons.automata.State;
 
@@ -14,9 +14,9 @@ import it.cnr.iit.retrail.commons.automata.State;
  */
 public class UConState extends State {
     private final String name;
-    private final Status type;
+    private final StateType type;
     
-    public UConState(String name, Status type) {
+    public UConState(String name, StateType type) {
         super();
         this.name = name;
         this.type = type;
@@ -27,7 +27,7 @@ public class UConState extends State {
         return name;
     }
 
-    public Status getType() {
+    public StateType getType() {
         return type;
     }
     

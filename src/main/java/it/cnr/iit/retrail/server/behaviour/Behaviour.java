@@ -1,11 +1,11 @@
 /*
  * CNR - IIT
- * Coded by: 2014 Enrico "KMcC;) Carniani
+ * Coded by: 2015 Enrico "KMcC;) Carniani
  */
 package it.cnr.iit.retrail.server.behaviour;
 
 import it.cnr.iit.retrail.commons.Pool;
-import it.cnr.iit.retrail.commons.Status;
+import it.cnr.iit.retrail.commons.StateType;
 import it.cnr.iit.retrail.commons.automata.StateInterface;
 import it.cnr.iit.retrail.server.dal.UconSession;
 import it.cnr.iit.retrail.server.impl.UCon;
@@ -26,7 +26,7 @@ public final class Behaviour extends Pool<UConAutomaton> {
         assert(behaviouralConfiguration != null);
         this.ucon = ucon;
         this.behaviouralConfiguration = behaviouralConfiguration;
-        log.warn("building archetype with configured behaviour");
+        log.warn("building archetype behaviour");
         archetype = newObject(true);
     }
     
@@ -43,20 +43,21 @@ public final class Behaviour extends Pool<UConAutomaton> {
             Element stateElement = (Element) stateNodes.item(i);
             String name = stateElement.getAttribute("name");
             String type = stateElement.getAttribute("type");
-            UConState uconState = new UConState(name, Status.valueOf(type));
+            UConState uconState = new UConState(name, StateType.valueOf(type));
             a.addState(uconState);
             switch(uconState.getType()) {
                 case BEGIN:
                     a.setBegin(uconState);
                     break;
+                case PASSIVE:
                 case ONGOING:
+                case REVOKED:
                     break;
                 case END:
                     a.addEnd(uconState);
                     break;
                 default:
-                    log.warn("state type {} ignored", uconState.getType());
-                    break;
+                    throw new RuntimeException("state type unknown: "+ uconState.getType());
             }
             log.debug("created ", uconState);
         }
@@ -113,7 +114,6 @@ public final class Behaviour extends Pool<UConAutomaton> {
         try {
             response = automaton.doThenMove(actionName, args);
         } catch (Exception e) {
-            log.error("while executing action {}: {}", actionName, e);
             throw new RuntimeException("while executing action " + actionName, e);
         } finally {
             release(automaton);

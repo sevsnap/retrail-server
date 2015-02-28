@@ -4,7 +4,7 @@
     <ucon:Behaviour>
         <ucon:States>
             <ucon:State name="INIT" type="BEGIN"/>
-            <ucon:State name="TRY" type="STANDARD"/>
+            <ucon:State name="TRY" type="PASSIVE"/>
             <ucon:State name="ONGOING" type="ONGOING"/>
             <ucon:State name="REVOKED" type="REVOKED"/>
             <ucon:State name="REJECTED" type="END"/>

@@ -5,7 +5,7 @@
 package it.cnr.iit.retrail.server.dal;
 
 import it.cnr.iit.retrail.commons.PepAttributeInterface;
-import it.cnr.iit.retrail.commons.Status;
+import it.cnr.iit.retrail.commons.StateType;
 import java.net.URL;
 import java.util.Collection;
 import java.util.Date;
@@ -61,7 +61,7 @@ public interface DALInterface {
 
     Collection<UconSession> listSessions();
 
-    Collection<UconSession> listSessions(Status status);
+    Collection<UconSession> listSessions(StateType status);
 
     Collection<UconSession> listSessions(Date lastSeenBefore);
 
