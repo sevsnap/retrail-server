@@ -49,10 +49,7 @@ import org.w3c.dom.Node;
 public class UCon extends Server implements UConInterface, UConProtocol {
 
     public final static String uri = "http://security.iit.cnr.it/retrail/ucon";
-    private File recorderFile = null;
-    private boolean mustAppendToRecorderFile = false;
-    private boolean mustRecorderTrustAllPeers = false;
-    private long recorderMillis = 0;
+    private final AsyncNotifier notifier;
     public int maxMissedHeartbeats = 1;
     private Behaviour automatonFactory;
 
@@ -67,6 +64,7 @@ public class UCon extends Server implements UConInterface, UConProtocol {
     protected UCon(URL url) throws Exception {
         super(url, UConProtocolProxy.class);
         dal = DAL.getInstance();
+        notifier = new AsyncNotifier(this);
         defaultConfiguration();
     }
 
@@ -231,54 +229,6 @@ public class UCon extends Server implements UConInterface, UConProtocol {
         return heartbeat(new URL(pepUrl), sessionsList);
     }
 
-    private List<Element> revokeAccess(URL pepUrl, Collection<UconSession> sessions) throws Exception {
-        List<Element> responses = new ArrayList<>(sessions.size());
-
-        for (UconSession uconSession : sessions) {
-            long start = System.currentTimeMillis();
-            // XXX Rebuilding the request may be too heavy. 
-            // We should provide a way to dynamically get it if the PIP needs it.
-            pipChain.fireSystemEvent(new SystemEvent(SystemEvent.EventType.beforeRevokeAccess, null, uconSession));
-            uconSession.setMs(System.currentTimeMillis() - start);
-            Element sessionElement = uconSession.toXacml3Element();
-            responses.add(sessionElement);
-        }
-
-        // TODO: check error
-        Object ack = rpc(pepUrl, "PEP.revokeAccess", responses);
-
-        for (UconSession uconSession : sessions) {
-            pipChain.fireSystemEvent(new SystemEvent(SystemEvent.EventType.afterRevokeAccess, null, uconSession, ack));
-            dal.save(uconSession);
-        }
-        return responses;
-    }
-
-    private void runObligations(URL pepUrl, Collection<UconSession> uconSessions) throws Exception {
-        List<Element> responses = new ArrayList<>(uconSessions.size());
-        Collection<UconSession> uconSessions2 = new ArrayList<>(uconSessions.size());
-        for (UconSession uconSession : uconSessions) {
-            // revoke session on db
-            UconRequest uconRequest = dal.rebuildUconRequest(uconSession);
-            pipChain.refresh(uconRequest, uconSession);
-            pipChain.fireSystemEvent(new SystemEvent(SystemEvent.EventType.beforeRunObligations, uconRequest, uconSession));
-            Element sessionElement = uconSession.toXacml3Element();
-            responses.add(sessionElement);
-            // save ucon session
-            uconSession = (UconSession) dal.save(uconSession);
-            uconSessions2.add(uconSession);
-        }
-        // TODO: check error
-        // TODO: returned docs are currently ignored. 
-        // should use them for some back ack
-        Object ack = rpc(pepUrl, "PEP.runObligations", responses);
-        for (UconSession uconSession : uconSessions2) {
-            UconRequest uconRequest = dal.rebuildUconRequest(uconSession);
-            pipChain.fireSystemEvent(new SystemEvent(SystemEvent.EventType.afterRunObligations, uconRequest, uconSession, ack));
-            uconSession = (UconSession) dal.save(uconSession);
-        }
-    }
-
     protected Document heartbeat(URL pepUrl, List<String> sessionsList) throws Exception {
         Collection<UconSession> sessions = dal.listSessions(pepUrl);
         Document doc = DomUtils.newDocument();
@@ -328,80 +278,28 @@ public class UCon extends Server implements UConInterface, UConProtocol {
         return doc;
     }
 
-    private void flushRevocations(Map<URL, Collection<UconSession>> revokedSessionsMap) throws Exception {
-        // Send  revocations
-        for (URL pepUrl : revokedSessionsMap.keySet()) {
-            revokeAccess(pepUrl, revokedSessionsMap.get(pepUrl));
-        }
-        revokedSessionsMap.clear();
-    }
-
-    private void flushObligations(Map<URL, Collection<UconSession>> obligationSessionsMap) throws Exception {
-        // Send obligations 
-        for (URL pepUrl : obligationSessionsMap.keySet()) {
-            runObligations(pepUrl, obligationSessionsMap.get(pepUrl));
-        }
-        obligationSessionsMap.clear();
-    }
-
     public void reevaluateSessions(Collection<UconSession> involvedSessions) throws Exception {
-        dal.begin();
-        try {
-            Map<URL, Collection<UconSession>> revokedSessionsMap = new HashMap<>(involvedSessions.size());
-            Map<URL, Collection<UconSession>> obligationSessionsMap = new HashMap<>(involvedSessions.size());
-            int revoked = 0;
-            int run = 0;
-            for (UconSession involvedSession : involvedSessions) {
-                try {
-                    log.debug("involved session: {}", involvedSession);
-                    // Now make PDP evaluate the request    
-                    involvedSession = automatonFactory.apply(involvedSession, OngoingAccess.name);
-                    boolean mustRevoke = involvedSession.getDecision() != PepResponse.DecisionEnum.Permit;
-                    // Explicitly revoke access if anything went wrong
-                    if (mustRevoke) {
-                        log.info("revoking {}", involvedSession);
-                        URL pepUrl = new URL(involvedSession.getPepUrl());
-                        Collection<UconSession> revokedSessions = revokedSessionsMap.get(pepUrl);
-                        if (revokedSessions == null) {
-                            revokedSessions = new ArrayList<>();
-                            revokedSessionsMap.put(pepUrl, revokedSessions);
-                        }
-                        revokedSessions.add(involvedSession);
-                        revoked++;
-                    } else if (!involvedSession.getObligations().isEmpty()) {
-                        URL pepUrl = new URL(involvedSession.getPepUrl());
-                        Collection<UconSession> obligationSessions = revokedSessionsMap.get(pepUrl);
-                        if (obligationSessions == null) {
-                            obligationSessions = new ArrayList<>();
-                            obligationSessionsMap.put(pepUrl, obligationSessions);
-                        }
-                        obligationSessions.add(involvedSession);
-                        run++;
-                    //} else {
-                        //log.info("updating {}", involvedSession);
-                        //dal.saveSession(involvedSession, uconRequest);
-                    }
-
-                } catch (Exception ex) {
-                    log.error("while reevaluating  " + involvedSession + ": " + ex.getMessage(), ex);
+        for (UconSession involvedSession : involvedSessions) {
+            dal.begin();
+            try {
+                log.debug("involved session: {}", involvedSession);
+                // Now make PDP evaluate the request    
+                involvedSession = automatonFactory.apply(involvedSession, OngoingAccess.name);
+                boolean mustRevoke = involvedSession.getDecision() != PepResponse.DecisionEnum.Permit;
+                // Explicitly revoke access if anything went wrong
+                if (mustRevoke) {
+                    log.info("revoking {}", involvedSession);
+                    URL pepUrl = new URL(involvedSession.getPepUrl());
+                    notifier.revokeAccess(pepUrl, involvedSession);
+                } else if (!involvedSession.getObligations().isEmpty()) {
+                    URL pepUrl = new URL(involvedSession.getPepUrl());
+                    notifier.runObligations(pepUrl, involvedSession);
                 }
-                // send partial data
-                if (revoked > 9) {
-                    flushRevocations(revokedSessionsMap);
-                    revoked = 0;
-                }
-                if (run > 9) {
-                    flushObligations(obligationSessionsMap);
-                    run = 0;
-                }
+                dal.commit();
+            } catch (Exception ex) {
+                log.error("while reevaluating  " + involvedSession + ": " + ex.getMessage(), ex);
+                dal.rollback();
             }
-            flushRevocations(revokedSessionsMap);
-            flushObligations(obligationSessionsMap);
-            dal.commit();
-        } catch (Exception e) {
-            dal.rollback();
-            log.error("while reevaluating sessions: {}", e);
-            throw e;
         }
     }
 
@@ -540,6 +438,7 @@ public class UCon extends Server implements UConInterface, UConProtocol {
     public void init() throws Exception {
         super.init();
         pipChain.init(this);
+        notifier.start();
         Collection<UconSession> sessions = dal.listSessions(StateType.ONGOING);
         if (sessions.size() > 0) {
             log.warn("reevaluating {} previously opened sessions", sessions.size());
@@ -551,68 +450,13 @@ public class UCon extends Server implements UConInterface, UConProtocol {
     @Override
     public void term() throws InterruptedException {
         pipChain.term();
+        log.warn("Waiting async notifier to terminate");
+        notifier.interrupt();
+        notifier.join();
         log.warn("completing shutdown procedure for the UCon service");
         super.term();
         UConFactory.releaseInstance(this);
         log.warn("UCon shutdown");
-    }
-
-    private Object[] rpc(URL pepUrl, String api, List<Element> responses) throws Exception {
-        // create client
-        log.warn("invoking {} at {}", api, pepUrl);
-        Client client = new Client(pepUrl);
-        if (mustRecorderTrustAllPeers) {
-            client.trustAllPeers();
-        }
-        if (recorderFile != null) {
-            if (mustAppendToRecorderFile) {
-                client.continueRecording(recorderFile, recorderMillis);
-            } else {
-                client.startRecording(recorderFile);
-                mustAppendToRecorderFile = true;
-            }
-        }
-        // remote call. TODO: should consider error handling
-        Object[] params = new Object[]{responses};
-        Object[] rv = (Object[]) client.execute(api, params);
-        if (recorderFile != null) {
-            recorderMillis = client.getMillis();
-            client.stopRecording();
-        }
-        return rv;
-    }
-
-    @Override
-    public void startRecording(File outputFile) throws Exception {
-        recorderFile = outputFile;
-        mustAppendToRecorderFile = false;
-        recorderMillis = 0;
-    }
-
-    @Override
-    public void continueRecording(File outputFile, long millis) throws Exception {
-        recorderFile = outputFile;
-        mustAppendToRecorderFile = true;
-        recorderMillis = millis;
-    }
-
-    @Override
-    public boolean isRecording() {
-        return recorderFile != null;
-    }
-
-    @Override
-    public void stopRecording() {
-        recorderFile = null;
-        mustAppendToRecorderFile = false;
-    }
-
-    @Override
-    public SSLContext trustAllPeers() throws Exception {
-        mustRecorderTrustAllPeers = true;
-        // XXX TODO just emulated by this call. So no SSL context.
-        // Should use the right ssl context.
-        return null;
     }
 
     @Override
@@ -623,5 +467,30 @@ public class UCon extends Server implements UConInterface, UConProtocol {
     @Override
     public DALInterface getDAL() {
         return dal;
+    }
+
+    @Override
+    public void startRecording(File outputFile) throws Exception {
+        notifier.startRecording(outputFile);
+    }
+
+    @Override
+    public void continueRecording(File outputFile, long millis) throws Exception {
+        notifier.continueRecording(outputFile, millis);
+    }
+
+    @Override
+    public boolean isRecording() {
+        return notifier.isRecording();
+    }
+
+    @Override
+    public void stopRecording() {
+        notifier.stopRecording();
+    }
+
+    @Override
+    public SSLContext trustAllPeers() throws Exception {
+        return notifier.trustAllPeers();
     }
 }

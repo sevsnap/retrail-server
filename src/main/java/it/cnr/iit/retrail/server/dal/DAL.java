@@ -65,6 +65,7 @@ public class DAL implements DALInterface {
         return em;
     }
     
+    @Override
     public void begin() {
         EntityManager em = (EntityManager) entityManager.get();
         int count = (int) entityManagerCount.get();
@@ -78,6 +79,7 @@ public class DAL implements DALInterface {
         
     }
 
+    @Override
     public void commit() {
         EntityManager em = (EntityManager) entityManager.get();
         int count = (int) entityManagerCount.get()-1;
@@ -87,6 +89,7 @@ public class DAL implements DALInterface {
             em.getTransaction().begin();
     }
 
+    @Override
     public void rollback() {
         EntityManager em = (EntityManager) entityManager.get();
         em.getTransaction().rollback();

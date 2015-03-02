@@ -76,5 +76,11 @@ public interface DALInterface {
     UconSession getSession(String uuid, URL uconUrl);
     
     UconRequest rebuildUconRequest(UconSession uconSession);
+    
+    void begin();
+    
+    void commit();
+    
+    void rollback();
 
 }
