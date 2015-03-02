@@ -189,18 +189,6 @@ public class DAL implements DALInterface {
     }
 
     @Override
-    public Collection<UconSession> listOutdatedSessions() {
-        EntityManager em = getEm();
-        TypedQuery<UconSession> q = em.createQuery(
-                "select distinct s from UconSession s, UconAttribute a where s.stateType = :stateType and s = a.session and a.expires < :now",
-                UconSession.class)
-                .setParameter("stateType", StateType.ONGOING)
-                .setParameter("now", new Date());
-        Collection<UconSession> involvedSessions = q.getResultList();
-        return involvedSessions;
-    }
-
-    @Override
     public Collection<UconAttribute> listAttributes(URL pepUrl) {
         EntityManager em = getEm();
         TypedQuery<UconAttribute> q = em.createQuery(

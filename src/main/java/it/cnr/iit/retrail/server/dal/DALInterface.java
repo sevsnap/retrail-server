@@ -57,8 +57,6 @@ public interface DALInterface {
     @Deprecated
     UconSession getSessionByCustomId(String customId);
 
-    Collection<UconSession> listOutdatedSessions();
-
     Collection<UconSession> listSessions();
 
     Collection<UconSession> listSessions(StateType status);

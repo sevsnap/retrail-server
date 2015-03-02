@@ -524,8 +524,8 @@ public class UCon extends Server implements UConInterface, UConProtocol {
                 }
             }
         }
-        // Gather all the sessions that involve expired attributes
-        Collection<UconSession> outdatedSessions = period > 0 ? dal.listOutdatedSessions() : dal.listSessions(StateType.ONGOING);
+        // Gather all ongoing sessions
+        Collection<UconSession> outdatedSessions = dal.listSessions(StateType.ONGOING);
         try {
             // Re-evaluating possible outdated sessions
             reevaluateSessions(outdatedSessions);
