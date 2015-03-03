@@ -5,6 +5,7 @@
 package it.cnr.iit.retrail.server.pip.impl;
 
 import it.cnr.iit.retrail.commons.PepAttributeInterface;
+import it.cnr.iit.retrail.commons.StateType;
 import it.cnr.iit.retrail.server.pip.ActionEvent;
 
 /**
@@ -19,7 +20,7 @@ public class PIPState extends PIP {
 
     @Override
     public void fireBeforeActionEvent(ActionEvent e) {
-        if (e.automaton.getCurrentState() == e.automaton.getBegin()) {
+        if (e.session.getStateType() == StateType.BEGIN) {
             log.info("State attribute name: " + stateAttributeName);
             PepAttributeInterface state = newSharedAttribute(stateAttributeName, "http://www.w3.org/2001/XMLSchema#string", stateAttributeValue, "http://localhost:8080/federation-id-prov/saml", category);
             e.request.replace(state);

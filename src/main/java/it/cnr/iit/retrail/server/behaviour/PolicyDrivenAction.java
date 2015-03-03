@@ -33,6 +33,11 @@ public class PolicyDrivenAction extends UconAction {
         this.targetFailState = targetFailState;
     }
     
+    @Override
+    protected void reset() {
+        lastDecision = PepResponse.DecisionEnum.Permit;
+    }
+    
     private String getPolicyName() {
         return getOriginState().getName() + "-" + getName();
     }

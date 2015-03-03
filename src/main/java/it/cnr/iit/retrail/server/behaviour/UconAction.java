@@ -25,6 +25,9 @@ public class UconAction extends Action {
         this.name = name;
     }
     
+    protected void reset() {
+    }
+    
     @Override
     public String getName() {
         return name;
@@ -34,5 +37,5 @@ public class UconAction extends Action {
         log.debug("idle call");
         return uconSession;
     }
-
+    
 }

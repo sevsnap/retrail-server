@@ -65,6 +65,8 @@ public interface DALInterface {
 
     Collection<UconSession> listSessions(URL pepUrl);
     
+    Collection<UconSession> listSessions(String stateName);
+    
     Object save(Object o);
     
     UconSession saveSession(UconSession uconSession, UconRequest uconRequest);

@@ -112,7 +112,17 @@ public interface PIPInterface {
      * @return the new PEP request attribute.
      */
     PepAttributeInterface newSharedAttribute(String id, String type, String value, String issuer, String category);
-
+    
+    /**
+     * getSharedAttribute() gets a shared PEP attribute if exists, or null
+     * otherwise.
+     *
+     * @param category the category (subject, resource, or action).
+     * @param id the id of the subject.
+     * @return the PEP request attribute.
+     */
+    PepAttributeInterface getSharedAttribute(String category, String id);
+    
     /**
      * newPrivateAttribute() creates a new private PEP attribute managed by this
      * PIP. The attribute is private, meaning that its value changes will

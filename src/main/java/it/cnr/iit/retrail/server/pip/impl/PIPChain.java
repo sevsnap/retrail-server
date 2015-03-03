@@ -14,6 +14,7 @@ import it.cnr.iit.retrail.server.pip.ActionEvent;
 import it.cnr.iit.retrail.server.pip.PIPChainInterface;
 import it.cnr.iit.retrail.server.pip.PIPInterface;
 import it.cnr.iit.retrail.server.pip.SystemEvent;
+import static it.cnr.iit.retrail.server.pip.impl.PIP.dal;
 import java.lang.reflect.Constructor;
 import java.lang.reflect.Method;
 import java.util.ArrayList;
@@ -85,11 +86,19 @@ public class PIPChain extends ArrayList<PIPInterface> implements PIPChainInterfa
 
     @Override
     public void init(UConInterface uconInterface) {
-        if (!isInited()) {
-            ucon = uconInterface;
-            for (PIPInterface p : this) {
-                p.init(ucon);
+        dal.begin();
+        try {
+            if (!isInited()) {
+                ucon = uconInterface;
+                for (PIPInterface p : this) {
+                    p.init(ucon);
+                }
             }
+            dal.commit();
+        } catch (Exception e) {
+            dal.rollback();
+            log.error("while initializing PIPchain: {}", e);
+            throw e;
         }
     }
 
@@ -107,8 +116,7 @@ public class PIPChain extends ArrayList<PIPInterface> implements PIPChainInterfa
         for (PIPInterface p : this) {
             try {
                 p.fireBeforeActionEvent(e);
-            }
-            catch(Exception ex) {
+            } catch (Exception ex) {
                 log.error("PIP {} canceled {} by throwing exception: {}", p, e, ex);
                 unlockIfNeeded();
                 throw ex;
@@ -118,13 +126,13 @@ public class PIPChain extends ArrayList<PIPInterface> implements PIPChainInterfa
 
     @Override
     public void fireAfterActionEvent(ActionEvent e) {
-            for (PIPInterface p : this)
-                try {
-                    p.fireAfterActionEvent(e);
-                } 
-                catch(Exception ex)  {
-                    log.error("PIP {}, ignoring exception: {}", p, ex);
-                }
+        for (PIPInterface p : this) {
+            try {
+                p.fireAfterActionEvent(e);
+            } catch (Exception ex) {
+                log.error("PIP {}, ignoring exception: {}", p, ex);
+            }
+        }
         unlockIfNeeded();
     }
 
@@ -158,6 +166,11 @@ public class PIPChain extends ArrayList<PIPInterface> implements PIPChainInterfa
     @Override
     public PepAttributeInterface newSharedAttribute(String id, String type, String value, String issuer, String category) {
         throw new UnsupportedOperationException("Not supported for a chain.");
+    }
+
+    @Override
+    public PepAttributeInterface getSharedAttribute(String category, String id) {
+        return dal.getSharedAttribute(category, id);
     }
 
     @Override
@@ -195,38 +208,39 @@ public class PIPChain extends ArrayList<PIPInterface> implements PIPChainInterfa
             remove(get(0));
         }
     }
-    
+
     public PIPChain() {
         super();
     }
-    
+
     public PIPChain(Element configElement) throws Exception {
-        if(configElement != null) {
+        if (configElement != null) {
             NodeList nl = configElement.getElementsByTagNameNS(UCon.uri, "PIP");
-            for(int i = 0; i < nl.getLength(); i++) {
+            for (int i = 0; i < nl.getLength(); i++) {
                 Element pipElement = (Element) nl.item(i);
                 String className = pipElement.getAttributeNS(null, "class");
                 log.warn("loading PIP with class: {}", className);
                 Class<?> clazz = Class.forName(className);
-                if(!PIPInterface.class.isAssignableFrom(clazz))
-                    throw new RuntimeException("class "+className+" has no PIP interface and cannot be used in a PIPChain");
-                Constructor<?> ctor;                
-                try {
-                    ctor = clazz.getConstructor();                
-                } catch(NoSuchMethodException e) {
-                    throw new RuntimeException("PIP class "+className+" does not implement a default constructor with no parameters and cannot be instanced");
+                if (!PIPInterface.class.isAssignableFrom(clazz)) {
+                    throw new RuntimeException("class " + className + " has no PIP interface and cannot be used in a PIPChain");
                 }
-                PIPInterface pip = (PIPInterface) ctor.newInstance(new Object[] {});
+                Constructor<?> ctor;
+                try {
+                    ctor = clazz.getConstructor();
+                } catch (NoSuchMethodException e) {
+                    throw new RuntimeException("PIP class " + className + " does not implement a default constructor with no parameters and cannot be instanced");
+                }
+                PIPInterface pip = (PIPInterface) ctor.newInstance(new Object[]{});
                 String id = pipElement.getAttributeNS(null, "uuid");
-                if(id.length() > 0)
+                if (id.length() > 0) {
                     pip.setUUID(id);
+                }
                 DomUtils.setPropertyOnObjectNS(UCon.uri, "Property", pipElement, this);
                 add(pip);
             }
             printInfo();
         }
     }
-    
 
     @Override
     public final void printInfo() {

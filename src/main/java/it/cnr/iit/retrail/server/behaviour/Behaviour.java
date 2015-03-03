@@ -68,7 +68,6 @@ public final class Behaviour extends Pool<UConAutomaton> {
                     break;
                 case PASSIVE:
                 case ONGOING:
-                case REVOKED:
                     break;
                 case END:
                     a.addEnd(uconState);

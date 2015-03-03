@@ -9,7 +9,7 @@
             <ucon:State name="INIT" type="BEGIN"/>
             <ucon:State name="TRY" type="PASSIVE"/>
             <ucon:State name="ONGOING" type="ONGOING"/>
-            <ucon:State name="REVOKED" type="REVOKED"/>
+            <ucon:State name="REVOKED" type="PASSIVE"/>
             <ucon:State name="REJECTED" type="END"/>
             <ucon:State name="DELETED" type="END"/>
         </ucon:States>

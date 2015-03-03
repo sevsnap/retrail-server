@@ -44,8 +44,9 @@ public class UConAutomaton extends Automaton {
         //log.warn("current state = {}", getCurrentState());
         //log.warn("action name = {}", actionName);
         UconAction action = (UconAction) getCurrentState().getAction(actionName);
+        action.reset();
         log.info("action = {}", action);
-        ActionEvent event = new ActionEvent(this, action, uconRequest, session, null);
+        ActionEvent event = new ActionEvent(action, uconRequest, session);
         ucon.getPIPChain().fireBeforeActionEvent(event);
         action.execute(uconRequest, session, args);
         move(actionName);

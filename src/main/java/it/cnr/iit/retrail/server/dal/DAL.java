@@ -169,6 +169,17 @@ public class DAL implements DALInterface {
     }
 
     @Override
+    public Collection<UconSession> listSessions(String stateName) {
+        EntityManager em = getEm();
+        TypedQuery<UconSession> q = em.createQuery(
+                "select s from UconSession s where s.stateName = :stateName",
+                UconSession.class)
+                .setParameter("stateName", stateName);
+        Collection<UconSession> sessions = q.getResultList();
+        return sessions;
+    }
+    
+    @Override
     public Collection<UconSession> listSessions(Date lastSeenBefore) {
         EntityManager em = getEm();
         TypedQuery<UconSession> q = em.createQuery(
@@ -475,13 +486,16 @@ public class DAL implements DALInterface {
             PepAttribute a = new PepAttribute(id, type, value, issuer, category, uuid);
             u = UconAttribute.newInstance(a);
             u.shared = true;
+            getEm().persist(u);
+            getEm().flush();
+            u = getEm().merge(u);
         } else {
             u.setType(type);
             u.setValue(value);
             u.setIssuer(issuer);
         }
-        //assert (u.getFactory() != null); FIXME
-        //assert(u.getRowId() != null);
+        assert (u.getFactory() != null); 
+        assert(u.getRowId() != null);
         return u;
     }
 

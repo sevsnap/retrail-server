@@ -172,7 +172,7 @@ public class UconAttribute implements PepAttributeInterface {
     //this is optional, just for print out into console
     @Override
     public String toString() {
-        String s = getClass().getSimpleName() + " [rowId=" + rowId + ", id=" + id + "; value=" + value + ", session=" + getSession() + ", #children=" + getChildren().size() + ", factory=" + factory + "]";
+        String s = getClass().getSimpleName() + " [rowId=" + rowId + ", id=" + id + ", category=" + getCategory()+ "; value=" + value + ", session=" + getSession() + ", #children=" + getChildren().size() + ", factory=" + factory + "]";
         if (getParent() != null) {
             s += " *** with parent: " + getParent().toString();
         }
