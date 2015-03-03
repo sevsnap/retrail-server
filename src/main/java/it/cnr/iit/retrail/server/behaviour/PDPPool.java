@@ -8,14 +8,11 @@ import it.cnr.iit.retrail.commons.DomUtils;
 import it.cnr.iit.retrail.commons.Pool;
 import it.cnr.iit.retrail.commons.impl.PepRequest;
 import java.io.ByteArrayInputStream;
-import java.io.IOException;
 import java.io.InputStream;
-import java.net.URL;
 import java.text.DecimalFormat;
 import java.util.ArrayList;
 import java.util.HashSet;
 import java.util.List;
-import java.util.Scanner;
 import java.util.Set;
 import org.w3c.dom.Document;
 import org.w3c.dom.Element;
@@ -32,7 +29,6 @@ import org.wso2.balana.finder.PolicyFinderModule;
 import org.wso2.balana.finder.impl.CurrentEnvModule;
 import org.wso2.balana.finder.impl.SelectorModule;
 import org.wso2.balana.finder.impl.StreamBasedPolicyFinderModule;
-import org.wso2.balana.finder.impl.URLBasedPolicyFinderModule;
 
 /**
  *

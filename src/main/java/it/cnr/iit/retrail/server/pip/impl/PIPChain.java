@@ -4,6 +4,7 @@
  */
 package it.cnr.iit.retrail.server.pip.impl;
 
+import it.cnr.iit.retrail.commons.DomUtils;
 import it.cnr.iit.retrail.commons.PepAttributeInterface;
 import it.cnr.iit.retrail.commons.PepRequestInterface;
 import it.cnr.iit.retrail.commons.PepSessionInterface;
@@ -20,6 +21,7 @@ import java.util.Arrays;
 import java.util.Collection;
 import java.util.HashMap;
 import java.util.Map;
+import org.apache.commons.beanutils.BeanUtils;
 import org.slf4j.LoggerFactory;
 import org.w3c.dom.Element;
 import org.w3c.dom.NodeList;
@@ -218,24 +220,7 @@ public class PIPChain extends ArrayList<PIPInterface> implements PIPChainInterfa
                 String id = pipElement.getAttributeNS(null, "uuid");
                 if(id.length() > 0)
                     pip.setUUID(id);
-                NodeList pl = pipElement.getElementsByTagNameNS(UCon.uri, "Property");
-                for(int j = 0; j < pl.getLength(); j++) {
-                    Element propertyElement = (Element) pl.item(j);
-                    String propertyName = propertyElement.getAttributeNS(null, "name");
-                    String propertyValue = propertyElement.getTextContent();
-                    String methodName = "set" + propertyName.substring(0,1).toUpperCase() + propertyName.substring(1);
-                    Method method;
-                    try {
-                        method = pip.getClass().getMethod(methodName, int.class); // FIXME convert class
-                    } catch (NoSuchMethodException e) {
-                        throw new RuntimeException("PIP "+pip+" has no property named "+propertyName);
-                    }
-                    try {
-                        method.invoke(pip, (int)Integer.getInteger(propertyValue));
-                    } catch (Exception e) {
-                        throw new RuntimeException("cannot set property "+propertyName+" for PIP "+pip+": "+e);
-                    }
-                }
+                DomUtils.setPropertyOnObjectNS(UCon.uri, "Property", pipElement, this);
                 add(pip);
             }
             printInfo();

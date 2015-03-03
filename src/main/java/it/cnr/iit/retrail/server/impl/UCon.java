@@ -46,7 +46,8 @@ public class UCon extends Server implements UConInterface, UConProtocol {
 
     public final static String uri = "http://security.iit.cnr.it/retrail/ucon";
     private final AsyncNotifier notifier;
-    public int maxMissedHeartbeats = 1;
+    private int maxMissedHeartbeats = 1;
+
     private Behaviour automatonFactory;
 
     protected PIPChainInterface pipChain;
@@ -67,6 +68,7 @@ public class UCon extends Server implements UConInterface, UConProtocol {
     @Override
     public void loadConfiguration(InputStream is) throws Exception {
         Document config = DomUtils.read(is);
+        DomUtils.setPropertyOnObjectNS(uri, "Property", config.getDocumentElement(), this);
         Element behaviourConfig = (Element) config.getElementsByTagNameNS(uri, "Behaviour").item(0);
         if (behaviourConfig == null) {
             throw new RuntimeException("missing mandatory ucon:Behaviour element");
@@ -234,7 +236,7 @@ public class UCon extends Server implements UConInterface, UConProtocol {
         heartbeat.appendChild(responses);
         Element config = doc.createElement("Config");
         config.setAttribute("watchdogPeriod", Integer.toString(getWatchdogPeriod()));
-        config.setAttribute("maxMissedHeartbeats", Integer.toString(maxMissedHeartbeats));
+        config.setAttribute("maxMissedHeartbeats", Integer.toString(getMaxMissedHeartbeats()));
         heartbeat.appendChild(config);
         Date now = new Date();
         // Permit sessions unknown to the client.
@@ -406,7 +408,7 @@ public class UCon extends Server implements UConInterface, UConProtocol {
         int period = getWatchdogPeriod();
         if (period > 0) {
             Date now = new Date();
-            Date lastSeenBefore = new Date(now.getTime() - 1000 * (maxMissedHeartbeats + 1) * period);
+            Date lastSeenBefore = new Date(now.getTime() - 1000 * (getMaxMissedHeartbeats() + 1) * period);
             Collection<UconSession> expiredSessions = dal.listSessions(lastSeenBefore);
             // Remove them
             for (UconSession expiredSession : expiredSessions) {
@@ -446,10 +448,9 @@ public class UCon extends Server implements UConInterface, UConProtocol {
     @Override
     public void term() throws InterruptedException {
         pipChain.term();
-        log.warn("Waiting async notifier to terminate");
         notifier.interrupt();
         notifier.join();
-        log.warn("completing shutdown procedure for the UCon service");
+        log.info("completing shutdown procedure for the UCon service");
         super.term();
         UConFactory.releaseInstance(this);
         log.warn("UCon shutdown");
@@ -488,5 +489,14 @@ public class UCon extends Server implements UConInterface, UConProtocol {
     @Override
     public SSLContext trustAllPeers() throws Exception {
         return notifier.trustAllPeers();
+    }
+    
+    public int getMaxMissedHeartbeats() {
+        return maxMissedHeartbeats;
+    }
+
+    public void setMaxMissedHeartbeats(int maxMissedHeartbeats) {
+        log.warn("maxMissedHeartbeats set to {}", maxMissedHeartbeats);
+        this.maxMissedHeartbeats = maxMissedHeartbeats;
     }
 }

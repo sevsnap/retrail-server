@@ -34,7 +34,7 @@ public class UconAttribute implements PepAttributeInterface {
     //@GeneratedValue(strategy = GenerationType.AUTO)
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long rowId;
-    @ManyToOne(fetch=FetchType.LAZY)
+    @ManyToOne//(fetch=FetchType.LAZY)
     protected UconSession session = null;
 
     @ManyToOne//(fetch=FetchType.LAZY)

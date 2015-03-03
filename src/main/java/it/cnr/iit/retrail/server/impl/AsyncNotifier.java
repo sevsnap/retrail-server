@@ -55,7 +55,8 @@ public class AsyncNotifier extends Thread implements RecorderInterface {
 
     @Override
     public void run() {
-        log.info("{} starting", this);
+        Thread.currentThread().setName(getClass().getSimpleName());
+        log.info("starting asynchronous notification service");
         boolean interrupted = false;
         Collection<UconSession> sessions = new ArrayList<>(64);
         while (!interrupted) {
@@ -97,7 +98,6 @@ public class AsyncNotifier extends Thread implements RecorderInterface {
                         throw e;
                     }
                 } catch (InterruptedException ex) {
-                    log.warn("interrupted");
                     interrupted = true;
                     break;
                 } catch (Exception e) {
@@ -105,7 +105,7 @@ public class AsyncNotifier extends Thread implements RecorderInterface {
                 }
             }
         }
-        log.info("{} terminated", this);
+        log.info("asynchronous notification service terminated");
     }
 
     private Object[] rpc(URL pepUrl, String api, List<Element> responses) throws Exception {

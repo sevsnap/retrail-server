@@ -32,6 +32,10 @@ public class UConAutomaton extends Automaton {
         setCurrentState(session.getStateName());
     }
     
+    public UconSession getSession() {
+        return session;
+    }
+    
     public UconSession doThenMove(String actionName, Object[] args) throws Exception {
         long start = System.currentTimeMillis();
         // rebuild pepAccessRequest for PIP's onBeforeStartAccess argument
