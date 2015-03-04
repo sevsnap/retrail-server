@@ -16,13 +16,10 @@ import it.cnr.iit.retrail.server.pip.PIPInterface;
 import it.cnr.iit.retrail.server.pip.SystemEvent;
 import static it.cnr.iit.retrail.server.pip.impl.PIP.dal;
 import java.lang.reflect.Constructor;
-import java.lang.reflect.Method;
 import java.util.ArrayList;
-import java.util.Arrays;
 import java.util.Collection;
 import java.util.HashMap;
 import java.util.Map;
-import org.apache.commons.beanutils.BeanUtils;
 import org.slf4j.LoggerFactory;
 import org.w3c.dom.Element;
 import org.w3c.dom.NodeList;
@@ -44,7 +41,7 @@ public class PIPChain extends ArrayList<PIPInterface> implements PIPChainInterfa
 
     @Override
     public final synchronized boolean add(PIPInterface p) {
-        String uuid = p.getUUID();
+        String uuid = p.getUuid();
         if (!pipNameToInstanceMap.containsKey(uuid)) {
             if (isInited()) {
                 p.init(ucon);
@@ -60,7 +57,7 @@ public class PIPChain extends ArrayList<PIPInterface> implements PIPChainInterfa
     @Override
     public synchronized boolean remove(Object pipInterface) {
         PIPInterface p = (PIPInterface) pipInterface;
-        String uuid = p.getUUID();
+        String uuid = p.getUuid();
         if (pipNameToInstanceMap.containsKey(uuid)) {
             if (isInited()) {
                 p.term();
@@ -75,12 +72,12 @@ public class PIPChain extends ArrayList<PIPInterface> implements PIPChainInterfa
     }
 
     @Override
-    public String getUUID() {
+    public String getUuid() {
         throw new UnsupportedOperationException("Not supported for a chain.");
     }
 
     @Override
-    public void setUUID(String uuid) {
+    public void setUuid(String uuid) {
         throw new UnsupportedOperationException("Not supported for a chain.");
     }
 
@@ -231,17 +228,21 @@ public class PIPChain extends ArrayList<PIPInterface> implements PIPChainInterfa
                     throw new RuntimeException("PIP class " + className + " does not implement a default constructor with no parameters and cannot be instanced");
                 }
                 PIPInterface pip = (PIPInterface) ctor.newInstance(new Object[]{});
-                String id = pipElement.getAttributeNS(null, "uuid");
-                if (id.length() > 0) {
-                    pip.setUUID(id);
-                }
-                DomUtils.setPropertyOnObjectNS(UCon.uri, "Property", pipElement, this);
+                DomUtils.setPropertyOnObjectNS(UCon.uri, "Property", pipElement, pip);
                 add(pip);
             }
             printInfo();
         }
     }
 
+    @Override
+    public PIPInterface get(String uuid) {
+        PIPInterface rv = pipNameToInstanceMap.get(uuid);
+        if(rv == null)
+            throw new RuntimeException("PIP with uuid=" + uuid + " not found in PIPChain");
+        return rv;
+    } 
+    
     @Override
     public final void printInfo() {
         log.info("Current PIPs:");

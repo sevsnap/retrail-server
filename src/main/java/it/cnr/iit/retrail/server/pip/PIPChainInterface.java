@@ -11,5 +11,6 @@ import java.util.List;
  * @author oneadmin
  */
 public interface PIPChainInterface extends List<PIPInterface>, PIPInterface {
+    PIPInterface get(String uuid);
     void printInfo();
 }

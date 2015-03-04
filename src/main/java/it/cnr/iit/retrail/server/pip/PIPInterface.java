@@ -17,23 +17,24 @@ import java.util.Collection;
 public interface PIPInterface {
 
     /**
-     * getUUID()
-     *
-     * returns the universal unique identifier for this PIP instance. The
+     * getUuid()
+
+ returns the universal unique identifier for this PIP instance. The
      * default implementation should set the identifier as the basic
      * canonical name of the class.
      *
      * @return
      */
-    String getUUID();
+    String getUuid();
     
     /**
-     * setUUID()
+     * setUuid()
+
+ sets the universal unique identifier for this PIP instance. 
      *
-     * sets the universal unique identifier for this PIP instance. 
-     *
+     * @param uuid
      */
-    void setUUID(String uuid);
+    void setUuid(String uuid);
 
     /**
      * init()

@@ -10,9 +10,7 @@ import it.cnr.iit.retrail.commons.StateType;
 import it.cnr.iit.retrail.commons.automata.StateInterface;
 import it.cnr.iit.retrail.server.dal.UconSession;
 import it.cnr.iit.retrail.server.impl.UCon;
-import java.util.HashMap;
 import java.util.HashSet;
-import java.util.Map;
 import java.util.Set;
 import org.w3c.dom.Element;
 import org.w3c.dom.NodeList;
@@ -135,28 +133,33 @@ public final class Behaviour extends Pool<UConAutomaton> {
     
     public UConAutomaton obtain(UconSession session) throws InterruptedException {
         UConAutomaton automaton;
+        log.debug("obtaining automaton for {}", session.getUuid());
         long start = System.currentTimeMillis();
         synchronized(busyJar) {
             while(busyJar.contains(session.getUuid())) {
-                log.info("waiting for {}", session);
+                log.info("waiting for {}", session.getUuid());
                 busyJar.wait(getTimeout());
-                if(System.currentTimeMillis()-start > getTimeout())
+                if(System.currentTimeMillis()-start >= getTimeout())
                     throw new RuntimeException("timeout waiting for "+session);
             }
             automaton = super.obtain();
             automaton.setSession(session);
             busyJar.add(session.getUuid());
         }
+        log.debug("automaton obtained for {}", session.getUuid());
         return automaton;
     }
     
     @Override
     public void release(UConAutomaton automaton) {
+        String uuid = automaton.getSession().getUuid();
+        log.debug("releasing automaton for {}", uuid);
         synchronized(busyJar) {
             super.release(automaton);
-            assert(busyJar.remove(automaton.getSession().getUuid()));
+            boolean removed = busyJar.remove(uuid);
             // tell obtain(session) that the object may be now taken and used.
-            busyJar.notify();
+            log.debug("automaton released for {}, contains? {}, removed? {}", uuid, busyJar.contains(uuid), removed);
+            busyJar.notifyAll();
         }
     }
     

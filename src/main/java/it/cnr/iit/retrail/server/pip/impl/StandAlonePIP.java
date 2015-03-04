@@ -20,7 +20,7 @@ public abstract class StandAlonePIP extends PIP implements Runnable {
     public void init(UConInterface ucon) {
         super.init(ucon);
         thread = new Thread(this);
-        thread.setName(getUUID());
+        thread.setName(getUuid());
         log.info("starting standalone thread " + thread);
         thread.start();
     }

@@ -44,7 +44,7 @@ public abstract class PIP implements PIPInterface {
         if (ucon == null) {
             log.warn("initializing {} with null UConInterface!", this);
         } else {
-            log.info("initializing {} with {}", this, ucon);
+            log.info("initializing {}", this);
         }
         this.ucon = ucon;
     }
@@ -113,14 +113,15 @@ public abstract class PIP implements PIPInterface {
     }
 
     @Override
-    public String getUUID() {
+    public String getUuid() {
         return uuid;
     }
 
     @Override
-    public void setUUID(String uuid) {
+    public void setUuid(String uuid) {
         if(isInited())
             throw new RuntimeException(this+" already inited and cannot change its uuid to "+uuid);
+        log.info("setting uuid={} for {}", uuid, this);
         this.uuid = uuid;
     }
 
@@ -130,12 +131,12 @@ public abstract class PIP implements PIPInterface {
 
     @Override
     public void term() {
-        dal.removeAttributesByFactory(getUUID());
+        dal.removeAttributesByFactory(getUuid());
         log.info("{} terminated", this);
     }
 
     @Override
     public String toString() {
-        return getClass().getSimpleName() + " [UUID=" + uuid + "]";
+        return getClass().getSimpleName() + " [uuid=" + uuid + "]";
     }
 }
