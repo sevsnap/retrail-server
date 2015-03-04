@@ -10,6 +10,8 @@ import it.cnr.iit.retrail.commons.StateType;
 import it.cnr.iit.retrail.commons.automata.StateInterface;
 import it.cnr.iit.retrail.server.dal.UconSession;
 import it.cnr.iit.retrail.server.impl.UCon;
+import it.cnr.iit.retrail.server.pip.PIPInterface;
+import java.lang.reflect.Constructor;
 import java.util.HashSet;
 import java.util.Set;
 import org.w3c.dom.Element;
@@ -59,6 +61,8 @@ public final class Behaviour extends Pool<UConAutomaton> {
             String name = stateElement.getAttribute("name");
             String type = stateElement.getAttribute("type");
             UConState uconState = new UConState(name, StateType.valueOf(type));
+            DomUtils.setPropertyOnObjectNS(UCon.uri, "Property", stateElement, uconState);
+
             a.addState(uconState);
             switch(uconState.getType()) {
                 case BEGIN:
@@ -79,38 +83,37 @@ public final class Behaviour extends Pool<UConAutomaton> {
         // Create actions
         
         NodeList actionNodes = behaviouralConfiguration.getElementsByTagNameNS(UCon.uri, "Action");
+        
         for(int i = 0; i < actionNodes.getLength(); i++) {
             Element actionElement = (Element) actionNodes.item(i);
             String name = actionElement.getAttribute("name");
-            String klass = actionElement.getAttribute("class");
+            String className = actionElement.getAttribute("class");
+            if(className == null)
+                throw new RuntimeException("class attribute is mandatory for Action element");
             String targetStateName = actionElement.getAttribute("target");
             StateInterface target = a.getState(targetStateName);
             String sourceStateName = actionElement.getAttribute("source");
             StateInterface source = (UConState) a.getState(sourceStateName);
-            UconAction action;
-            switch(klass) {
-                case "":
-                case "UconAction":
-                    action = new UconAction(source, target, name, ucon);
-                    break;
-                case "OngoingAccess":
-                    if(name != null && name.length() > 0 && !name.equals(OngoingAccess.name))
-                        throw new RuntimeException("action name cannot be specified for OngoingAccess");
-                case "PolicyDrivenAction": {
-                    String failTargetStateName = actionElement.getAttribute("failTarget");
-                    StateInterface failTarget = a.getState(failTargetStateName);
-                    PolicyDrivenAction act = klass.equals("OngoingAccess")?
-                            new OngoingAccess(source, target, failTarget, ucon) :
-                            new PolicyDrivenAction(source, target, failTarget, name, ucon);
-                    if(firstTime) {
-                        Element policyElement = (Element) actionElement.getElementsByTagName("Policy").item(0);
-                        act.setPolicy(policyElement);
-                    }
-                    action = act;
-                    break;
-                }
-                default:
-                    throw new RuntimeException("unknown action class "+klass);
+            String failTargetStateName = actionElement.getAttribute("failTarget");
+            StateInterface failTarget = failTargetStateName.length() > 0? a.getState(failTargetStateName) : null;
+            log.warn("loading Action with class: {}", className);
+            Class<?> clazz = Class.forName(className);
+            if (!PolicyDrivenAction.class.isAssignableFrom(clazz)) {
+                throw new RuntimeException("class " + className + " has no PolicyDrivenAction interface and cannot be used in a Behaviour");
+            }
+            Constructor<?> ctor;
+            try {
+                ctor = clazz.getConstructor(StateInterface.class, StateInterface.class, StateInterface.class, String.class, UCon.class);
+            } catch (NoSuchMethodException e) {
+                throw new RuntimeException("Action class " + className + " cannot be instanced");
+            }
+            PolicyDrivenAction action = (PolicyDrivenAction) ctor.newInstance(new Object[]{source, target, failTarget, name, ucon});
+            DomUtils.setPropertyOnObjectNS(UCon.uri, "Property", actionElement, action);
+
+            if(firstTime) {
+                Element policyElement = (Element) actionElement.getElementsByTagName("Policy").item(0);
+                if(policyElement != null)
+                   action.setPolicy(policyElement);
             }
             source.addAction(action); // FIXME REMOVE THIS!
         }

@@ -9,67 +9,14 @@
             <ucon:State name="INIT" type="BEGIN"/>
             <ucon:State name="TRY" type="PASSIVE"/>
             <ucon:State name="ONGOING" type="ONGOING"/>
-            <ucon:State name="REVOKED" type="PASSIVE"/>
-            <ucon:State name="REJECTED" type="END"/>
             <ucon:State name="DELETED" type="END"/>
         </ucon:States>
         <ucon:Actions>
-            <ucon:Action name="tryAccess" class="PolicyDrivenAction" source="INIT" target="TRY" failTarget="REJECTED">
-                <Policy xmlns="urn:oasis:names:tc:xacml:3.0:core:schema:wd-17" PolicyId="PRE"
-                    RuleCombiningAlgId="urn:oasis:names:tc:xacml:1.0:rule-combining-algorithm:first-applicable" 
-                    Version="1.0">
-                    <Description>Default PRE policy</Description>
-                    <Target/>
-                    <Rule Effect="Permit" RuleId="PRErule">
-                        <Target/>
-                    </Rule>
-                </Policy>
-            </ucon:Action>
-            <ucon:Action name="startAccess" class="PolicyDrivenAction" source="TRY" target="ONGOING" failTarget="TRY">
-                <Policy xmlns="urn:oasis:names:tc:xacml:3.0:core:schema:wd-17" PolicyId="TRYSTART"
-                    RuleCombiningAlgId="urn:oasis:names:tc:xacml:1.0:rule-combining-algorithm:first-applicable" 
-                    Version="1.0">
-                    <Description>Default TRYSTART policy</Description>
-                    <Target/>
-                    <Rule Effect="Permit" RuleId="TRYSTARTrule">
-                        <Target/>
-                    </Rule>
-                </Policy>
-            </ucon:Action>
-            <ucon:Action name="endAccess" class="PolicyDrivenAction" source="TRY" target="DELETED" failTarget="TRY">
-                <Policy xmlns="urn:oasis:names:tc:xacml:3.0:core:schema:wd-17" PolicyId="TRYEND"
-                    RuleCombiningAlgId="urn:oasis:names:tc:xacml:1.0:rule-combining-algorithm:first-applicable" 
-                    Version="1.0">
-                    <Description>Default TRYEND policy</Description>
-                    <Target/>
-                    <Rule Effect="Permit" RuleId="TRYENDrule">
-                        <Target/>
-                    </Rule>
-                </Policy>
-            </ucon:Action>
-            <ucon:Action name="ongoingAccess" class="OngoingAccess" source="ONGOING" target="ONGOING" failTarget="REVOKED">
-                <Policy xmlns="urn:oasis:names:tc:xacml:3.0:core:schema:wd-17" PolicyId="ON"
-                    RuleCombiningAlgId="urn:oasis:names:tc:xacml:1.0:rule-combining-algorithm:first-applicable" 
-                    Version="1.0">
-                    <Description>Default ON policy</Description>
-                    <Target/>
-                    <Rule Effect="Permit" RuleId="ONrule">
-                        <Target/>
-                    </Rule>
-                </Policy>
-            </ucon:Action>
-            <ucon:Action name="endAccess" class="PolicyDrivenAction" source="ONGOING" target="DELETED" failTarget="ONGOING">
-                <Policy xmlns="urn:oasis:names:tc:xacml:3.0:core:schema:wd-17" PolicyId="POST"
-                    RuleCombiningAlgId="urn:oasis:names:tc:xacml:1.0:rule-combining-algorithm:first-applicable" 
-                    Version="1.0">
-                    <Description>Default POST policy</Description>
-                    <Target/>
-                    <Rule Effect="Permit" RuleId="POSTrule">
-                        <Target/>
-                    </Rule>
-                </Policy>
-            </ucon:Action>
-            <ucon:Action name="endAccess" class="UconAction" source="REVOKED" target="DELETED"/>
+            <ucon:Action class="it.cnr.iit.retrail.server.behaviour.TryAccess" source="INIT" target="TRY"/>
+            <ucon:Action name="startAccess" class="it.cnr.iit.retrail.server.behaviour.PolicyDrivenAction" source="TRY" target="ONGOING" />
+            <ucon:Action class="it.cnr.iit.retrail.server.behaviour.EndAccess" source="TRY" target="DELETED"/>
+            <ucon:Action class="it.cnr.iit.retrail.server.behaviour.OngoingAccess" source="ONGOING"/>
+            <ucon:Action class="it.cnr.iit.retrail.server.behaviour.EndAccess" source="ONGOING" target="DELETED" />
         </ucon:Actions>
     </ucon:Behaviour>
 </ucon:Config>

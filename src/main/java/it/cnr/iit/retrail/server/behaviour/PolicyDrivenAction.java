@@ -4,8 +4,8 @@
  */
 package it.cnr.iit.retrail.server.behaviour;
 
-import it.cnr.iit.retrail.commons.DomUtils;
 import it.cnr.iit.retrail.commons.StateType;
+import it.cnr.iit.retrail.commons.automata.Action;
 import it.cnr.iit.retrail.commons.automata.StateInterface;
 import it.cnr.iit.retrail.commons.impl.PepResponse;
 import it.cnr.iit.retrail.server.dal.UconRequest;
@@ -21,31 +21,38 @@ import org.w3c.dom.Element;
  *
  * @author oneadmin
  */
+public class PolicyDrivenAction extends Action {
 
-public class PolicyDrivenAction extends UconAction {
-    private static final String defaultPolicyPath = "/META-INF/default-policies/";
     private static final Map<String, PDPPool> poolMap = new HashMap<>();
     private final StateInterface targetFailState;
     private PepResponse.DecisionEnum lastDecision;
-    
+    protected final UCon ucon;
+    private final String name;
+
     public PolicyDrivenAction(StateInterface sourceState, StateInterface targetState, StateInterface targetFailState, String name, UCon ucon) {
-        super(sourceState, targetState, name, ucon);
-        this.targetFailState = targetFailState;
+        super(sourceState, targetState);
+        this.ucon = ucon;
+        this.name = name;
+        this.targetFailState = targetFailState == null ? sourceState : targetFailState;
     }
-    
-    @Override
+
     protected void reset() {
         lastDecision = PepResponse.DecisionEnum.Permit;
     }
-    
+
     private String getPolicyName() {
         return getOriginState().getName() + "-" + getName();
+    }
+
+    @Override
+    public String getName() {
+        return name;
     }
 
     public PDPPool getPDPPool() {
         return poolMap.get(getPolicyName());
     }
-    
+
     /**
      * setPolicy()
      *
@@ -54,15 +61,14 @@ public class PolicyDrivenAction extends UconAction {
      * by init() and you are changing the ON policy, the current ongoing
      * sessions are re-evaluated.
      *
-     * @param policyElement  the element containing the new policy to be set, 
-     * in xacml3 format.
+     * @param policyElement the element containing the new policy to be set, in
+     * xacml3 format.
      * @throws java.lang.Exception
      */
-
     public synchronized void setPolicy(Element policyElement) throws Exception {
-        assert(policyElement.getTagName().equals("Policy"));
+        assert (policyElement.getTagName().equals("Policy"));
         poolMap.put(getPolicyName(), new PDPPool(policyElement));
-        if (((UConState)getOriginState()).getType() == StateType.ONGOING && ucon.isInited()) { 
+        if (((UConState) getOriginState()).getType() == StateType.ONGOING && ucon.isInited()) {
             Collection<UconSession> sessions = ucon.getDAL().listSessions(StateType.ONGOING);
             if (sessions.size() > 0) {
                 log.warn("UCon already running, reevaluating {} currently opened sessions", sessions.size());
@@ -70,38 +76,28 @@ public class PolicyDrivenAction extends UconAction {
             }
         }
     }
-    
+
     @Override
     public StateInterface getTargetState() {
-        return lastDecision == PepResponse.DecisionEnum.Permit? targetState : targetFailState;
+        return lastDecision == PepResponse.DecisionEnum.Permit ? targetState : targetFailState;
     }
-    
-    public UconSession onFail(UconRequest uconRequest, UconSession uconSession, Object[] args) {
-        log.debug("doing nothing");
-        return uconSession;
-    }
-    
-    public UconSession onPermit(UconRequest uconRequest, UconSession uconSession, Object[] args) {
-        log.debug("doing nothing");
-        return uconSession;
-    }
-    
-    @Override
+
     public UconSession execute(UconRequest uconRequest, UconSession uconSession, Object[] args) {
-        log.debug("executing {} with {}, {}", this, uconRequest, uconSession);
-        Document rv = getPDPPool().access(uconRequest);
-        uconSession.setResponse(rv);
-        lastDecision = uconSession.getDecision();
-        if(lastDecision == PepResponse.DecisionEnum.Permit)
-            uconSession = onPermit(uconRequest, uconSession, args);
-        else
-            uconSession = onFail(uconRequest, uconSession, args);
+        PDPPool pdpPool = getPDPPool();
+        if (pdpPool != null) {
+            log.debug("executing {} with {}, {}", this, uconRequest, uconSession);
+            Document rv = getPDPPool().access(uconRequest);
+            uconSession.setResponse(rv);
+            lastDecision = uconSession.getDecision();
+        } else {
+            log.debug("executing {} with {}, {}, no policy applied (default: permit) ", this, uconRequest, uconSession);
+        }
         return uconSession;
     }
-    
-    @Override 
+
+    @Override
     public String toString() {
-        return getName()+"() -> "+targetState+" (on fail: "+targetFailState+"; "+getPDPPool()+")";
+        return getName() + "() -> " + targetState + " (on fail: " + targetFailState + "; " + getPDPPool() + ")";
     }
-    
+
 }

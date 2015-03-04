@@ -12,10 +12,10 @@ import it.cnr.iit.retrail.server.impl.UCon;
  *
  * @author kicco
  */
-public class OngoingAccess extends PolicyDrivenAction {
-    public static final String name = "ongoingAccess";
+public class EndAccess extends PolicyDrivenAction {
+    public static final String name = "endAccess";
 
-    public OngoingAccess(StateInterface sourceState, StateInterface targetState, StateInterface targetFailState, String n, UCon ucon) {
+    public EndAccess(StateInterface sourceState, StateInterface targetState, StateInterface targetFailState, String n, UCon ucon) {
         super(sourceState, targetState, targetFailState, name, ucon);
         if(n != null && name.equals(n))
             throw new RuntimeException("action name cannot be changed for "+getClass().getSimpleName());
