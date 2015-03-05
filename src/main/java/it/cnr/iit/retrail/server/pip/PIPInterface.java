@@ -199,4 +199,7 @@ public interface PIPInterface {
      * must be invoked by overloading implementation.
      */
     void term();
+    
+    void setIssuer(String issuer);
+    String getIssuer();
 }

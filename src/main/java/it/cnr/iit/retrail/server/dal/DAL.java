@@ -118,6 +118,16 @@ public class DAL implements DALInterface {
             log.info("\t\t{}", a.session);
         }
     }
+    
+    public void debugDumpAttributes(UconRequest al) {
+        log.info("debugging attributes");
+        for (PepAttributeInterface aa : al) {
+            UconAttribute a = (UconAttribute) aa;
+            UconAttribute parent = (UconAttribute) a.getParent();
+            log.info("\t{} (parent: {})", a, parent == null ? null : parent.getRowId());
+            log.info("\t\t{}", a.session);
+        }
+    }
 
     private DAL() {
         log.info("creating Data Access Layer");

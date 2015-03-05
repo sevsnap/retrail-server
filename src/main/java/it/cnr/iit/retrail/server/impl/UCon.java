@@ -139,9 +139,7 @@ public class UCon extends Server implements UConInterface, UConProtocol {
         session.setPepUrl(pepUrlString);
         session.setUconUrl(myUrl);
         session.setState((UConState) automatonFactory.getBegin());
-
         UconRequest request = new UconRequest((Document) accessRequest);
-
         UconSession response = null;
         dal.begin();
         try {
@@ -182,16 +180,6 @@ public class UCon extends Server implements UConInterface, UConProtocol {
         }
         //log.error("XXXX: {}", DomUtils.toString(uconSession.toXacml3Element()));
         return uconSession.toXacml3Element();
-    }
-
-    @Override
-    public Node startAccess(String uuid) throws Exception {
-        return apply("startAccess", uuid, null);
-    }
-
-    @Override
-    public Node startAccess(String uuid, String customId) throws Exception {
-        return apply("startAccess", uuid, customId);
     }
 
     @Override
@@ -498,5 +486,10 @@ public class UCon extends Server implements UConInterface, UConProtocol {
     public void setMaxMissedHeartbeats(int maxMissedHeartbeats) {
         log.warn("maxMissedHeartbeats set to {}", maxMissedHeartbeats);
         this.maxMissedHeartbeats = maxMissedHeartbeats;
+    }
+
+    @Override
+    public Node apply(String actionName, String uuid, Object... args) throws Exception {
+        return apply(actionName, uuid, null, args);
     }
 }

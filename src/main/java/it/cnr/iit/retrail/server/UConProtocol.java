@@ -19,6 +19,9 @@ public interface UConProtocol {
 
     // new dynamic interface
     
+     Node apply(String actionName, String uuid, Object... args) throws Exception;
+            
+    @Deprecated
     Node apply(String actionName, String uuid, String customId, Object... args) throws Exception;
     
     Node applyChanges(Node xacmlAttributes, String uuid) throws Exception;
@@ -30,23 +33,17 @@ public interface UConProtocol {
 
     @Deprecated
     Node tryAccess(Node accessRequest, String pepUrl, String customId) throws Exception;
-
-    // old built-in interface
     
-    @Deprecated
-    Node startAccess(String uuid) throws Exception;
-
-    @Deprecated
     Node endAccess(String uuid) throws Exception;
 
-    @Deprecated
     List<Node> endAccess(List<String> uuidList) throws Exception;
+    
+    // old built-in interface
 
     @Deprecated
     Node assignCustomId(String uuid, String oldCustomId, String newCustomId) throws Exception;
 
-    @Deprecated
-    Node startAccess(String uuid, String customId) throws Exception;
+
 
     @Deprecated
     Node endAccess(String uuid, String customId) throws Exception;

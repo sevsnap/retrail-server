@@ -33,7 +33,8 @@ public class PIPChain extends ArrayList<PIPInterface> implements PIPChainInterfa
     static final org.slf4j.Logger log = LoggerFactory.getLogger(PIPChain.class);
     private final Map<String, PIPInterface> pipNameToInstanceMap = new HashMap<>();
     private UConInterface ucon;
-
+    private String issuer = UCon.uri;
+    
     @Override
     public boolean isInited() {
         return ucon != null;
@@ -249,5 +250,15 @@ public class PIPChain extends ArrayList<PIPInterface> implements PIPChainInterfa
         for (PIPInterface pip : this) {
             log.info("\t{}", pip);
         }
+    }
+
+    @Override
+    public void setIssuer(String issuer) {
+        this.issuer = issuer;
+    }
+
+    @Override
+    public String getIssuer() {
+        return issuer;
     }
 }

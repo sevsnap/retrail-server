@@ -11,6 +11,7 @@ import it.cnr.iit.retrail.server.UConInterface;
 import it.cnr.iit.retrail.server.behaviour.OngoingAccess;
 import it.cnr.iit.retrail.server.dal.UconAttribute;
 import it.cnr.iit.retrail.server.dal.DAL;
+import it.cnr.iit.retrail.server.impl.UCon;
 import it.cnr.iit.retrail.server.pip.ActionEvent;
 import it.cnr.iit.retrail.server.pip.PIPInterface;
 import it.cnr.iit.retrail.server.pip.SystemEvent;
@@ -31,6 +32,7 @@ public abstract class PIP implements PIPInterface {
     protected UConInterface ucon;
 
     private String uuid = getClass().getCanonicalName();
+    private String issuer = UCon.uri;
 
     public PIP()  { 
     }
@@ -123,6 +125,16 @@ public abstract class PIP implements PIPInterface {
             throw new RuntimeException(this+" already inited and cannot change its uuid to "+uuid);
         log.info("setting uuid={} for {}", uuid, this);
         this.uuid = uuid;
+    }
+    
+    @Override
+    public String getIssuer() {
+        return issuer;
+    }
+
+    @Override
+    public void setIssuer(String issuer) {
+        this.issuer = issuer;
     }
 
     public UConInterface getUCon() {

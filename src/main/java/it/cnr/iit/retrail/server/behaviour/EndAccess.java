@@ -19,7 +19,7 @@ public class EndAccess extends PDPAction {
         super(sourceState, targetState, name, behaviour);
         if(n != null && name.equals(n))
             throw new RuntimeException("action name cannot be changed for "+getClass().getSimpleName());
-                if(((UConState)targetState).getType() != StateType.END)
-            throw new RuntimeException("target "+targetState+" must be a final state for action endAccess");
+        if(((UConState)this.targetState).getType() != StateType.END)
+            throw new RuntimeException("target "+this.targetState+" must be a final state for action endAccess");
     }
 }

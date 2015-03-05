@@ -16,10 +16,16 @@ public class UConProtocolProxy implements UConProtocol {
     }
 
     @Override
-    public Node startAccess(String uuid) throws Exception {
-        return UConFactory.getProtocolInstance().startAccess(uuid);
+    public Node apply(String actionName, String uuid, Object... args) throws Exception {
+        return UConFactory.getProtocolInstance().apply(actionName, uuid, args);
     }
-
+    
+    @Override
+    @Deprecated
+    public Node apply(String actionName, String uuid, String customId, Object... args) throws Exception {
+        return UConFactory.getProtocolInstance().apply(actionName, uuid, customId, args);
+    }
+    
     @Override
     public Node endAccess(String uuid) throws Exception {
         return UConFactory.getProtocolInstance().endAccess(uuid);
@@ -46,11 +52,6 @@ public class UConProtocolProxy implements UConProtocol {
     }
 
     @Override
-    public final Node startAccess(String uuid, String customId) throws Exception {
-        return UConFactory.getProtocolInstance().startAccess(uuid, customId);
-    }
-   
-    @Override
     public final List<Node> endAccess(List<String> uuidList, List<String> customIdList) throws Exception {
         return UConFactory.getProtocolInstance().endAccess(uuidList, customIdList);
     }
@@ -73,11 +74,6 @@ public class UConProtocolProxy implements UConProtocol {
     @Override
     public final Node assignCustomId(String uuid, String oldCustomId, String newCustomId) throws Exception {
         return UConFactory.getProtocolInstance().assignCustomId(uuid, oldCustomId, newCustomId);
-    }
-
-    @Override
-    public Node apply(String actionName, String uuid, String customId, Object... args) throws Exception {
-        return UConFactory.getProtocolInstance().apply(actionName, uuid, customId, args);
     }
 
 }

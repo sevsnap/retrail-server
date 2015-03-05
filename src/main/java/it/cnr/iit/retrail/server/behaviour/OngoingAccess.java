@@ -5,6 +5,7 @@
  */
 package it.cnr.iit.retrail.server.behaviour;
 
+import it.cnr.iit.retrail.commons.StateType;
 import it.cnr.iit.retrail.commons.automata.StateInterface;
 
 /**
@@ -18,5 +19,10 @@ public class OngoingAccess extends PDPAction {
         super(sourceState, targetState, name, behaviour);
         if(n != null && name.equals(n))
             throw new RuntimeException("action name cannot be changed for "+getClass().getSimpleName());
+        if(((UConState)sourceState).getType() != StateType.ONGOING)
+            throw new RuntimeException("source "+sourceState+" must be an ONGOING state for action ongoingAccess");
+        if(((UConState)this.targetState).getType() != StateType.ONGOING)
+            throw new RuntimeException("target "+this.targetState+" must be an ONGOING state for action ongoingAccess");
+
     }
 }

@@ -1,6 +1,6 @@
 /*
  * CNR - IIT
- * Coded by: 2014 Enrico "KMcC;) Carniani
+ * Coded by: 2015 Enrico "KMcC;) Carniani
  */
 package it.cnr.iit.retrail.server.impl;
 
@@ -65,8 +65,8 @@ public class UConS extends UCon {
     }
 
     @Override
-    public Node startAccess(String uuid, String customId) throws Exception {
-        Element doc = (Element) super.startAccess(uuid, customId); //To change body of generated methods, choose Tools | Templates.
+    public Node apply(String actionName, String uuid, String customId, Object ...args) throws Exception {
+        Element doc = (Element) super.apply(actionName, uuid, customId, args); //To change body of generated methods, choose Tools | Templates.
         return sign(doc);
     }
 
