@@ -24,14 +24,14 @@ public class PIPState extends PIP {
     public void init(UConInterface ucon) {
         super.init(ucon);
         log.info("creating shared attribute {} = {}", stateAttributeName, stateAttributeValue);
-        newSharedAttribute(stateAttributeName, "http://www.w3.org/2001/XMLSchema#integer", stateAttributeValue, "http://localhost:8080/federation-id-prov/saml", category);
+        newSharedAttribute(stateAttributeName, "http://www.w3.org/2001/XMLSchema#integer", stateAttributeValue, getIssuer(), category);
     }
     
     @Override
     public void fireBeforeActionEvent(ActionEvent e) {
         if (e.session.getStateType() == StateType.BEGIN) {
             log.info("State attribute name: " + stateAttributeName);
-            PepAttributeInterface state = newSharedAttribute(stateAttributeName, "http://www.w3.org/2001/XMLSchema#string", stateAttributeValue, "http://localhost:8080/federation-id-prov/saml", category);
+            PepAttributeInterface state = newSharedAttribute(stateAttributeName, "http://www.w3.org/2001/XMLSchema#string", stateAttributeValue, getIssuer(), category);
             e.request.replace(state);
         }
     }
@@ -43,7 +43,7 @@ public class PIPState extends PIP {
             if (obligation.startsWith(stateAttributeName + "=")) {
                 String newStateAttributeValue = obligation.split("=")[1];
                 log.warn("FOUND OBLIGATION FOR STATE CHANGE: {}", newStateAttributeValue);
-                PepAttributeInterface updatedState = newSharedAttribute(stateAttributeName, "http://www.w3.org/2001/XMLSchema#string", newStateAttributeValue, "http://localhost:8080/federation-id-prov/saml", category);
+                PepAttributeInterface updatedState = newSharedAttribute(stateAttributeName, "http://www.w3.org/2001/XMLSchema#string", newStateAttributeValue, getIssuer(), category);
                 e.request.replace(updatedState);
                 break;
             }

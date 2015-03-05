@@ -8,6 +8,7 @@ import it.cnr.iit.retrail.commons.DomUtils;
 import it.cnr.iit.retrail.commons.PepAttributeInterface;
 import it.cnr.iit.retrail.commons.PepRequestInterface;
 import it.cnr.iit.retrail.commons.PepSessionInterface;
+import it.cnr.iit.retrail.commons.StateType;
 import it.cnr.iit.retrail.server.UConInterface;
 import it.cnr.iit.retrail.server.impl.UCon;
 import it.cnr.iit.retrail.server.pip.ActionEvent;
@@ -260,5 +261,10 @@ public class PIPChain extends ArrayList<PIPInterface> implements PIPChainInterfa
     @Override
     public String getIssuer() {
         return issuer;
+    }
+
+    @Override
+    public Collection<PepAttributeInterface> listManagedAttributes(StateType stateType) {
+        throw new UnsupportedOperationException("Not supported yet."); //To change body of generated methods, choose Tools | Templates.
     }
 }

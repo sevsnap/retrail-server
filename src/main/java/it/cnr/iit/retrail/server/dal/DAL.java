@@ -45,7 +45,8 @@ public class DAL implements DALInterface {
             if (factory == null) {
                 Map<String, String> properties = new HashMap<>();
                 properties.put(PersistenceUnitProperties.WEAVING, "dynamic");
-                properties.put(PersistenceUnitProperties.DDL_GENERATION, "create-tables");
+                String ddlGeneration = properties.getOrDefault(PersistenceUnitProperties.DDL_GENERATION, "create-tables");
+                properties.put(PersistenceUnitProperties.DDL_GENERATION, ddlGeneration);
                 properties.put(PersistenceUnitProperties.DDL_GENERATION_MODE, "database");
                 properties.put(PersistenceUnitProperties.DDL_GENERATION_INDEX_FOREIGN_KEYS, "true");
                 properties.put(PersistenceUnitProperties.SESSION_CUSTOMIZER, UUIDSequence.class.getCanonicalName());
@@ -257,6 +258,18 @@ public class DAL implements DALInterface {
     }
 
     @Override
+    public Collection<PepAttributeInterface> listManagedAttributes(String factory, StateType stateType) {
+        EntityManager em = getEm();
+        TypedQuery<PepAttributeInterface> q = em.createQuery(
+                "select a from UconAttribute a where a.factory = :factory and a.expires is null and a.session is not null and a.session.stateType = :stateType",
+                PepAttributeInterface.class)
+                .setParameter("factory", factory)
+                .setParameter("stateType", stateType);
+        Collection<PepAttributeInterface> attributes = q.getResultList();
+        return attributes;
+    }
+
+    @Override
     public Collection<PepAttributeInterface> listUnmanagedAttributes(String factory) {
         EntityManager em = getEm();
         TypedQuery<PepAttributeInterface> q = em.createQuery(
@@ -400,8 +413,10 @@ public class DAL implements DALInterface {
                     a.parent.children.remove(a);
                     a.parent = null;
                 }
-                if(a.session != null)
+                if(a.session != null) {
                     a.session.attributes.remove(a);
+                    a.session = null;
+                }
                 em.remove(a);
             }
         } catch (Exception e) {
@@ -465,10 +480,12 @@ public class DAL implements DALInterface {
         }
         PepAttribute a = new PepAttribute(id, type, value, issuer, parent.getCategory(), uuid);
         UconAttribute u = UconAttribute.newInstance(a);
-        u = (UconAttribute) save(u);
         // DON'T SAVE ME!
         u.parent = parent;
         parent.children.add(u);
+        u.session = parent.session;
+        parent.session.attributes.add(u);        
+        u = (UconAttribute) save(u);
         return u;
     }
 
@@ -483,9 +500,9 @@ public class DAL implements DALInterface {
         }
         PepAttribute a = new PepAttribute(id, type, value, issuer, category, uuid);
         UconAttribute u = UconAttribute.newInstance(a);
-        u = (UconAttribute) save(u);
-        // DON'T SAVE ME!
+        u.session = session;
         session.attributes.add(u);
+        u = (UconAttribute) save(u);
         return u;
     }
     

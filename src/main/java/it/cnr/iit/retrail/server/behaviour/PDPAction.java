@@ -79,7 +79,11 @@ public class PDPAction extends Action {
 
     @Override
     public String toString() {
-        return getName() + "() -> " + targetState + " (on deny: " + denyState + "; " + behaviour.getPDPPool(this) + ")";
+        String t  = getName() + "() -> " + targetState;
+        PDPPool p = behaviour.getPDPPool(this);
+        if(p != null)
+            t += " (on deny: " + denyState + "; " + p + ")";
+        return t;
     }
 
 }

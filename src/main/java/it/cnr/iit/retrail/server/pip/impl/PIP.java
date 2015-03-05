@@ -7,6 +7,7 @@ package it.cnr.iit.retrail.server.pip.impl;
 import it.cnr.iit.retrail.commons.PepAttributeInterface;
 import it.cnr.iit.retrail.commons.PepRequestInterface;
 import it.cnr.iit.retrail.commons.PepSessionInterface;
+import it.cnr.iit.retrail.commons.StateType;
 import it.cnr.iit.retrail.server.UConInterface;
 import it.cnr.iit.retrail.server.behaviour.OngoingAccess;
 import it.cnr.iit.retrail.server.dal.UconAttribute;
@@ -97,6 +98,11 @@ public abstract class PIP implements PIPInterface {
     @Override
     public Collection<PepAttributeInterface> listManagedAttributes() {
         return dal.listManagedAttributes(uuid);
+    }
+
+    @Override
+    public Collection<PepAttributeInterface> listManagedAttributes(StateType stateType) {
+        return dal.listManagedAttributes(uuid, stateType);
     }
 
     protected void refresh(PepAttributeInterface pepAttribute, PepSessionInterface session) {

@@ -50,6 +50,8 @@ public interface DALInterface {
 
     Collection<PepAttributeInterface> listManagedAttributes(String factory);
 
+    Collection<PepAttributeInterface> listManagedAttributes(String factory, StateType stateType);
+
     Collection<PepAttributeInterface> listUnmanagedAttributes(String factory);
 
     void removeAttributesByFactory(String factory);

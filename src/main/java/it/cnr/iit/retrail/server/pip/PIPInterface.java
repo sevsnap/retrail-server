@@ -7,6 +7,7 @@ package it.cnr.iit.retrail.server.pip;
 import it.cnr.iit.retrail.commons.PepRequestInterface;
 import it.cnr.iit.retrail.commons.PepAttributeInterface;
 import it.cnr.iit.retrail.commons.PepSessionInterface;
+import it.cnr.iit.retrail.commons.StateType;
 import it.cnr.iit.retrail.server.UConInterface;
 import java.util.Collection;
 
@@ -159,6 +160,21 @@ public interface PIPInterface {
      */
     Collection<PepAttributeInterface> listManagedAttributes();
 
+    
+    /**
+     * listManagedAttributes()
+     *
+     * gets back a collection of PEP request attributes managed by this PIP,
+     * that is the ones created via the newSharedAttribute() or
+     * newPrivateAttribute() methods.
+     *
+     * @param stateType a specific state type that matches the session.
+     * @return the collection of attributes created by this PIP via
+     * newSharedAttribute() or newPrivateAttribute().
+     */
+    Collection<PepAttributeInterface> listManagedAttributes(StateType stateType);
+
+    
     /**
      * listUnmanagedAttributes()
      *
