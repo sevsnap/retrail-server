@@ -5,7 +5,6 @@
 package it.cnr.iit.retrail.server.behaviour;
 
 import it.cnr.iit.retrail.commons.StateType;
-import it.cnr.iit.retrail.commons.automata.ActionInterface;
 import it.cnr.iit.retrail.commons.automata.State;
 
 /**

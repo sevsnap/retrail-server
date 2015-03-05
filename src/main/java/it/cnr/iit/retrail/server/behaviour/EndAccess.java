@@ -5,19 +5,21 @@
  */
 package it.cnr.iit.retrail.server.behaviour;
 
+import it.cnr.iit.retrail.commons.StateType;
 import it.cnr.iit.retrail.commons.automata.StateInterface;
-import it.cnr.iit.retrail.server.impl.UCon;
 
 /**
  *
  * @author kicco
  */
-public class EndAccess extends PolicyDrivenAction {
+public class EndAccess extends PDPAction {
     public static final String name = "endAccess";
 
-    public EndAccess(StateInterface sourceState, StateInterface targetState, StateInterface targetFailState, String n, UCon ucon) {
-        super(sourceState, targetState, targetFailState, name, ucon);
+    public EndAccess(StateInterface sourceState, StateInterface targetState, String n, Behaviour behaviour) {
+        super(sourceState, targetState, name, behaviour);
         if(n != null && name.equals(n))
             throw new RuntimeException("action name cannot be changed for "+getClass().getSimpleName());
+                if(((UConState)targetState).getType() != StateType.END)
+            throw new RuntimeException("target "+targetState+" must be a final state for action endAccess");
     }
 }

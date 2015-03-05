@@ -5,19 +5,21 @@
  */
 package it.cnr.iit.retrail.server.behaviour;
 
+import it.cnr.iit.retrail.commons.StateType;
 import it.cnr.iit.retrail.commons.automata.StateInterface;
-import it.cnr.iit.retrail.server.impl.UCon;
 
 /**
  *
  * @author kicco
  */
-public class TryAccess extends PolicyDrivenAction {
+public class TryAccess extends PDPAction {
     public static final String name = "tryAccess";
 
-    public TryAccess(StateInterface sourceState, StateInterface targetState, StateInterface targetFailState, String n, UCon ucon) {
-        super(sourceState, targetState, targetFailState, name, ucon);
+    public TryAccess(StateInterface sourceState, StateInterface targetState, String n, Behaviour behaviour) {
+        super(sourceState, targetState, name, behaviour);
         if(n != null && name.equals(n))
             throw new RuntimeException("action name cannot be changed for "+getClass().getSimpleName());
+        if(((UConState)sourceState).getType() != StateType.BEGIN)
+            throw new RuntimeException("origin "+sourceState+" must be the initial state for action tryAccess");
     }
 }

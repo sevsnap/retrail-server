@@ -13,7 +13,7 @@
         </ucon:States>
         <ucon:Actions>
             <ucon:Action class="it.cnr.iit.retrail.server.behaviour.TryAccess" source="INIT" target="TRY"/>
-            <ucon:Action name="startAccess" class="it.cnr.iit.retrail.server.behaviour.PolicyDrivenAction" source="TRY" target="ONGOING" />
+            <ucon:Action name="startAccess" class="it.cnr.iit.retrail.server.behaviour.PDPAction" source="TRY" target="ONGOING" />
             <ucon:Action class="it.cnr.iit.retrail.server.behaviour.EndAccess" source="TRY" target="DELETED"/>
             <ucon:Action class="it.cnr.iit.retrail.server.behaviour.OngoingAccess" source="ONGOING"/>
             <ucon:Action class="it.cnr.iit.retrail.server.behaviour.EndAccess" source="ONGOING" target="DELETED" />

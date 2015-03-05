@@ -5,10 +5,12 @@
 package it.cnr.iit.retrail.server.behaviour;
 
 import it.cnr.iit.retrail.commons.automata.Automaton;
+import it.cnr.iit.retrail.commons.automata.StateInterface;
 import it.cnr.iit.retrail.server.dal.UconRequest;
 import it.cnr.iit.retrail.server.dal.UconSession;
 import it.cnr.iit.retrail.server.impl.UCon;
 import it.cnr.iit.retrail.server.pip.ActionEvent;
+import java.util.Collection;
 
 /**
  *
@@ -23,7 +25,18 @@ public class UConAutomaton extends Automaton {
         super();
         this.ucon = ucon;
     }
-
+/*
+    @Override
+    public void checkIntegrity() {
+        super.checkIntegrity();
+        log.info("performing additional automaton integrity checks");
+        for(StateInterface s: getStates()) {
+            UConState us = (UConState)s;
+            for()
+        }
+        log.info("additional integrity checks ok");
+    }
+  */  
     public void setSession(UconSession session) {
         // Set current state
         if(session == null)
@@ -43,14 +56,16 @@ public class UConAutomaton extends Automaton {
         ucon.getPIPChain().refresh(uconRequest, session);
         //log.warn("current state = {}", getCurrentState());
         //log.warn("action name = {}", actionName);
-        PolicyDrivenAction action = (PolicyDrivenAction) getCurrentState().getAction(actionName);
-        action.reset();
+        StateInterface s = getCurrentState();
+        PDPAction action = (PDPAction) s.getAction(actionName);
         log.info("action = {}", action);
         ActionEvent event = new ActionEvent(action, uconRequest, session);
         ucon.getPIPChain().fireBeforeActionEvent(event);
         action.execute(uconRequest, session, args);
-        move(actionName);
-        session.setState((UConState) getCurrentState());
+        // moving automaton
+        s = action.getTargetState(session.getDecision());
+        setCurrentState(s);
+        session.setState((UConState) s);
         ucon.getDAL().saveSession(session, uconRequest);
         ucon.getPIPChain().fireAfterActionEvent(event);
         session.setMs(System.currentTimeMillis() - start);

@@ -6,17 +6,16 @@
 package it.cnr.iit.retrail.server.behaviour;
 
 import it.cnr.iit.retrail.commons.automata.StateInterface;
-import it.cnr.iit.retrail.server.impl.UCon;
 
 /**
  *
  * @author kicco
  */
-public class OngoingAccess extends PolicyDrivenAction {
+public class OngoingAccess extends PDPAction {
     public static final String name = "ongoingAccess";
 
-    public OngoingAccess(StateInterface sourceState, StateInterface targetState, StateInterface targetFailState, String n, UCon ucon) {
-        super(sourceState, targetState, targetFailState, name, ucon);
+    public OngoingAccess(StateInterface sourceState, StateInterface targetState, String n, Behaviour behaviour) {
+        super(sourceState, targetState, name, behaviour);
         if(n != null && name.equals(n))
             throw new RuntimeException("action name cannot be changed for "+getClass().getSimpleName());
     }
