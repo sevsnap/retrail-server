@@ -292,32 +292,6 @@ public class UCon extends Server implements UConInterface, UConProtocol {
     }
 
     @Override
-    public void notifyChanges(Collection<PepAttributeInterface> changedAttributes) throws Exception {
-        // Gather all the sessions that involve the changed attributes
-        log.info("{} attributes changed, updating DAL", changedAttributes.size());
-        Collection<UconSession> involvedSessions = new HashSet<>();
-        dal.begin();
-        boolean mustReevaluateAll = false;
-        try {
-            for (PepAttributeInterface a : changedAttributes) {
-                UconAttribute u = (UconAttribute) dal.save(a);
-                if (u.isShared()) {
-                    involvedSessions = dal.listSessions(StateType.ONGOING);
-                    break;
-                } else if(u.getSession().getStateType() == StateType.ONGOING)
-                    involvedSessions.add(u.getSession());
-            }
-            dal.commit();
-        } catch (Exception e) {
-            log.error("while notifying changes: {}", e);
-            dal.rollback();
-            throw e;
-        }
-        reevaluateSessions(involvedSessions);
-        log.debug("done (total sessions: {})", dal.listSessions().size());
-    }
-
-    @Override
     public Node applyChanges(Node xacmlRequest, String uuid) throws Exception {
         long start = System.currentTimeMillis();
         UconSession uconSession = dal.getSession(uuid, myUrl);
@@ -379,6 +353,31 @@ public class UCon extends Server implements UConInterface, UConProtocol {
             dal.commit();
         } catch (Exception e) {
             log.error("while saving changes: {}", e);
+            dal.rollback();
+            throw e;
+        }
+        reevaluateSessions(involvedSessions);
+        log.debug("done (total sessions: {})", dal.listSessions().size());
+    }
+
+    @Override
+    public void notifyChanges(Collection<PepAttributeInterface> changedAttributes) throws Exception {
+        // Gather all the sessions that involve the changed attributes
+        log.info("{} attributes changed, updating DAL", changedAttributes.size());
+        Collection<UconSession> involvedSessions = new HashSet<>();
+        dal.begin();
+        try {
+            for (PepAttributeInterface a : changedAttributes) {
+                UconAttribute u = (UconAttribute) dal.save(a);
+                if (u.isShared()) {
+                    involvedSessions = dal.listSessions(StateType.ONGOING);
+                    break;
+                } else if(u.getSession().getStateType() == StateType.ONGOING)
+                    involvedSessions.add(u.getSession());
+            }
+            dal.commit();
+        } catch (Exception e) {
+            log.error("while notifying changes: {}", e);
             dal.rollback();
             throw e;
         }

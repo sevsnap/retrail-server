@@ -8,8 +8,8 @@ import it.cnr.iit.retrail.commons.PepAttributeInterface;
 import it.cnr.iit.retrail.commons.StateType;
 import it.cnr.iit.retrail.commons.impl.PepAttribute;
 import it.cnr.iit.retrail.server.dal.UconAttribute;
-import it.cnr.iit.retrail.server.dal.UconSession;
 import it.cnr.iit.retrail.server.pip.ActionEvent;
+import java.util.Collection;
 import java.util.Date;
 import org.slf4j.LoggerFactory;
 
@@ -29,25 +29,19 @@ public class PIPTimer extends StandAlonePIP {
     }
 
     @Override
-    public void fireBeforeActionEvent(ActionEvent e) {
-        if (e.session.getStateType() != forStateType && e.targetState.getType() == forStateType) {
+    public void fireAfterActionEvent(ActionEvent e) {
+        if (e.originState.getType() != forStateType && e.session.getStateType() == forStateType) {
             PepAttributeInterface subject = e.request.getAttributes(PepAttribute.CATEGORIES.SUBJECT, PepAttribute.IDS.SUBJECT).iterator().next();
             PepAttributeInterface a = newPrivateAttribute(getAttributeId(), PepAttribute.DATATYPES.DOUBLE, 0.0, subject);
-            log.warn("* setting {} because target status = {}", getAttributeId(), e.targetState.getType());
+            log.debug("++ setting {} because target status = {}", getAttributeId(), e.targetState.getType());
             e.request.replace(a);
         }
-    }
-
-    @Override
-    public void fireAfterActionEvent(ActionEvent e) {
-        log.warn("** origin {} current {}", e.originState.getName(), e.session.getStateName());
-       
-        if (e.originState.getType() == forStateType && e.session.getStateType() != forStateType) {
+        else if (e.originState.getType() == forStateType && e.session.getStateType() != forStateType) {
             PepAttributeInterface subject = e.request.getAttributes(PepAttribute.CATEGORIES.SUBJECT, PepAttribute.IDS.SUBJECT).iterator().next();
             PepAttributeInterface a = newPrivateAttribute(getAttributeId(), PepAttribute.DATATYPES.DOUBLE, 0.0, subject);
-            log.warn("** removing {} because current status = {}", getAttributeId(), e.session.getStateType());
+            log.debug("-- removing {} because current status = {}", getAttributeId(), e.session.getStateType());
             a.setExpires(new Date());
-            e.request.remove(a);
+            e.request.replace(a);
         }
     }
 
@@ -83,13 +77,15 @@ public class PIPTimer extends StandAlonePIP {
         while (!interrupted) {
             try {
                 Thread.sleep((int) (1000 * resolution));
-                for (PepAttributeInterface a : listManagedAttributes(forStateType)) {
-                    UconAttribute u = (UconAttribute) a;
-                    Double elapsed = Double.parseDouble(a.getValue());
-                    elapsed += resolution;
-                    a.setValue(elapsed.toString());
-                    log.debug("awaken {}", a);
-                    notifyChanges(a);
+                Collection<PepAttributeInterface> list = listManagedAttributes(forStateType);
+                if(!list.isEmpty()) {
+                    for (PepAttributeInterface a : list) {
+                        UconAttribute u = (UconAttribute) a;
+                        Double elapsed = Double.parseDouble(a.getValue());
+                        elapsed += resolution;
+                        a.setValue(elapsed.toString());
+                    }
+                    notifyChanges(list);
                 }
             } catch (InterruptedException ex) {
                 log.warn("interrupted");
