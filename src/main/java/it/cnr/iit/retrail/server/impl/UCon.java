@@ -302,8 +302,8 @@ public class UCon extends Server implements UConInterface, UConProtocol {
                 if (u.isShared()) {
                     involvedSessions = dal.listSessions(StateType.ONGOING);
                     break;
-                }
-                involvedSessions.add(u.getSession());
+                } else if(u.getSession().getStateType() == StateType.ONGOING)
+                    involvedSessions.add(u.getSession());
             }
             dal.commit();
         } catch (Exception e) {
@@ -371,7 +371,8 @@ public class UCon extends Server implements UConInterface, UConProtocol {
                 involvedSessions = dal.listSessions(StateType.ONGOING);
             } else {
                 involvedSessions = new ArrayList<>(1);
-                involvedSessions.add((UconSession) u.getSession());
+                if(u.getSession().getStateType() == StateType.ONGOING)
+                   involvedSessions.add((UconSession) u.getSession());
             }
             dal.commit();
         } catch (Exception e) {
