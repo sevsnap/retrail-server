@@ -32,7 +32,7 @@ public class PIPTimer extends StandAlonePIP {
     public void fireBeforeActionEvent(ActionEvent e) {
         if (e.originState.getType() != forStateType && e.targetState.getType() == forStateType) {
             PepAttributeInterface subject = e.request.getAttributes(PepAttribute.CATEGORIES.SUBJECT, PepAttribute.IDS.SUBJECT).iterator().next();
-            PepAttributeInterface a = newPrivateAttribute(getAttributeId(), "http://www.w3.org/2001/XMLSchema#double", "0.0", getIssuer(), subject);
+            PepAttributeInterface a = newPrivateAttribute(getAttributeId(), PepAttribute.DATATYPES.DOUBLE, 0.0, subject);
             log.warn("setting {} because target status = {}", a, e.targetState.getType());
             e.request.replace(a);
         }
@@ -42,7 +42,7 @@ public class PIPTimer extends StandAlonePIP {
     public void fireAfterActionEvent(ActionEvent e) {
         if (e.originState.getType() == forStateType && e.targetState.getType() != forStateType) {
             PepAttributeInterface subject = e.request.getAttributes(PepAttribute.CATEGORIES.SUBJECT, PepAttribute.IDS.SUBJECT).iterator().next();
-            PepAttributeInterface a = newPrivateAttribute(getAttributeId(), "http://www.w3.org/2001/XMLSchema#double", "0.0", getIssuer(), subject);
+            PepAttributeInterface a = newPrivateAttribute(getAttributeId(), PepAttribute.DATATYPES.DOUBLE, 0.0, subject);
             log.warn("removing {} because target status = {}", a, e.targetState.getType());
             a.setExpires(new Date());
             e.request.replace(a);

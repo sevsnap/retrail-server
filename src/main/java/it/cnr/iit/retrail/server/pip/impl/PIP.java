@@ -18,6 +18,7 @@ import it.cnr.iit.retrail.server.pip.PIPInterface;
 import it.cnr.iit.retrail.server.pip.SystemEvent;
 import java.util.Collection;
 import java.util.Date;
+import java.util.Objects;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.w3c.dom.Element;
@@ -35,13 +36,13 @@ public abstract class PIP implements PIPInterface {
     private String uuid = getClass().getCanonicalName();
     private String issuer = UCon.uri;
 
-    public PIP()  { 
+    public PIP() {
     }
-    
+
     public PIP(Element configElement) throws Exception {
         throw new UnsupportedOperationException("not supported by this PIP");
     }
-    
+
     @Override
     public void init(UConInterface ucon) {
         if (ucon == null) {
@@ -73,18 +74,16 @@ public abstract class PIP implements PIPInterface {
     }
 
     @Override
-    public PepAttributeInterface newPrivateAttribute(String id, String type, String value, String issuer, PepAttributeInterface parent
-    ) {
+    public PepAttributeInterface newPrivateAttribute(String id, String type, Object value, PepAttributeInterface parent) {
         UconAttribute p = (UconAttribute) parent;
-        return dal.newPrivateAttribute(id, type, value, issuer, p, uuid);
+        return dal.newPrivateAttribute(id, type, Objects.toString(value), getIssuer(), p, uuid);
     }
 
     @Override
-    public PepAttributeInterface newSharedAttribute(String id, String type, String value, String issuer, String category
-    ) {
-        return dal.newSharedAttribute(id, type, value, issuer, category, uuid);
+    public PepAttributeInterface newSharedAttribute(String id, String type, Object value, String category) {
+        return dal.newSharedAttribute(id, type, Objects.toString(value), getIssuer(), category, uuid);
     }
-    
+
     @Override
     public PepAttributeInterface getSharedAttribute(String category, String id) {
         return dal.getSharedAttribute(category, id);
@@ -127,12 +126,13 @@ public abstract class PIP implements PIPInterface {
 
     @Override
     public void setUuid(String uuid) {
-        if(isInited())
-            throw new RuntimeException(this+" already inited and cannot change its uuid to "+uuid);
+        if (isInited()) {
+            throw new RuntimeException(this + " already inited and cannot change its uuid to " + uuid);
+        }
         log.info("setting uuid={} for {}", uuid, this);
         this.uuid = uuid;
     }
-    
+
     @Override
     public String getIssuer() {
         return issuer;

@@ -163,7 +163,7 @@ public class PIPChain extends ArrayList<PIPInterface> implements PIPChainInterfa
     }
 
     @Override
-    public PepAttributeInterface newSharedAttribute(String id, String type, String value, String issuer, String category) {
+    public PepAttributeInterface newSharedAttribute(String id, String type, Object value, String category) {
         throw new UnsupportedOperationException("Not supported for a chain.");
     }
 
@@ -173,7 +173,7 @@ public class PIPChain extends ArrayList<PIPInterface> implements PIPChainInterfa
     }
 
     @Override
-    public PepAttributeInterface newPrivateAttribute(String id, String type, String value, String issuer, PepAttributeInterface parent) {
+    public PepAttributeInterface newPrivateAttribute(String id, String type, Object value, PepAttributeInterface parent) {
         throw new UnsupportedOperationException("Not supported for a chain.");
     }
 

@@ -45,6 +45,7 @@ import org.w3c.dom.Node;
 public class UCon extends Server implements UConInterface, UConProtocol {
 
     public final static String uri = "http://security.iit.cnr.it/retrail/ucon";
+    public final static int version = 2;
     private final AsyncNotifier notifier;
     private int maxMissedHeartbeats = 1;
 
@@ -223,6 +224,7 @@ public class UCon extends Server implements UConInterface, UConProtocol {
         Element responses = doc.createElement("Responses");
         heartbeat.appendChild(responses);
         Element config = doc.createElement("Config");
+        config.setAttribute("version", Integer.toString(version));
         config.setAttribute("watchdogPeriod", Integer.toString(getWatchdogPeriod()));
         config.setAttribute("maxMissedHeartbeats", Integer.toString(getMaxMissedHeartbeats()));
         heartbeat.appendChild(config);

@@ -63,6 +63,7 @@ public interface PIPInterface {
      * all modifications made to the session are automatically discarded
      * (rolled back).
      * @param event holding the action that is going to be executed.
+     * @throws java.lang.Exception
      */
     void fireBeforeActionEvent(ActionEvent event) throws Exception;
 
@@ -109,11 +110,10 @@ public interface PIPInterface {
      * @param id the id of the subject.
      * @param type the type description of data this attribute is holding.
      * @param value the value held by this attribute.
-     * @param issuer the issuer of the attribute.
      * @param category the category (subject, resource, or action).
      * @return the new PEP request attribute.
      */
-    PepAttributeInterface newSharedAttribute(String id, String type, String value, String issuer, String category);
+    PepAttributeInterface newSharedAttribute(String id, String type, Object value, String category);
     
     /**
      * getSharedAttribute() gets a shared PEP attribute if exists, or null
@@ -141,12 +141,11 @@ public interface PIPInterface {
      * @param id the id of the subject.
      * @param type the type description of data this attribute is holding.
      * @param value the value held by this attribute.
-     * @param issuer the issuer of the attribute.
      * @param parent the parent attribute. The category in inherited from this
      * attribute instance.
      * @return the new PEP request attribute.
      */
-    PepAttributeInterface newPrivateAttribute(String id, String type, String value, String issuer, PepAttributeInterface parent);
+    PepAttributeInterface newPrivateAttribute(String id, String type, Object value, PepAttributeInterface parent);
 
     /**
      * listManagedAttributes()
