@@ -81,6 +81,12 @@ public class DAL implements DALInterface {
     }
 
     @Override
+    public boolean hasBegun() {
+        int count = (int) entityManagerCount.get();
+        return count > 0;
+    }
+    
+    @Override
     public void commit() {
         EntityManager em = (EntityManager) entityManager.get();
         int count = (int) entityManagerCount.get()-1;

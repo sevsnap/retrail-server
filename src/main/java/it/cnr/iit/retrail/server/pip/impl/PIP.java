@@ -9,7 +9,6 @@ import it.cnr.iit.retrail.commons.PepRequestInterface;
 import it.cnr.iit.retrail.commons.PepSessionInterface;
 import it.cnr.iit.retrail.commons.StateType;
 import it.cnr.iit.retrail.server.UConInterface;
-import it.cnr.iit.retrail.server.behaviour.OngoingAccess;
 import it.cnr.iit.retrail.server.dal.UconAttribute;
 import it.cnr.iit.retrail.server.dal.DAL;
 import it.cnr.iit.retrail.server.impl.UCon;
@@ -74,14 +73,42 @@ public abstract class PIP implements PIPInterface {
     }
 
     @Override
-    public PepAttributeInterface newPrivateAttribute(String id, String type, Object value, PepAttributeInterface parent) {
+    public synchronized PepAttributeInterface newPrivateAttribute(String id, String type, Object value, PepAttributeInterface parent) {
         UconAttribute p = (UconAttribute) parent;
-        return dal.newPrivateAttribute(id, type, Objects.toString(value), getIssuer(), p, uuid);
+                PepAttributeInterface rv;
+        boolean started = dal.hasBegun();
+        if(!started)
+            dal.begin();
+        try {
+            rv = dal.newPrivateAttribute(id, type, Objects.toString(value), getIssuer(), p, uuid);
+            if(!started)
+                dal.commit();
+        }
+        catch(Exception e) {
+            if(!started)
+                dal.rollback();
+            throw e;
+        }
+        return rv;
     }
 
     @Override
-    public PepAttributeInterface newSharedAttribute(String id, String type, Object value, String category) {
-        return dal.newSharedAttribute(id, type, Objects.toString(value), getIssuer(), category, uuid);
+    public synchronized PepAttributeInterface newSharedAttribute(String id, String type, Object value, String category) {
+        PepAttributeInterface rv;
+        boolean started = dal.hasBegun();
+        if(!started)
+            dal.begin();
+        try {
+            rv = dal.newSharedAttribute(id, type, Objects.toString(value), getIssuer(), category, uuid);
+            if(!started)
+                dal.commit();
+        }
+        catch(Exception e) {
+            if(!started)
+                dal.rollback();
+            throw e;
+        }
+        return rv;
     }
 
     @Override

@@ -83,6 +83,8 @@ public interface DALInterface {
     
     void begin();
     
+    boolean hasBegun();
+    
     void commit();
     
     void rollback();
