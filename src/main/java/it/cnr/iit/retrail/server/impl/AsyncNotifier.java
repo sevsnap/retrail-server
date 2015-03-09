@@ -24,13 +24,11 @@ import org.w3c.dom.Element;
  *
  * @author oneadmin
  */
-public class AsyncNotifier extends Thread implements RecorderInterface {
-
-    static final org.slf4j.Logger log = LoggerFactory.getLogger(AsyncNotifier.class);
+public class AsyncNotifier extends Client implements RecorderInterface, Runnable {
+    private Thread thread;
     final private UCon ucon;
     private File recorderFile = null;
     private boolean mustAppendToRecorderFile = false;
-    private boolean mustRecorderTrustAllPeers = false;
     private long recorderMillis = 0;
 
     private class Operation {
@@ -48,14 +46,24 @@ public class AsyncNotifier extends Thread implements RecorderInterface {
 
     private final LinkedList<Operation> queue;
 
-    public AsyncNotifier(UCon ucon) {
+    public AsyncNotifier(UCon ucon) throws Exception {
+        super(null);
         this.ucon = ucon;
         queue = new LinkedList<>();
     }
 
+    public void init() {
+        thread = new Thread(this, getClass().getSimpleName());
+        thread.start();
+    }
+    
+    public void term() throws InterruptedException {
+        thread.interrupt();
+        thread.join();
+    }
+    
     @Override
     public void run() {
-        Thread.currentThread().setName(getClass().getSimpleName());
         log.info("starting asynchronous notification service");
         boolean interrupted = false;
         Collection<UconSession> sessions = new ArrayList<>(64);
@@ -111,24 +119,22 @@ public class AsyncNotifier extends Thread implements RecorderInterface {
     private Object[] rpc(URL pepUrl, String api, List<Element> responses) throws Exception {
         // create client
         log.warn("invoking {} at {}", api, pepUrl);
-        Client client = new Client(pepUrl);
-        if (mustRecorderTrustAllPeers) {
-            client.trustAllPeers();
-        }
+        config.setServerURL(pepUrl);
+        setConfig(config);
         if (recorderFile != null) {
             if (mustAppendToRecorderFile) {
-                client.continueRecording(recorderFile, recorderMillis);
+                continueRecording(recorderFile, recorderMillis);
             } else {
-                client.startRecording(recorderFile);
+                startRecording(recorderFile);
                 mustAppendToRecorderFile = true;
             }
         }
         // remote call. TODO: should consider error handling
         Object[] params = new Object[]{responses};
-        Object[] rv = (Object[]) client.execute(api, params);
+        Object[] rv = (Object[]) execute(api, params);
         if (recorderFile != null) {
-            recorderMillis = client.getMillis();
-            client.stopRecording();
+            recorderMillis = getMillis();
+            stopRecording();
         }
         return rv;
     }
@@ -220,14 +226,6 @@ public class AsyncNotifier extends Thread implements RecorderInterface {
     public void stopRecording() {
         recorderFile = null;
         mustAppendToRecorderFile = false;
-    }
-
-    @Override
-    public SSLContext trustAllPeers() throws Exception {
-        mustRecorderTrustAllPeers = true;
-        // XXX TODO just emulated by this call. So no SSL context.
-        // Should use the right ssl context.
-        return null;
     }
 
     @Override

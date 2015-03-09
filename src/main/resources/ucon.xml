@@ -3,6 +3,10 @@
     <ucon:Property name="watchdogPeriod">15</ucon:Property>
     <ucon:Property name="maxMissedHeartbeats">1</ucon:Property>
     <ucon:PIPChain/>
+    <ucon:AsyncNotifier>
+        <ucon:Property name="connectionTimeout">1.0</ucon:Property>
+        <ucon:Property name="replyTimeout">2.0</ucon:Property>
+    </ucon:AsyncNotifier>
     <ucon:Behaviour>
         <ucon:Property name="timeout">1000</ucon:Property>
         <ucon:States>

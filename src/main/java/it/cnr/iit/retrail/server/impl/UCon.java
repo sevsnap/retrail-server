@@ -82,6 +82,9 @@ public class UCon extends Server implements UConInterface, UConProtocol {
                 pipChain.init(this);
             }
         }
+        Element asyncNotifierConfig = (Element) config.getElementsByTagNameNS(uri, "AsyncNotifier").item(0);
+        if(asyncNotifierConfig != null)
+            DomUtils.setPropertyOnObjectNS(uri, "Property", asyncNotifierConfig, notifier);
     }
 
     @Override
@@ -426,7 +429,7 @@ public class UCon extends Server implements UConInterface, UConProtocol {
     public void init() throws Exception {
         super.init();
         pipChain.init(this);
-        notifier.start();
+        notifier.init();
         Collection<UconSession> sessions = dal.listSessions(StateType.ONGOING);
         if (sessions.size() > 0) {
             log.warn("reevaluating {} previously opened sessions", sessions.size());
@@ -438,8 +441,7 @@ public class UCon extends Server implements UConInterface, UConProtocol {
     @Override
     public void term() throws InterruptedException {
         pipChain.term();
-        notifier.interrupt();
-        notifier.join();
+        notifier.term();
         log.info("completing shutdown procedure for the UCon service");
         super.term();
         UConFactory.releaseInstance(this);
