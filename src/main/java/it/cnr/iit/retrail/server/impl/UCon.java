@@ -16,6 +16,7 @@ import it.cnr.iit.retrail.commons.Server;
 import it.cnr.iit.retrail.commons.StateType;
 import it.cnr.iit.retrail.commons.impl.PepRequest;
 import it.cnr.iit.retrail.server.behaviour.OngoingAccess;
+import it.cnr.iit.retrail.server.behaviour.UConAutomaton;
 import it.cnr.iit.retrail.server.behaviour.UConState;
 import it.cnr.iit.retrail.server.dal.UconAttribute;
 import it.cnr.iit.retrail.server.dal.DAL;
@@ -165,7 +166,13 @@ public class UCon extends Server implements UConInterface, UConProtocol {
             throw new RuntimeException("null or empty customId for: " + uuid);
         }
         try {
-            dal.getSessionByCustomId(newCustomId);
+            UconSession alreadyExisting = dal.getSessionByCustomId(newCustomId);
+            if(alreadyExisting != null) {
+                // Synchronize with possible actions such as delete because this
+                // id could be available again after that last operation.
+                automatonFactory.wait(alreadyExisting);
+                alreadyExisting = dal.getSessionByCustomId(newCustomId);
+            }
             throw new RuntimeException("customId " + newCustomId + " already exists");
         } catch (NoResultException e) {
         }
@@ -270,6 +277,7 @@ public class UCon extends Server implements UConInterface, UConProtocol {
     }
 
     public void reevaluateSessions(Collection<UconSession> involvedSessions) throws Exception {
+        //log.warn("involved sessions: {}", involvedSessions.size());
         for (UconSession involvedSession : involvedSessions) {
             dal.begin();
             try {

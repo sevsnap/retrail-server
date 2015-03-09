@@ -16,8 +16,6 @@ import java.util.Collection;
 import java.util.Iterator;
 import java.util.LinkedList;
 import java.util.List;
-import javax.net.ssl.SSLContext;
-import org.slf4j.LoggerFactory;
 import org.w3c.dom.Element;
 
 /**
@@ -118,7 +116,7 @@ public class AsyncNotifier extends Client implements RecorderInterface, Runnable
 
     private Object[] rpc(URL pepUrl, String api, List<Element> responses) throws Exception {
         // create client
-        log.warn("invoking {} at {}", api, pepUrl);
+        log.info("invoking {} at {}", api, pepUrl);
         config.setServerURL(pepUrl);
         setConfig(config);
         if (recorderFile != null) {
@@ -191,7 +189,7 @@ public class AsyncNotifier extends Client implements RecorderInterface, Runnable
         Operation operation = new Operation("PEP.revokeAccess", pepUrl, session);
         synchronized (queue) {
             queue.add(operation);
-            queue.notify();
+            queue.notifyAll();
         }
     }
 
@@ -199,7 +197,7 @@ public class AsyncNotifier extends Client implements RecorderInterface, Runnable
         Operation operation = new Operation("PEP.runObligations", pepUrl, session);
         synchronized (queue) {
             queue.add(operation);
-            queue.notify();
+            queue.notifyAll();
         }
     }
 

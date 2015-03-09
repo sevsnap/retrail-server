@@ -28,7 +28,7 @@ import org.w3c.dom.NodeList;
 public final class Behaviour extends Pool<UConAutomaton> {
 
     private final Map<String, PDPPool> poolMap = new HashMap<>();
-    private long timeout = 1000;
+    private double lockTimeout = 1.00;
     private final UCon ucon;
     private final Element behaviouralConfiguration;
     private final UConAutomaton archetype;
@@ -44,13 +44,13 @@ public final class Behaviour extends Pool<UConAutomaton> {
         DomUtils.setPropertyOnObjectNS(ucon.uri, "Property", behaviouralConfiguration, this);
     }
 
-    public long getTimeout() {
-        return timeout;
+    public double getLockTimeout() {
+        return lockTimeout;
     }
 
-    public void setTimeout(long timeout) {   // FIXME should be long
-        log.warn("timeout set to {} ms", timeout);
-        this.timeout = timeout;
+    public void setLockTimeout(double timeout) {  
+        log.warn("lock timeout = {}s", timeout);
+        this.lockTimeout = timeout;
     }
 
     @Deprecated
@@ -190,26 +190,44 @@ public final class Behaviour extends Pool<UConAutomaton> {
 
     // This implementation is responsible of automaton synchronization.
     // Once obtained, the automaton is waited for it to be released, until a 
-    // timeout is reached; if not released in time, an exception is thrown 
+    // lockTimeout is reached; if not released in time, an exception is thrown 
     // and the whole underlying operation will fail.
+    
     public UConAutomaton obtain(UconSession session) throws InterruptedException {
         UConAutomaton automaton;
-        log.debug("obtaining automaton for {}", session.getUuid());
+        String uuid = session.getUuid();
+        log.debug("obtaining automaton for {}", uuid);
         long start = System.currentTimeMillis();
         synchronized (busyJar) {
-            while (busyJar.contains(session.getUuid())) {
-                log.info("waiting for {}", session.getUuid());
-                busyJar.wait(getTimeout());
-                if (System.currentTimeMillis() - start >= getTimeout()) {
+            while (busyJar.contains(uuid)) {
+                long timeout = (long)(getLockTimeout()*1000);
+                log.info("waiting for {}", uuid);
+                busyJar.wait(timeout);
+                if (System.currentTimeMillis() - start >= timeout) {
                     throw new RuntimeException("timeout waiting for " + session);
                 }
             }
             automaton = super.obtain();
             automaton.setSession(session);
-            busyJar.add(session.getUuid());
+            busyJar.add(uuid);
         }
-        log.debug("automaton obtained for {}", session.getUuid());
+        log.debug("automaton obtained for {}", uuid);
         return automaton;
+    }
+
+    public void wait(UconSession session) throws InterruptedException {
+        String uuid = session.getUuid();
+        long start = System.currentTimeMillis();
+        synchronized (busyJar) {
+            while (busyJar.contains(uuid)) {
+                long timeout = (long)(getLockTimeout()*1000);
+                log.info("waiting for {}", uuid);
+                busyJar.wait(timeout);
+                if (System.currentTimeMillis() - start >= timeout) {
+                    throw new RuntimeException("timeout waiting for " + session);
+                }
+            }
+        }
     }
 
     @Override

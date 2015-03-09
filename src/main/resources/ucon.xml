@@ -8,7 +8,7 @@
         <ucon:Property name="replyTimeout">2.0</ucon:Property>
     </ucon:AsyncNotifier>
     <ucon:Behaviour>
-        <ucon:Property name="timeout">1000</ucon:Property>
+        <ucon:Property name="lockTimeout">1.0</ucon:Property>
         <ucon:States>
             <ucon:State name="INIT" type="BEGIN"/>
             <ucon:State name="TRY" type="PASSIVE"/>
