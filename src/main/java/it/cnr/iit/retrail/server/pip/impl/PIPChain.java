@@ -139,16 +139,13 @@ public class PIPChain extends ArrayList<PIPInterface> implements PIPChainInterfa
     public void fireSystemEvent(SystemEvent e) {
         switch (e.type) {
             case beforeApplyChanges:
-            case beforeRevokeAccess:
-            case beforeRunObligations:
+
                 lockIfNeeded();
                 for (PIPInterface p : this) {
                     p.fireSystemEvent(e);
                 }
                 break;
             case afterApplyChanges:
-            case afterRevokeAccess:
-            case afterRunObligations:
                 try {
                     for (PIPInterface p : this) {
                         p.fireSystemEvent(e);

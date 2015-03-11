@@ -14,9 +14,7 @@ import it.cnr.iit.retrail.commons.PepSessionInterface;
 public class SystemEvent extends Event {  
     
     public enum EventType {
-        beforeRunObligations, afterRunObligations,
         beforeApplyChanges, afterApplyChanges,
-        beforeRevokeAccess, afterRevokeAccess,
     };
     
     public final EventType type;
