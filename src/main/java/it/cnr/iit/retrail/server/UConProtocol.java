@@ -43,8 +43,6 @@ public interface UConProtocol {
     @Deprecated
     Node assignCustomId(String uuid, String oldCustomId, String newCustomId) throws Exception;
 
-
-
     @Deprecated
     Node endAccess(String uuid, String customId) throws Exception;
 

@@ -16,7 +16,6 @@ import it.cnr.iit.retrail.commons.Server;
 import it.cnr.iit.retrail.commons.StateType;
 import it.cnr.iit.retrail.commons.impl.PepRequest;
 import it.cnr.iit.retrail.server.behaviour.OngoingAccess;
-import it.cnr.iit.retrail.server.behaviour.UConAutomaton;
 import it.cnr.iit.retrail.server.behaviour.UConState;
 import it.cnr.iit.retrail.server.dal.UconAttribute;
 import it.cnr.iit.retrail.server.dal.DAL;
