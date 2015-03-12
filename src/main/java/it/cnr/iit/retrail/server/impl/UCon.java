@@ -27,6 +27,7 @@ import it.cnr.iit.retrail.server.pip.SystemEvent;
 import it.cnr.iit.retrail.server.pip.impl.PIPChain;
 import java.io.File;
 import java.io.InputStream;
+import java.net.MalformedURLException;
 import java.net.URL;
 import java.util.ArrayList;
 import java.util.Collection;
@@ -83,8 +84,9 @@ public class UCon extends Server implements UConInterface, UConProtocol {
             }
         }
         Element asyncNotifierConfig = (Element) config.getElementsByTagNameNS(uri, "AsyncNotifier").item(0);
-        if(asyncNotifierConfig != null)
+        if (asyncNotifierConfig != null) {
             DomUtils.setPropertyOnObjectNS(uri, "Property", asyncNotifierConfig, notifier);
+        }
     }
 
     @Override
@@ -166,7 +168,7 @@ public class UCon extends Server implements UConInterface, UConProtocol {
         }
         try {
             UconSession alreadyExisting = dal.getSessionByCustomId(newCustomId);
-            if(alreadyExisting != null) {
+            if (alreadyExisting != null) {
                 // Synchronize with possible actions such as delete because this
                 // id could be available again after that last operation.
                 automatonFactory.wait(alreadyExisting);
@@ -275,28 +277,34 @@ public class UCon extends Server implements UConInterface, UConProtocol {
         return doc;
     }
 
-    public void reevaluateSessions(Collection<UconSession> involvedSessions) throws Exception {
+    public void reevaluateSessions(Collection<UconSession> involvedSessions) throws InterruptedException {
         //log.warn("involved sessions: {}", involvedSessions.size());
         for (UconSession involvedSession : involvedSessions) {
+            // XXX for performance reasons it's better to perform many little 
+            // transactions instead of a single big one (at least with derby).
             dal.begin();
             try {
-                log.debug("involved session: {}", involvedSession);
+                    //log.debug("involved session: {}", involvedSession);
                 // Now make PDP evaluate the request    
                 involvedSession = automatonFactory.apply(involvedSession, OngoingAccess.name);
                 boolean mustRevoke = involvedSession.getDecision() != PepResponse.DecisionEnum.Permit;
                 // Explicitly revoke access if anything went wrong
                 if (mustRevoke) {
-                    log.info("revoking {}", involvedSession);
+                    //log.info("revoking {}", involvedSession);
                     URL pepUrl = new URL(involvedSession.getPepUrl());
-                    notifier.revokeAccess(pepUrl, involvedSession);
+                    notifier.revokeAccess(pepUrl, involvedSession.toXacml3Element());
                 } else if (!involvedSession.getObligations().isEmpty()) {
                     URL pepUrl = new URL(involvedSession.getPepUrl());
-                    notifier.runObligations(pepUrl, involvedSession);
+                    notifier.runObligations(pepUrl, involvedSession.toXacml3Element());
                 }
+
+            } catch (InterruptedException e) {
+                log.error("interrupted while reevaluating {}: {}", involvedSession, e);
+                throw e;
+            } catch (MalformedURLException e) {
+                log.error("cannot notify revocation of {} because pep url is malformed: {}", involvedSession, involvedSession.getPepUrl());
+            } finally {
                 dal.commit();
-            } catch (Exception ex) {
-                log.error("while reevaluating  " + involvedSession + ": " + ex.getMessage(), ex);
-                dal.rollback();
             }
         }
     }
@@ -357,8 +365,9 @@ public class UCon extends Server implements UConInterface, UConProtocol {
                 involvedSessions = dal.listSessions(StateType.ONGOING);
             } else {
                 involvedSessions = new ArrayList<>(1);
-                if(u.getSession().getStateType() == StateType.ONGOING)
-                   involvedSessions.add((UconSession) u.getSession());
+                if (u.getSession().getStateType() == StateType.ONGOING) {
+                    involvedSessions.add((UconSession) u.getSession());
+                }
             }
             dal.commit();
         } catch (Exception e) {
@@ -382,8 +391,9 @@ public class UCon extends Server implements UConInterface, UConProtocol {
                 if (u.isShared()) {
                     involvedSessions = dal.listSessions(StateType.ONGOING);
                     break;
-                } else if(u.getSession().getStateType() == StateType.ONGOING)
+                } else if (u.getSession().getStateType() == StateType.ONGOING) {
                     involvedSessions.add(u.getSession());
+                }
             }
             dal.commit();
         } catch (Exception e) {
@@ -489,7 +499,7 @@ public class UCon extends Server implements UConInterface, UConProtocol {
     public SSLContext trustAllPeers() throws Exception {
         return notifier.trustAllPeers();
     }
-    
+
     public int getMaxMissedHeartbeats() {
         return maxMissedHeartbeats;
     }

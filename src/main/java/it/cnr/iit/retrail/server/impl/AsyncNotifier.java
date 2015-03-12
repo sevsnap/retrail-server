@@ -6,7 +6,6 @@ package it.cnr.iit.retrail.server.impl;
 
 import it.cnr.iit.retrail.commons.RecorderInterface;
 import it.cnr.iit.retrail.commons.impl.Client;
-import it.cnr.iit.retrail.server.dal.UconSession;
 import java.io.File;
 import java.net.URL;
 import java.util.ArrayList;
@@ -31,12 +30,12 @@ public class AsyncNotifier extends Client implements RecorderInterface, Runnable
 
         String operation;
         URL pepUrl;
-        Element sessionElement;
+        Element xacmlResponse;
 
-        Operation(String o, URL u, UconSession s) {
+        Operation(String o, URL u, Element xacmlResponse) {
             operation = o;
             pepUrl = u;
-            sessionElement = s.toXacml3Element();
+            this.xacmlResponse = xacmlResponse;
         }
     }
 
@@ -71,12 +70,12 @@ public class AsyncNotifier extends Client implements RecorderInterface, Runnable
                     }
                     op = queue.removeFirst();
                     sessions.clear();
-                    sessions.add(op.sessionElement);
+                    sessions.add(op.xacmlResponse);
                     // Collect sessions for the same url and operation
                     for (Iterator<Operation> i = queue.iterator(); i.hasNext();) {
                         Operation o = i.next();
                         if (o.pepUrl.equals(op.pepUrl) && o.operation.equals(op.operation)) {
-                            sessions.add(o.sessionElement);
+                            sessions.add(o.xacmlResponse);
                             i.remove();
                         }
                     }
@@ -120,16 +119,16 @@ public class AsyncNotifier extends Client implements RecorderInterface, Runnable
         return rv;
     }
 
-    public void revokeAccess(URL pepUrl, UconSession session) throws Exception {
-        Operation operation = new Operation("PEP.revokeAccess", pepUrl, session);
+    public void revokeAccess(URL pepUrl, Element xacmlResponse) {
+        Operation operation = new Operation("PEP.revokeAccess", pepUrl, xacmlResponse);
         synchronized (queue) {
             queue.add(operation);
             queue.notifyAll();
         }
     }
 
-    public void runObligations(URL pepUrl, UconSession session) throws Exception {
-        Operation operation = new Operation("PEP.runObligations", pepUrl, session);
+    public void runObligations(URL pepUrl, Element xacmlResponse) {
+        Operation operation = new Operation("PEP.runObligations", pepUrl, xacmlResponse);
         synchronized (queue) {
             queue.add(operation);
             queue.notifyAll();
