@@ -103,18 +103,18 @@ public class AsyncNotifier extends Client implements RecorderInterface, Runnable
         setConfig(config);
         if (recorderFile != null) {
             if (mustAppendToRecorderFile) {
-                continueRecording(recorderFile, recorderMillis);
+                super.continueRecording(recorderFile, recorderMillis);
             } else {
-                startRecording(recorderFile);
+                super.startRecording(recorderFile);
                 mustAppendToRecorderFile = true;
             }
-        }
+        } 
         // remote call. TODO: should consider error handling
         Object[] params = new Object[]{responses};
         Object[] rv = (Object[]) execute(api, params);
         if (recorderFile != null) {
             recorderMillis = getMillis();
-            stopRecording();
+            super.stopRecording();
         }
         return rv;
     }
@@ -137,6 +137,7 @@ public class AsyncNotifier extends Client implements RecorderInterface, Runnable
 
     @Override
     public void startRecording(File outputFile) throws Exception {
+        assert(outputFile != null);
         recorderFile = outputFile;
         mustAppendToRecorderFile = false;
         recorderMillis = 0;
@@ -144,6 +145,7 @@ public class AsyncNotifier extends Client implements RecorderInterface, Runnable
 
     @Override
     public void continueRecording(File outputFile, long millis) throws Exception {
+        assert(outputFile != null);
         recorderFile = outputFile;
         mustAppendToRecorderFile = true;
         recorderMillis = millis;

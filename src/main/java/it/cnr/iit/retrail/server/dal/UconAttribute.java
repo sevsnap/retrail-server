@@ -39,7 +39,7 @@ public class UconAttribute implements PepAttributeInterface {
     @ManyToOne(fetch=FetchType.LAZY)
     protected UconAttribute parent;
 
-    @OneToMany(mappedBy = "parent", fetch=FetchType.LAZY, cascade = {CascadeType.REMOVE})//, cascade = {CascadeType.PERSIST,CascadeType.MERGE})
+    @OneToMany(mappedBy = "parent", cascade = {CascadeType.REMOVE})//fetch=FetchType.LAZY, 
     protected final Collection<UconAttribute> children = new ArrayList<>();
 
     @Index

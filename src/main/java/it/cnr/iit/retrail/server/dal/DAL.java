@@ -45,6 +45,7 @@ public class DAL implements DALInterface {
             if (factory == null) {
                 Map<String, String> properties = new HashMap<>();
                 properties.put(PersistenceUnitProperties.WEAVING, "dynamic");
+          
                 String ddlGeneration = properties.getOrDefault(PersistenceUnitProperties.DDL_GENERATION, "create-tables");
                 properties.put(PersistenceUnitProperties.DDL_GENERATION, ddlGeneration);
                 properties.put(PersistenceUnitProperties.DDL_GENERATION_MODE, "database");
