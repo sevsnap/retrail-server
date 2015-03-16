@@ -76,9 +76,8 @@ public class DAL implements DALInterface {
         if(count == 0) {
             em.clear();
             em.getTransaction().begin();    
-            entityManagerCount.set(count+1);
         }
-        
+        entityManagerCount.set(count+1);
     }
 
     @Override
