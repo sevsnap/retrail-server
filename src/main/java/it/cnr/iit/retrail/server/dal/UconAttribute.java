@@ -188,5 +188,5 @@ public class UconAttribute implements PepAttributeInterface {
             return other.rowId.equals(rowId);
         return Objects.equals(id, other.id) && Objects.equals(category, other.category) && Objects.equals(value, other.value); 
     }
-
+    
 }
