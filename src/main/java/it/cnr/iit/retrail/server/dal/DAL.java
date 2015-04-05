@@ -69,11 +69,11 @@ public class DAL implements DALInterface {
     
     @Override
     public void begin() {
-        EntityManager em = (EntityManager) entityManager.get();
         int count = (int) entityManagerCount.get();
         // clearing the entity manager is fundamental to avoid stale objects that
         // may have been updated by other threads!
         if(count == 0) {
+            EntityManager em = (EntityManager) entityManager.get();
             em.clear();
             em.getTransaction().begin();    
         }
