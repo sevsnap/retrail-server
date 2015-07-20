@@ -99,6 +99,7 @@ public final class Behaviour extends Pool<UConAutomaton> {
 
     protected synchronized PDPPool getPDPPool(ActionInterface action) {
         String policyName = action.getOriginState().getName() + "-" + action.getName();
+        log.debug(policyName);
         return poolMap.get(policyName);
     }
 
